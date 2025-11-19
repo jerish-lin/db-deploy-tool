@@ -1,0 +1,250 @@
+# Requirements for Database Version Management and Deployment Tool
+
+## Introduction
+
+This document defines the functional requirements for a database version management and deployment tool. The tool aims to streamline the management of database scripts, ensure smooth collaboration among developers, and provide robust mechanisms for deployment and rollback.
+
+---
+
+## Functional Requirements
+
+### 1. Script Versioning and Management
+
+- Maintain a main configuration file listing all scripts in execution order.
+- Enable developers to create database scripts for specific features or bug fixes, and add into the configuration file.
+- Allow organizing scripts into subfolders based on user preferences (e.g., by release version).
+- Ensure each script includes both "update" and "rollback" versions for deployment and rollback.
+
+  o e.g. create-favorite-field-table.apply.sql and create-favorite-field-table.rollback.sql
+
+### 2. Database Deployment Execution
+
+- Execute database scripts in the order specified in the configuration file.
+- Automatically detect and execute pending scripts, skipping already deployed ones.
+- Record deployment statuses (such as success or failure) in a dedicated database table for auditing.
+- On failure:
+    - Roll back the current transaction.
+    - Mark the script as failed and halt further execution.
+    - Raise an error.
+- On success:
+    - Mark the script as successful.
+    - Store the associated rollback script for future use.
+
+### 3. Tagging and Rollback Execution
+
+- Support tagging current deployment state with specific tag (e.g., "v5.5.0", "20251027.1").
+- Support rolling back to a specific previous tagged state.
+- Identify scripts to roll back based on the current and target rollback states.
+    - Retrieve scripts applied after the target rollback state.
+    - Retrieve and execute rollback scripts in reverse order.
+
+### 4. Additional Requirements
+
+- **Logging and Reporting**: Provide detailed logs and reports for deployment and rollback activities.
+- **Database Compatibility**: Ensure support for multiple database systems (e.g. PostgreSQL, Clickhouse).
+- **Conflict Prevention**: Align way of working to prevent conflicts when multiple developers work on database scripts simultaneously.
+- **Data Migration in custom Java Code**: Allow integration of custom Java code for complex data migrations that cannot be handled by SQL scripts alone.
+- **Context and Labels Support**: Enable the use of contexts and labels to control script execution based on the environment or specific conditions.
+
+## Database Table Design
+
+The tool requires the following database tables to manage version control and audit deployment activities:
+
+### 1. deployment_history Table
+
+This table tracks all script execution history and serves as the audit trail for deployment activities.
+
+```sql
+CREATE TABLE deployment_history (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    script_id VARCHAR(255) NOT NULL,
+    script_name VARCHAR(500) NOT NULL,
+    script_type VARCHAR(50) NOT NULL, -- 'APPLY' or 'ROLLBACK'
+    script_content TEXT,
+    rollback_script_content TEXT,
+    applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    applied_by VARCHAR(255),
+    status VARCHAR(50) NOT NULL, -- 'SUCCESS', 'FAILED', 'PENDING'
+    execution_order INTEGER NOT NULL,
+    deployment_tag VARCHAR(255),
+    checksum VARCHAR(64),
+    execution_duration_ms BIGINT,
+    error_message TEXT
+);
+
+CREATE INDEX idx_deployment_history_script_id ON deployment_history(script_id);
+CREATE INDEX idx_deployment_history_status ON deployment_history(status);
+CREATE INDEX idx_deployment_history_deployment_tag ON deployment_history(deployment_tag);
+CREATE INDEX idx_deployment_history_applied_at ON deployment_history(applied_at);
+```
+
+### 2. deployment_tags Table
+
+This table manages the version tags assigned to successful deployments.
+
+```sql
+CREATE TABLE deployment_tags (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    tag_name VARCHAR(255) NOT NULL UNIQUE,
+    description TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(255),
+    last_history_id BIGINT, -- Reference to the last script in this deployment
+    is_active BOOLEAN DEFAULT TRUE,
+    metadata JSON -- Additional metadata about the deployment
+);
+
+CREATE INDEX idx_deployment_tags_tag_name ON deployment_tags(tag_name);
+CREATE INDEX idx_deployment_tags_created_at ON deployment_tags(created_at);
+```
+
+### 3. script_registry Table (Optional)
+
+This table can be used to pre-register scripts and their metadata before execution.
+
+```sql
+CREATE TABLE script_registry (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    script_id VARCHAR(255) NOT NULL UNIQUE,
+    script_name VARCHAR(500) NOT NULL,
+    apply_script_path VARCHAR(1000) NOT NULL,
+    rollback_script_path VARCHAR(1000) NOT NULL,
+    description TEXT,
+    version VARCHAR(100),
+    checksum VARCHAR(64),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+CREATE INDEX idx_script_registry_script_id ON script_registry(script_id);
+CREATE INDEX idx_script_registry_version ON script_registry(version);
+```
+
+### Table Relationships
+
+- deployment_history.deployment_tag references deployment_tags.tag_name
+- deployment_tags.last_history_id references deployment_history.id
+- deployment_history.script_id references script_registry.script_id (if script_registry is used)
+
+### Key Design Considerations
+
+1. Audit Trail: The deployment_history table provides a complete audit trail of all deployment activities.
+2. Rollback Capability: Storing rollback scripts enables reliable rollback operations.
+3. Checksum Validation: Checksums ensure script integrity and prevent accidental modifications.
+4. Performance Monitoring: Execution duration tracking helps identify performance issues.
+5. Flexible Tagging: The tagging system supports various versioning strategies.
+6. Multi-environment Support: Metadata fields support different deployment environments.
+
+## Script Folder Organization
+
+To ensure consistency and maintainability, the following structure could be used to organize database scripts:
+
+```
+project-root/
+--resources/
+  --db/
+  --db-changelog.yml # Configuration file listing all scripts in execution order
+    --v5.5.0/
+      --create-favorite-field-table.apply.sql # Apply script for creating favorite field table
+      --create-favorite-field-table.rollback.sql # Rollback script for creating favorite field table
+    --v5.5.1/
+      --update-favorite-field-table.apply.sql # Apply script for updating favorite field table
+      --update-favorite-field-table.rollback.sql # Rollback script for updating favorite field table
+    --... # Additional versions
+```
+
+### db-changelog.yml design
+
+```yaml
+# db-changelog.yml
+scripts:
+  - id: create-favorite-field-table
+    apply: v5.5.0/create-favorite-field-table.apply.sql
+    rollback: v5.5.0/create-favorite-field-table.rollback.sql
+  - id: update-favorite-field-table
+    apply: v5.5.1/update-favorite-field-table.apply.sql
+    rollback: v5.5.1/update-favorite-field-table.rollback.sql
+```
+
+## Preventing Conflict During Development
+
+To prevent conflicts when multiple developers work on database scripts simultaneously, the following practices should be adopted:
+
+- When developer working on a new feature that requires DB changes, they should create their scripts in a separate branch
+- Before merging, ensure that the main configuration file is updated to include the new scripts in the correct order
+- Conduct code reviews to verify that no conflicting changes exist in the database scripts
+- TBC...
+
+## Deployment and Rollback Workflow
+
+### Update Workflow
+
+1. Identify the scripts to be applied by comparing the current database state with the db-change-log.yml configuration file.
+2. Execute each pending "apply" script in the order specified in the configuration file.
+3. For each script:
+   - Begin a database transaction.
+   - Execute the "apply" script.
+   - On success:
+     - Mark the script as successfully applied in the database audit table.
+     - Store the associated "rollback" script into the audit table.
+     - Commit the transaction.
+   - On failure:
+     - Roll back the transaction.
+     - Mark the script as failed in the database audit table.
+     - Log the error and halt further execution.
+4. Tag current state with current release version and build number
+
+### Rollback Workflow
+
+1. Determine the target rollback state (the release version to rollback to, which is also the tag name)
+2. Retrieve the list of scripts applied after the target rollback state from the database audit table.
+3. Retrieve the rollback script from the audit table and execute them in reverse order.
+4. For each rollback script:
+   - Begin a database transaction.
+   - Execute the "rollback" script.
+   - On success:
+     - Remove the script's entry from the database audit table.
+     - Commit the transaction.
+   - On failure:
+     - Roll back the transaction.
+     - Log the error and halt further execution.
+
+## How This Tool Is Built and Used
+
+### Building the Tool
+
+- A new Java project is created to implement the database deployment and rollback logic.
+- It could integrate with SpringBoot for database connectivity and transaction management.
+- It provides a main class to handle command-line parameters for deployment and rollback actions.
+- Command-line parameters include:
+  - deploy or rollback : Specifies the action to perform.
+  - --changelog : Path to the db-changelog.yml file (defaults to classpath:db/db-changelog.yml if not provided).
+  - --tag : For deploy action, specifies the tag name to assign after deployment; for rollback action, specifies the target tag name to roll back to
+- The tool would be released as a JAR file that can be included as a dependency in other applications
+
+### Include the Tool in an Application
+
+- If you application involves database changes, include the database deployment tool JAR as a dependency.
+- Create a folder structure under resources/db/ .
+- Maintain the db-changelog.yml file to list all scripts in execution order.
+- Write database scripts with both "apply" and "rollback" versions.
+
+### Deployment and Rollback Execution
+
+- Applications are packaged as fat JARs, including the database deployment tool jar
+- Database deployment or rollback is triggered independently of the application startup process. For example:
+- Run a separate container with the application JAR.
+- Trigger the main class in the Db Deployment tool with the appropriate command-line parameters to perform deployment or rollback.
+
+## Deployment and Rollback Execution Principle
+
+### Deployment
+
+- Use a dedicated application build (e.g., 5.5.1.20251101.2 ) to apply all database changes included in the current build.
+- After a successful deployment, tag the current database state with the application build version.
+
+### Rollback
+
+- Use the targeted rollback version (e.g., 5.5.0.20251025.2 ) to revert database changes.
+- The rollback process identifies the current build number as the target rollback tag.
+- Attempting to use an application build that has never been deployed will result in an error.

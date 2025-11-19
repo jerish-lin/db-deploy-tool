@@ -1,0 +1,10 @@
+scripts:
+  - id: create-users-table
+    apply: v1.0.0/create-users-table.apply.sql
+    rollback: v1.0.0/create-users-table.rollback.sql
+  - id: create-orders-table
+    apply: v1.0.0/create-orders-table.apply.sql
+    rollback: v1.0.0/create-orders-table.rollback.sql
+  - id: insert-sample-users
+    apply: v1.0.1/insert-sample-users.apply.sql
+    rollback: v1.0.1/insert-sample-users.rollback.sql

@@ -1,0 +1,16 @@
+scripts:
+  - id: create-employees-table
+    apply: v1.0.0/create-employees-table.apply.sql
+    rollback: v1.0.0/create-employees-table.rollback.sql
+  - id: create-departments-table
+    apply: v1.0.0/create-departments-table.apply.sql
+    rollback: v1.0.0/create-departments-table.rollback.sql
+  - id: insert-sample-data
+    apply: v1.0.1/insert-sample-data.apply.sql
+    rollback: v1.0.1/insert-sample-data.rollback.sql
+  - id: add-employee-salary-index
+    apply: v1.0.2/add-employee-salary-index.apply.sql
+    rollback: v1.0.2/add-employee-salary-index.rollback.sql
+  - id: add-projects-table
+    apply: v1.0.3/add-projects-table.apply.sql
+    rollback: v1.0.3/add-projects-table.rollback.sql
