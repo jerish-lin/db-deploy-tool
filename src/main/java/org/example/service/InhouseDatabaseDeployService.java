@@ -131,10 +131,7 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
                 auditDao.recordScriptExecution(entry);
                 logger.info("Script {} executed successfully", script.getId());
             } else {
-                entry.setExecutionStatus(ScriptExecutionStatus.FAILED);
-                entry.setErrorMessage(result.getErrorMessage());
-                auditDao.recordScriptExecution(entry);
-                throw new RuntimeException("Script execution failed: " + result.getErrorMessage());
+                throw new RuntimeException(result.getErrorMessage());
             }
         } catch (Exception e) {
             entry.setExecutionStatus(ScriptExecutionStatus.FAILED);

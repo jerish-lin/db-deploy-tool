@@ -65,7 +65,7 @@ public class SQLiteFailureTest {
         String[] deployArgsV1_0_1 = {
             "--action", "DEPLOY",
             "--database-config", "src/test/resources/sqlite-failure-test-config.yml",
-            "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog.yml",
+            "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog-first3.yml",
             "--script-base-path", "src/test/resources/sqlite-scripts-failure",
             "--tag", "v1.0.1-failure-test",
             "--build-version", "1.0.1.20231110.1",
@@ -106,7 +106,7 @@ public class SQLiteFailureTest {
         String[] deployArgsV1_0_1 = {
             "--action", "DEPLOY",
             "--database-config", "src/test/resources/sqlite-failure-test-config.yml",
-            "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog.yml",
+            "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog-first3.yml",
             "--script-base-path", "src/test/resources/sqlite-scripts-failure",
             "--tag", "v1.0.1-failure-test",
             "--build-version", "1.0.1.20231110.1",

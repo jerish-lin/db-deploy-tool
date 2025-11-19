@@ -430,7 +430,12 @@ public class AuditDao {
             entry.setExecutionTime(LocalDateTime.now());
         }
         
-        entry.setExecutionDurationMs(resultSet.getObject("execution_duration_ms", Long.class));
+        try {
+            entry.setExecutionDurationMs(resultSet.getObject("execution_duration_ms", Long.class));
+        } catch (SQLException e) {
+            // Handle case where execution_duration_ms might be NULL or invalid type
+            entry.setExecutionDurationMs(null);
+        }
         entry.setErrorMessage(resultSet.getString("error_message"));
         entry.setRollbackScriptPath(resultSet.getString("rollback_script_path"));
         entry.setRollbackScriptContent(resultSet.getString("rollback_script_content"));
