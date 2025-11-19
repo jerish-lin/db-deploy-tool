@@ -12,7 +12,8 @@ public class DeploymentTag {
     private String environment;
     private Boolean isActive;
 
-    public DeploymentTag() {}
+    public DeploymentTag() {
+    }
 
     public Long getId() {
         return id;

@@ -5,7 +5,8 @@ import java.util.List;
 public class ChangeLogConfig {
     private List<ScriptConfig> scripts;
 
-    public ChangeLogConfig() {}
+    public ChangeLogConfig() {
+    }
 
     public List<ScriptConfig> getScripts() {
         return scripts;

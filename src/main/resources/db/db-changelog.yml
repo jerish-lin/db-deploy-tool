@@ -2,15 +2,9 @@ scripts:
   - id: create-users-table
     apply: v1.0.0/create-users-table.apply.sql
     rollback: v1.0.0/create-users-table.rollback.sql
-    context: core
-    labels: ["table", "users"]
   - id: create-products-table
     apply: v1.0.0/create-products-table.apply.sql
     rollback: v1.0.0/create-products-table.rollback.sql
-    context: core
-    labels: ["table", "products"]
   - id: add-user-email-index
     apply: v1.1.0/add-user-email-index.apply.sql
     rollback: v1.1.0/add-user-email-index.rollback.sql
-    context: performance
-    labels: ["index", "users"]

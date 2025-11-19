@@ -10,7 +10,8 @@ public class DatabaseConfig {
     private int idleTimeout = 600000;
     private int maxLifetime = 1800000;
 
-    public DatabaseConfig() {}
+    public DatabaseConfig() {
+    }
 
     public DatabaseConfig(String url, String username, String password, String driver) {
         this.url = url;

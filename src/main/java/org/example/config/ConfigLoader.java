@@ -1,8 +1,8 @@
 package org.example.config;
 
+import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
-import org.yaml.snakeyaml.LoaderOptions;
 
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -10,12 +10,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class ConfigLoader {
-    
+
     public static ChangeLogConfig loadChangeLogConfig(String configPath) throws Exception {
         LoaderOptions loaderOptions = new LoaderOptions();
         Constructor constructor = new Constructor(ChangeLogConfig.class, loaderOptions);
         Yaml yaml = new Yaml(constructor);
-        
+
         InputStream inputStream = getConfigInputStream(configPath);
         try {
             ChangeLogConfig config = yaml.load(inputStream);
@@ -29,7 +29,7 @@ public class ConfigLoader {
             }
         }
     }
-    
+
     private static InputStream getConfigInputStream(String configPath) throws Exception {
         if (configPath.startsWith("classpath:")) {
             String classpathResource = configPath.substring("classpath:".length());
@@ -46,12 +46,12 @@ public class ConfigLoader {
             return Files.newInputStream(path);
         }
     }
-    
+
     public static DatabaseConfig loadDatabaseConfig(String configPath) throws Exception {
         LoaderOptions loaderOptions = new LoaderOptions();
         Constructor constructor = new Constructor(DatabaseConfig.class, loaderOptions);
         Yaml yaml = new Yaml(constructor);
-        
+
         InputStream inputStream = getConfigInputStream(configPath);
         try {
             DatabaseConfig config = yaml.load(inputStream);

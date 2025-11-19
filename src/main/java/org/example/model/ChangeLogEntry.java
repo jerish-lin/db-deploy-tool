@@ -15,12 +15,11 @@ public class ChangeLogEntry {
     private String rollbackScriptPath;
     private String rollbackScriptContent;
     private String tagName;
-    private String context;
-    private String labels;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    public ChangeLogEntry() {}
+    public ChangeLogEntry() {
+    }
 
     public Long getId() {
         return id;
@@ -118,21 +117,6 @@ public class ChangeLogEntry {
         this.tagName = tagName;
     }
 
-    public String getContext() {
-        return context;
-    }
-
-    public void setContext(String context) {
-        this.context = context;
-    }
-
-    public String getLabels() {
-        return labels;
-    }
-
-    public void setLabels(String labels) {
-        this.labels = labels;
-    }
 
     public LocalDateTime getCreatedAt() {
         return createdAt;

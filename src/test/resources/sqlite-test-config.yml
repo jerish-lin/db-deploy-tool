@@ -1,6 +1,6 @@
 url: jdbc:sqlite:testdb.sqlite
-username: 
-password: 
+username:
+password:
 driver: org.sqlite.JDBC
 maxPoolSize: 5
 connectionTimeout: 30000

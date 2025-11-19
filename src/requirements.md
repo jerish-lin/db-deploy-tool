@@ -2,7 +2,9 @@
 
 ## Introduction
 
-This document defines the functional requirements for a database version management and deployment tool. The tool aims to streamline the management of database scripts, ensure smooth collaboration among developers, and provide robust mechanisms for deployment and rollback.
+This document defines the functional requirements for a database version management and deployment tool. The tool aims
+to streamline the management of database scripts, ensure smooth collaboration among developers, and provide robust
+mechanisms for deployment and rollback.
 
 ---
 
@@ -42,10 +44,12 @@ This document defines the functional requirements for a database version managem
 
 - **Logging and Reporting**: Provide detailed logs and reports for deployment and rollback activities.
 - **Database Compatibility**: Ensure support for multiple database systems (e.g. PostgreSQL, Clickhouse).
-- **Conflict Prevention**: Align way of working to prevent conflicts when multiple developers work on database scripts simultaneously.
-- **Data Migration in custom Java Code**: Allow integration of custom Java code for complex data migrations that cannot be handled by SQL scripts alone.
-- **Context and Labels Support**: Enable the use of contexts and labels to control script execution based on the environment or specific conditions.
-
+- **Conflict Prevention**: Align way of working to prevent conflicts when multiple developers work on database scripts
+  simultaneously.
+- **Data Migration in custom Java Code**: Allow integration of custom Java code for complex data migrations that cannot
+  be handled by SQL scripts alone.
+- **Context and Labels Support**: Enable the use of contexts and labels to control script execution based on the
+  environment or specific conditions.
 
 ## Script Folder Organization
 
@@ -80,9 +84,11 @@ scripts:
 
 ## Preventing Conflict During Development
 
-To prevent conflicts when multiple developers work on database scripts simultaneously, the following practices should be adopted:
+To prevent conflicts when multiple developers work on database scripts simultaneously, the following practices should be
+adopted:
 
-- When developer working on a new feature that requires DB changes, they should create their scripts in a separate branch
+- When developer working on a new feature that requires DB changes, they should create their scripts in a separate
+  branch
 - Before merging, ensure that the main configuration file is updated to include the new scripts in the correct order
 - Conduct code reviews to verify that no conflicting changes exist in the database scripts
 - TBC...
@@ -91,19 +97,20 @@ To prevent conflicts when multiple developers work on database scripts simultane
 
 ### Update Workflow
 
-1. Identify the scripts to be applied by comparing the current database state with the db-change-log.yml configuration file.
+1. Identify the scripts to be applied by comparing the current database state with the db-change-log.yml configuration
+   file.
 2. Execute each pending "apply" script in the order specified in the configuration file.
 3. For each script:
-   - Begin a database transaction.
-   - Execute the "apply" script.
-   - On success:
-     - Mark the script as successfully applied in the database audit table.
-     - Store the associated "rollback" script into the audit table.
-     - Commit the transaction.
-   - On failure:
-     - Roll back the transaction.
-     - Mark the script as failed in the database audit table.
-     - Log the error and halt further execution.
+    - Begin a database transaction.
+    - Execute the "apply" script.
+    - On success:
+        - Mark the script as successfully applied in the database audit table.
+        - Store the associated "rollback" script into the audit table.
+        - Commit the transaction.
+    - On failure:
+        - Roll back the transaction.
+        - Mark the script as failed in the database audit table.
+        - Log the error and halt further execution.
 4. Tag current state with current release version and build number
 
 ### Rollback Workflow
@@ -112,14 +119,14 @@ To prevent conflicts when multiple developers work on database scripts simultane
 2. Retrieve the list of scripts applied after the target rollback state from the database audit table.
 3. Retrieve the rollback script from the audit table and execute them in reverse order.
 4. For each rollback script:
-   - Begin a database transaction.
-   - Execute the "rollback" script.
-   - On success:
-     - Remove the script's entry from the database audit table.
-     - Commit the transaction.
-   - On failure:
-     - Roll back the transaction.
-     - Log the error and halt further execution.
+    - Begin a database transaction.
+    - Execute the "rollback" script.
+    - On success:
+        - Remove the script's entry from the database audit table.
+        - Commit the transaction.
+    - On failure:
+        - Roll back the transaction.
+        - Log the error and halt further execution.
 
 ## How This Tool Is Built and Used
 
@@ -129,9 +136,10 @@ To prevent conflicts when multiple developers work on database scripts simultane
 - It could integrate with SpringBoot for database connectivity and transaction management.
 - It provides a main class to handle command-line parameters for deployment and rollback actions.
 - Command-line parameters include:
-  - deploy or rollback : Specifies the action to perform.
-  - --changelog : Path to the db-changelog.yml file (defaults to classpath:db/db-changelog.yml if not provided).
-  - --tag : For deploy action, specifies the tag name to assign after deployment; for rollback action, specifies the target tag name to roll back to
+    - deploy or rollback : Specifies the action to perform.
+    - --changelog : Path to the db-changelog.yml file (defaults to classpath:db/db-changelog.yml if not provided).
+    - --tag : For deploy action, specifies the tag name to assign after deployment; for rollback action, specifies the
+      target tag name to roll back to
 - The tool would be released as a JAR file that can be included as a dependency in other applications
 
 ### Include the Tool in an Application
@@ -146,13 +154,15 @@ To prevent conflicts when multiple developers work on database scripts simultane
 - Applications are packaged as fat JARs, including the database deployment tool jar
 - Database deployment or rollback is triggered independently of the application startup process. For example:
 - Run a separate container with the application JAR.
-- Trigger the main class in the Db Deployment tool with the appropriate command-line parameters to perform deployment or rollback.
+- Trigger the main class in the Db Deployment tool with the appropriate command-line parameters to perform deployment or
+  rollback.
 
 ## Deployment and Rollback Execution Principle
 
 ### Deployment
 
-- Use a dedicated application build (e.g., 5.5.1.20251101.2 ) to apply all database changes included in the current build.
+- Use a dedicated application build (e.g., 5.5.1.20251101.2 ) to apply all database changes included in the current
+  build.
 - After a successful deployment, tag the current database state with the application build version.
 
 ### Rollback

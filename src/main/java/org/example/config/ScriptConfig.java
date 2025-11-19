@@ -4,10 +4,9 @@ public class ScriptConfig {
     private String id;
     private String apply;
     private String rollback;
-    private String context;
-    private String[] labels;
 
-    public ScriptConfig() {}
+    public ScriptConfig() {
+    }
 
     public ScriptConfig(String id, String apply, String rollback) {
         this.id = id;
@@ -39,19 +38,5 @@ public class ScriptConfig {
         this.rollback = rollback;
     }
 
-    public String getContext() {
-        return context;
-    }
 
-    public void setContext(String context) {
-        this.context = context;
-    }
-
-    public String[] getLabels() {
-        return labels;
-    }
-
-    public void setLabels(String[] labels) {
-        this.labels = labels;
-    }
 }

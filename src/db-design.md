@@ -2,7 +2,8 @@
 
 ## Overview
 
-This document outlines the database schema design for the Database Version Management and Deployment Tool. The schema is designed to track script execution, maintain deployment history, and support rollback functionality.
+This document outlines the database schema design for the Database Version Management and Deployment Tool. The schema is
+designed to track script execution, maintain deployment history, and support rollback functionality.
 
 ## Core Tables
 
@@ -22,8 +23,6 @@ CREATE TABLE db_change_log (
     rollback_script_path VARCHAR(1000),
     rollback_script_content TEXT,
     tag_name VARCHAR(100),
-    context VARCHAR(100),
-    labels VARCHAR(500),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     
@@ -54,23 +53,7 @@ CREATE TABLE deployment_tags (
 );
 ```
 
-### 3. Script Execution Context Table
-
-```sql
-CREATE TABLE script_execution_context (
-    id BIGSERIAL PRIMARY KEY,
-    change_log_id BIGINT NOT NULL,
-    context_key VARCHAR(100) NOT NULL,
-    context_value TEXT,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    
-    FOREIGN KEY (change_log_id) REFERENCES db_change_log(id) ON DELETE CASCADE,
-    INDEX idx_change_log_id (change_log_id),
-    INDEX idx_context_key (context_key)
-);
-```
-
-### 4. Database Lock Table
+### 3. Database Lock Table
 
 ```sql
 CREATE TABLE database_lock (
@@ -143,12 +126,7 @@ CREATE TRIGGER update_db_change_log_updated_at
     BEFORE UPDATE ON db_change_log 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- JSONB support for labels
-ALTER TABLE db_change_log 
-ADD COLUMN IF NOT EXISTS labels_json JSONB;
 
--- GIN index for efficient JSONB queries
-CREATE INDEX idx_labels_json ON db_change_log USING GIN (labels_json);
 ```
 
 ### ClickHouse Implementation
@@ -168,8 +146,6 @@ CREATE TABLE db_change_log_clickhouse (
     rollback_script_path String,
     rollback_script_content String,
     tag_name String,
-    context String,
-    labels String,
     created_at DateTime DEFAULT now(),
     updated_at DateTime DEFAULT now()
 ) ENGINE = MergeTree()
@@ -203,10 +179,6 @@ VALUES ('INITIAL', 'Initial database setup', '1.0.0', 'system');
 -- 001-create-initial-schema.rollback.sql
 -- This script rolls back the initial database schema
 
-DROP VIEW IF EXISTS script_execution_history;
-DROP VIEW IF EXISTS current_deployment_state;
-DROP TABLE IF EXISTS script_execution_context;
-DROP TABLE IF EXISTS database_lock;
 DROP TABLE IF EXISTS deployment_tags;
 DROP TABLE IF EXISTS db_change_log;
 ```
@@ -235,6 +207,5 @@ DROP TABLE IF EXISTS db_change_log;
 ## Future Extensions
 
 1. **Multi-Database Support**: Schema can be adapted for different database systems
-2. **Advanced Context Support**: Extend context system for complex deployment scenarios
-3. **Integration Hooks**: Add tables for external system integration
+2. **Integration Hooks**: Add tables for external system integration
 4. **Performance Metrics**: Add tables for tracking deployment performance over time
