@@ -1,10 +1,4 @@
 scripts:
-  - id: create-users-table
-    apply: v1.0.0/create-users-table.apply.sql
-    rollback: v1.0.0/create-users-table.rollback.sql
-  - id: create-products-table
-    apply: v1.0.0/create-products-table.apply.sql
-    rollback: v1.0.0/create-products-table.rollback.sql
-  - id: add-user-email-index
-    apply: v1.1.0/add-user-email-index.apply.sql
-    rollback: v1.1.0/add-user-email-index.rollback.sql
+  - name: feature-12346-create-users-table
+  - name: feature-12347-create-products-table
+  - name: feature-12348-add-user-email-index
