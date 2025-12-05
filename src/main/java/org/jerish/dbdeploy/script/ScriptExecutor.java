@@ -133,6 +133,160 @@ public class ScriptExecutor {
         return scriptContent.split(";");
     }
 
+    public VerificationResult executeVerification(String verificationScriptPath) {
+        long startTime = System.currentTimeMillis();
+        VerificationResult result = new VerificationResult();
+        result.setVerificationScriptPath(verificationScriptPath);
+        result.setStartTime(LocalDateTime.now());
+
+        try {
+            String verificationContent = readScriptContent(verificationScriptPath);
+            
+            try (Connection connection = connectionManager.getConnection()) {
+                try (Statement statement = connection.createStatement()) {
+                    String[] sqlStatements = splitStatements(verificationContent);
+                    StringBuilder output = new StringBuilder();
+
+                    for (String sql : sqlStatements) {
+                        if (!sql.trim().isEmpty()) {
+                            logger.debug("Executing verification SQL: {}", sql.trim());
+                            
+                            try (var resultSet = statement.executeQuery(sql.trim())) {
+                                while (resultSet.next()) {
+                                    if (output.length() > 0) {
+                                        output.append("\n");
+                                    }
+                                    output.append(resultSet.getString(1));
+                                }
+                            }
+                        }
+                    }
+
+                    result.setSuccess(true);
+                    result.setOutput(output.toString());
+                    result.setEndTime(LocalDateTime.now());
+                    result.setDuration(System.currentTimeMillis() - startTime);
+
+                    logger.info("Verification script {} executed successfully", verificationScriptPath);
+                }
+            }
+        } catch (Exception e) {
+            result.setSuccess(false);
+            result.setErrorMessage(e.getMessage());
+            result.setEndTime(LocalDateTime.now());
+            result.setDuration(System.currentTimeMillis() - startTime);
+
+            logger.error("Verification script {} execution failed", verificationScriptPath, e);
+        }
+
+        return result;
+    }
+
+    public void executeScriptWithVerification(String scriptPath, String scriptId) throws Exception {
+        // Execute the main script
+        ScriptExecutionResult result = executeScript(scriptPath, scriptId);
+        
+        if (!result.isSuccess()) {
+            throw new RuntimeException("Script execution failed: " + result.getErrorMessage());
+        }
+
+        // Execute verification if it exists
+        String verificationPath = scriptPath.replace(".apply.sql", ".apply.verify.sql");
+        try {
+            if (Files.exists(Paths.get(verificationPath))) {
+                VerificationResult verificationResult = executeVerification(verificationPath);
+                
+                // Log verification results
+                logger.info("\n=== VERIFICATION RESULTS ===");
+                logger.info("Script: {}", scriptId);
+                logger.info("Verification Status: {}", verificationResult.isSuccess() ? "SUCCESS" : "FAILED");
+                logger.info("Duration: {}ms", verificationResult.getDuration());
+                logger.info("Output:");
+                logger.info("{}", verificationResult.getOutput());
+                
+                if (!verificationResult.isSuccess()) {
+                    logger.error("Error: {}", verificationResult.getErrorMessage());
+                }
+                logger.info("=== END VERIFICATION ===\n");
+                
+                // If verification fails, throw exception
+                if (!verificationResult.isSuccess()) {
+                    throw new RuntimeException("Verification failed for script: " + scriptId);
+                }
+            } else {
+                logger.info("No verification script found for: {}", scriptId);
+            }
+        } catch (Exception e) {
+            logger.warn("Could not check for verification script: {}", e.getMessage());
+        }
+    }
+
+    public static class VerificationResult {
+        private String verificationScriptPath;
+        private boolean success;
+        private String output;
+        private String errorMessage;
+        private LocalDateTime startTime;
+        private LocalDateTime endTime;
+        private long duration;
+
+        public String getVerificationScriptPath() {
+            return verificationScriptPath;
+        }
+
+        public void setVerificationScriptPath(String verificationScriptPath) {
+            this.verificationScriptPath = verificationScriptPath;
+        }
+
+        public boolean isSuccess() {
+            return success;
+        }
+
+        public void setSuccess(boolean success) {
+            this.success = success;
+        }
+
+        public String getOutput() {
+            return output;
+        }
+
+        public void setOutput(String output) {
+            this.output = output;
+        }
+
+        public String getErrorMessage() {
+            return errorMessage;
+        }
+
+        public void setErrorMessage(String errorMessage) {
+            this.errorMessage = errorMessage;
+        }
+
+        public LocalDateTime getStartTime() {
+            return startTime;
+        }
+
+        public void setStartTime(LocalDateTime startTime) {
+            this.startTime = startTime;
+        }
+
+        public LocalDateTime getEndTime() {
+            return endTime;
+        }
+
+        public void setEndTime(LocalDateTime endTime) {
+            this.endTime = endTime;
+        }
+
+        public long getDuration() {
+            return duration;
+        }
+
+        public void setDuration(long duration) {
+            this.duration = duration;
+        }
+    }
+
     public static class ScriptExecutionResult {
         private String scriptId;
         private String scriptPath;
