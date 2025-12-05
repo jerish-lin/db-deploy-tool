@@ -1,19 +1,7 @@
 scripts:
-  - id: create-users-table
-    apply: v1.0.0/create-users-table.apply.sql
-    rollback: v1.0.0/create-users-table.rollback.sql
-  - id: create-orders-table
-    apply: v1.0.0/create-orders-table.apply.sql
-    rollback: v1.0.0/create-orders-table.rollback.sql
-  - id: insert-sample-users
-    apply: v1.0.1/insert-sample-users.apply.sql
-    rollback: v1.0.1/insert-sample-users.rollback.sql
-  - id: add-user-email-index
-    apply: v1.0.2/add-user-email-index.apply.sql
-    rollback: v1.0.2/add-user-email-index.rollback.sql
-  - id: create-user-orders-view
-    apply: v1.0.2/create-user-orders-view.apply.sql
-    rollback: v1.0.2/create-user-orders-view.rollback.sql
-  - id: add-order-status-index
-    apply: v1.0.2/add-order-status-index.apply.sql
-    rollback: v1.0.2/add-order-status-index.rollback.sql
+  - name: feature-12346-create-users-table
+  - name: feature-12347-create-orders-table
+  - name: feature-12348-insert-sample-users
+  - name: feature-12349-add-user-email-index
+  - name: feature-12350-create-user-orders-view
+  - name: feature-12351-add-order-status-index
