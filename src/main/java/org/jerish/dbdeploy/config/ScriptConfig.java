@@ -23,18 +23,18 @@ public class ScriptConfig {
     }
 
     public String getApplyScriptPath() {
-        return "scripts/" + name + ".apply.sql";
+        return name + ".apply.sql";
     }
 
     public String getRollbackScriptPath() {
-        return "scripts/" + name + ".rollback.sql";
+        return name + ".rollback.sql";
     }
 
     public String getApplyVerifyScriptPath() {
-        return "scripts/" + name + ".apply.verify.sql";
+        return name + ".apply.verify.sql";
     }
 
     public String getRollbackVerifyScriptPath() {
-        return "scripts/" + name + ".rollback.verify.sql";
+        return name + ".rollback.verify.sql";
     }
 }

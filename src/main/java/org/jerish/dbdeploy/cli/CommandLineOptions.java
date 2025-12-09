@@ -29,10 +29,7 @@ public class CommandLineOptions {
             required = true)
     private String databaseConfigPath;
 
-    @Option(names = {"-s", "--script-base-path"},
-            description = "Base path for script files (default: current directory)",
-            defaultValue = ".")
-    private String scriptBasePath;
+    
 
     @Option(names = {"-b", "--build-version"},
             description = "Build version for deployment tagging")
@@ -87,13 +84,7 @@ public class CommandLineOptions {
         this.databaseConfigPath = databaseConfigPath;
     }
 
-    public String getScriptBasePath() {
-        return scriptBasePath;
-    }
-
-    public void setScriptBasePath(String scriptBasePath) {
-        this.scriptBasePath = scriptBasePath;
-    }
+    
 
     public String getBuildVersion() {
         return buildVersion;

@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.time.LocalDateTime;
@@ -28,11 +29,25 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
 
     public InhouseDatabaseDeployService(DatabaseConnectionManager connectionManager,
                                         AuditDao auditDao,
-                                        String scriptBasePath) {
+                                        String changelogPath) {
         this.connectionManager = connectionManager;
         this.auditDao = auditDao;
         this.scriptExecutor = new ScriptExecutor(connectionManager);
+        // Derive script base path from changelog path (scripts folder in same directory as changelog)
+        String scriptBasePath = deriveScriptBasePath(changelogPath);
         this.scriptFileManager = new ScriptFileManager(scriptBasePath);
+    }
+
+    private String deriveScriptBasePath(String changelogPath) {
+        if (changelogPath == null) {
+            return ".";
+        }
+        // Get the parent directory of the changelog file and append "scripts"
+        Path changelogFile = Paths.get(changelogPath);
+        Path scriptsDir = changelogFile.getParent() != null ? 
+            changelogFile.getParent().resolve("scripts") : 
+            Paths.get("scripts");
+        return scriptsDir.toString();
     }
 
     @Override
@@ -263,8 +278,8 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
                 } else if (entry.getRollbackScriptPath() != null && !entry.getRollbackScriptPath().isEmpty()) {
                     String rollbackScriptPath = entry.getRollbackScriptPath();
                     if (!rollbackScriptPath.startsWith("/") && !rollbackScriptPath.contains(":")) {
-                        // Relative path, combine with script base path
-                        rollbackScriptPath = scriptFileManager.getScriptBasePath() + "/" + rollbackScriptPath;
+                        // Relative path, resolve using script file manager
+                        rollbackScriptPath = Paths.get(scriptFileManager.getScriptBasePath(), rollbackScriptPath).toString();
                     }
                     scriptExecutor.executeScript(rollbackScriptPath);
                 } else {

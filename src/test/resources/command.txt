@@ -1,5 +1,5 @@
 java -cp "target/classes;[dependencies]" org.jerish.dbdeploy.DatabaseDeployTool \
        --action deploy --database-config sqlite-test-config.yml \
        --changelog sqlite-scripts/sqlite-test-changelog.yml \
-       --script-base-path sqlite-scripts \
+       
        --tag v1.0.2-sqlite-test

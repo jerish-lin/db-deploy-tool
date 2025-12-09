@@ -99,7 +99,7 @@ public class SQLiteStatusTest {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml",
-                "--script-base-path", "src/test/resources/sqlite-scripts",
+                
                 "--tag", "v1.0.2",
                 "--build-version", "1.0.0.20231110.1",
                 "--environment", "test"
@@ -146,7 +146,7 @@ public class SQLiteStatusTest {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml",
-                "--script-base-path", "src/test/resources/sqlite-scripts",
+                
                 "--tag", "v1.0.2",
                 "--build-version", "1.0.0.20231110.1",
                 "--environment", "test"
@@ -160,7 +160,7 @@ public class SQLiteStatusTest {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog-v2.yml",
-                "--script-base-path", "src/test/resources/sqlite-scripts",
+                
                 "--tag", "v1.0.3",
                 "--build-version", "1.0.1.20231110.1",
                 "--environment", "test"
@@ -217,7 +217,7 @@ public class SQLiteStatusTest {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml",
-                "--script-base-path", "src/test/resources/sqlite-scripts",
+                
                 "--tag", "v1.0.2",
                 "--build-version", "1.0.0.20231110.1",
                 "--environment", "test"
@@ -274,7 +274,7 @@ public class SQLiteStatusTest {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml",
-                "--script-base-path", "src/test/resources/sqlite-scripts",
+                
                 "--tag", "v1.0.2",
                 "--build-version", "1.0.0.20231110.1",
                 "--environment", "test"

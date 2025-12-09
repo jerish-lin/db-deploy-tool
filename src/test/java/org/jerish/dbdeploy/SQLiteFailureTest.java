@@ -65,7 +65,7 @@ public class SQLiteFailureTest {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog-first3.yml",
-                "--script-base-path", "src/test/resources/sqlite-scripts-failure",
+                
                 "--tag", "v1.0.1-failure-test",
                 "--build-version", "1.0.1.20231110.1",
                 "--environment", "test",
@@ -83,7 +83,7 @@ public class SQLiteFailureTest {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog.yml",
-                "--script-base-path", "src/test/resources/sqlite-scripts-failure",
+                
                 "--tag", "v1.0.2-failure-test",
                 "--build-version", "1.0.2.20231110.1",
                 "--environment", "test",
@@ -106,7 +106,7 @@ public class SQLiteFailureTest {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog-first3.yml",
-                "--script-base-path", "src/test/resources/sqlite-scripts-failure",
+                
                 "--tag", "v1.0.1-failure-test",
                 "--build-version", "1.0.1.20231110.1",
                 "--environment", "test",
@@ -121,7 +121,7 @@ public class SQLiteFailureTest {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog.yml",
-                "--script-base-path", "src/test/resources/sqlite-scripts-failure",
+                
                 "--tag", "v1.0.2-failure-test",
                 "--build-version", "1.0.2.20231110.1",
                 "--environment", "test",
@@ -139,7 +139,7 @@ public class SQLiteFailureTest {
                 "--action", "ROLLBACK",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog.yml",
-                "--script-base-path", "src/test/resources/sqlite-scripts-failure",
+                
                 "--tag", "v1.0.1-failure-test",
                 "--verbose"
         };

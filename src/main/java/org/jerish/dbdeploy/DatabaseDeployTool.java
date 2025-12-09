@@ -54,7 +54,7 @@ public class DatabaseDeployTool {
             DatabaseDeployService deployService = new InhouseDatabaseDeployService(
                     connectionManager,
                     auditDao,
-                    options.getScriptBasePath()
+                    options.getChangelogPath()
             );
 
             switch (options.getAction()) {
