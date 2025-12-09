@@ -68,7 +68,6 @@ public class SQLiteDeploymentTest {
                 "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml",
                 "--tag", "v1.0.0-unit-test",
                 "--build-version", "1.0.0.20231110.1",
-                "--environment", "test",
                 "--verbose"
         };
 

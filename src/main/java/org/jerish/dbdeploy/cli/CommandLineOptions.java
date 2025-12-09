@@ -35,10 +35,7 @@ public class CommandLineOptions {
             description = "Build version for deployment tagging")
     private String buildVersion;
 
-    @Option(names = {"-e", "--environment"},
-            description = "Environment name (e.g., dev, test, prod)",
-            defaultValue = "default")
-    private String environment;
+    
 
     @Option(names = {"-v", "--verbose"},
             description = "Enable verbose logging")
@@ -94,13 +91,7 @@ public class CommandLineOptions {
         this.buildVersion = buildVersion;
     }
 
-    public String getEnvironment() {
-        return environment;
-    }
-
-    public void setEnvironment(String environment) {
-        this.environment = environment;
-    }
+    
 
     public boolean isVerbose() {
         return verbose;

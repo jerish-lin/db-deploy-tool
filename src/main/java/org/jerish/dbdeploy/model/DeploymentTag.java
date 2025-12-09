@@ -9,7 +9,7 @@ public class DeploymentTag {
     private LocalDateTime deploymentTime;
     private String buildVersion;
     private String createdBy;
-    private String environment;
+    
     private Boolean isActive;
 
     public DeploymentTag() {
@@ -63,13 +63,7 @@ public class DeploymentTag {
         this.createdBy = createdBy;
     }
 
-    public String getEnvironment() {
-        return environment;
-    }
-
-    public void setEnvironment(String environment) {
-        this.environment = environment;
-    }
+    
 
     public Boolean getIsActive() {
         return isActive;
