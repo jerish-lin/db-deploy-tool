@@ -65,7 +65,7 @@ public class SQLiteFailureTest {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog-first3.yml",
-                "--tag", "v1.0.1-failure-test",
+                "--tag", "1.0.1.20231110.1",
                 "--build-version", "1.0.1.20231110.1",
                 "--verbose"
         };
@@ -81,7 +81,7 @@ public class SQLiteFailureTest {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog.yml",
-                "--tag", "v1.0.2-failure-test",
+                "--tag", "1.0.2.20231110.1",
                 "--build-version", "1.0.2.20231110.1",
                 "--verbose"
         };
@@ -102,7 +102,7 @@ public class SQLiteFailureTest {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog-first3.yml",
-                "--tag", "v1.0.1-failure-test",
+                "--tag", "1.0.1.20231110.1",
                 "--build-version", "1.0.1.20231110.1",
                 "--verbose"
         };
@@ -115,7 +115,7 @@ public class SQLiteFailureTest {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog.yml",
-                "--tag", "v1.0.2-failure-test",
+                "--tag", "1.0.2.20231110.1",
                 "--build-version", "1.0.2.20231110.1",
                 "--verbose"
         };
@@ -131,7 +131,7 @@ public class SQLiteFailureTest {
                 "--action", "ROLLBACK",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog.yml",
-                "--tag", "v1.0.1-failure-test",
+                "--tag", "1.0.1.20231110.1",
                 "--verbose"
         };
 
@@ -187,10 +187,10 @@ public class SQLiteFailureTest {
 
             // Verify deployment tag was created
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='v1.0.1-failure-test' AND is_active=1")) {
+                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='1.0.1.20231110.1' AND is_active=1")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 1,
-                            "Deployment tag v1.0.1-failure-test should be active");
+                            "Deployment tag 1.0.1.20231110.1 should be active");
                 }
             }
         }
@@ -227,7 +227,7 @@ public class SQLiteFailureTest {
 
             // Verify that the deployment tag for v1.0.2 was NOT created
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='v1.0.2-failure-test'")) {
+                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='1.0.2.20231110.1'")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 0,
                             "Deployment tag for failed version should not be created");
@@ -294,10 +294,10 @@ public class SQLiteFailureTest {
 
             // Verify that v1.0.1 tag is still active
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='v1.0.1-failure-test' AND is_active=1")) {
+                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='1.0.1.20231110.1' AND is_active=1")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 1,
-                            "v1.0.1-failure-test tag should still be active after rollback");
+                            "1.0.1.20231110.1 tag should still be active after rollback");
                 }
             }
 

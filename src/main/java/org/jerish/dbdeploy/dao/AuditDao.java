@@ -253,9 +253,42 @@ public class AuditDao {
     }
 
     public List<ChangeLogEntry> getScriptsExecutedAfter(String tagName) throws SQLException {
+        // Special case: empty tagName means rollback to initial state - return all changelogs
+        if (tagName == null || tagName.isEmpty()) {
+            String sql = """
+                    SELECT * FROM db_change_log 
+                    WHERE tag_name IS NOT NULL
+                    ORDER BY execution_time DESC
+                    """;
+
+            List<ChangeLogEntry> entries = new ArrayList<>();
+
+            try (Connection connection = connectionManager.getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    while (resultSet.next()) {
+                        entries.add(mapResultSetToChangeLogEntry(resultSet));
+                    }
+                }
+            }
+
+            return entries;
+        }
+
+        // Normal case: get scripts after specific tag
+        DeploymentTag targetTag = getDeploymentTag(tagName);
+        if (targetTag == null) {
+            throw new SQLException("Deployment tag not found: " + tagName);
+        }
+
         String sql = """
                 SELECT * FROM db_change_log 
-                WHERE tag_name > ? OR tag_name IS NULL
+                WHERE tag_name IS NOT NULL 
+                AND tag_name NOT IN (
+                    SELECT tag_name FROM deployment_tags 
+                    WHERE id <= ?
+                )
                 ORDER BY execution_time DESC
                 """;
 
@@ -264,7 +297,7 @@ public class AuditDao {
         try (Connection connection = connectionManager.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
 
-            statement.setString(1, tagName);
+            statement.setLong(1, targetTag.getId());
 
             try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {

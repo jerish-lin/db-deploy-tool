@@ -65,7 +65,7 @@ public class SQLiteRollbackTest {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml",
-                "--tag", "v1.0.2",
+                "--tag", "1.0.0.20231110.1",
                 "--build-version", "1.0.0.20231110.1",
                 "--verbose"
         };
@@ -94,12 +94,12 @@ public class SQLiteRollbackTest {
             }
         }
 
-        // Second deploy with v1.0.3 using sqlite-scripts
+        // Second deploy with 1.0.1.20231110.1 using sqlite-scripts
         String[] deployV2Args = {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog-v2.yml",
-                "--tag", "v1.0.3",
+                "--tag", "1.0.1.20231110.1",
                 "--build-version", "1.0.1.20231110.1",
                 "--verbose"
         };
@@ -107,7 +107,7 @@ public class SQLiteRollbackTest {
         assertDoesNotThrow(() -> DatabaseDeployTool.main(deployV2Args),
                 "Second deployment should complete without errors");
 
-        // Verify v1.0.3 state - projects table should exist
+        // Verify 1.0.1.20231110.1 state - projects table should exist
         try (Connection connection = connectionManager.getConnection()) {
             // Check projects table exists
             try (PreparedStatement stmt = connection.prepareStatement(
@@ -132,7 +132,7 @@ public class SQLiteRollbackTest {
         String[] rollbackArgs = {
                 "--action", "ROLLBACK",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
-                "--tag", "v1.0.2",
+                "--tag", "1.0.0.20231110.1",
                 "--verbose"
         };
 
@@ -168,7 +168,7 @@ public class SQLiteRollbackTest {
                 }
             }
 
-            // Check employee salary index still exists (v1.0.2 state)
+            // Check employee salary index still exists (1.0.0.20231110.1 state)
             try (PreparedStatement stmt = connection.prepareStatement(
                     "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_employees_salary'")) {
                 try (ResultSet rs = stmt.executeQuery()) {
@@ -184,21 +184,21 @@ public class SQLiteRollbackTest {
 
     private void verifyBasicRollbackAuditState() throws SQLException {
         try (Connection connection = connectionManager.getConnection()) {
-            // Verify v1.0.2 tag is still active (target of rollback)
+            // Verify 1.0.0.20231110.1 tag is still active (target of rollback)
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='v1.0.2' AND is_active=1")) {
+                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='1.0.0.20231110.1' AND is_active=1")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 1,
-                            "Target tag 'v1.0.2' should still be active after rollback");
+                            "Target tag '1.0.0.20231110.1' should still be active after rollback");
                 }
             }
 
-            // Verify v1.0.3 tag is deactivated (rolled back)
+            // Verify 1.0.1.20231110.1 tag is deactivated (rolled back)
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='v1.0.3' AND is_active=0")) {
+                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='1.0.1.20231110.1' AND is_active=0")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 1,
-                            "Rolled back tag 'v1.0.3' should be deactivated");
+                            "Rolled back tag '1.0.1.20231110.1' should be deactivated");
                 }
             }
 
@@ -220,12 +220,12 @@ public class SQLiteRollbackTest {
                 }
             }
 
-            // Verify v1.0.2 scripts are still marked as SUCCESS
+            // Verify 1.0.0.20231110.1 scripts are still marked as SUCCESS
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM db_change_log WHERE tag_name='v1.0.2' AND execution_status='SUCCESS'")) {
+                    "SELECT COUNT(*) FROM db_change_log WHERE tag_name='1.0.0.20231110.1' AND execution_status='SUCCESS'")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 4,
-                            "v1.0.2 scripts should still be marked as SUCCESS");
+                            "1.0.0.20231110.1 scripts should still be marked as SUCCESS");
                 }
             }
         }
@@ -239,7 +239,7 @@ public class SQLiteRollbackTest {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml",
-                "--tag", "v1.0.2",
+                "--tag", "1.0.0.20231110.1",
                 "--build-version", "1.0.0.20231110.1",
                 "--verbose"
         };
@@ -324,19 +324,19 @@ public class SQLiteRollbackTest {
 
             // Verify deployment tag was created
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='v1.0.2'")) {
+                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='1.0.0.20231110.1'")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 1,
-                            "Deployment tag 'v1.0.2' should be created");
+                            "Deployment tag '1.0.0.20231110.1' should be created");
                 }
             }
 
             // Verify scripts were executed successfully
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM db_change_log WHERE execution_status='SUCCESS' AND tag_name='v1.0.2'")) {
+                    "SELECT COUNT(*) FROM db_change_log WHERE execution_status='SUCCESS' AND tag_name='1.0.0.20231110.1'")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 4,
-                            "All 4 scripts should be executed successfully for v1.0.2");
+                            "All 4 scripts should be executed successfully for 1.0.0.20231110.1");
                 }
             }
         }
@@ -398,7 +398,7 @@ public class SQLiteRollbackTest {
 
             // Verify script execution status was updated to ROLLED_BACK
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM db_change_log WHERE execution_status='ROLLED_BACK' AND tag_name='v1.0.2'")) {
+                    "SELECT COUNT(*) FROM db_change_log WHERE execution_status='ROLLED_BACK' AND tag_name='1.0.0.20231110.1'")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 4,
                             "All 4 scripts should be marked as ROLLED_BACK");
@@ -416,10 +416,10 @@ public class SQLiteRollbackTest {
 
             // Verify deployment tag was deactivated
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='v1.0.2' AND is_active=0")) {
+                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='1.0.0.20231110.1' AND is_active=0")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 1,
-                            "Deployment tag 'v1.0.2' should be deactivated after rollback");
+                            "Deployment tag '1.0.0.20231110.1' should be deactivated after rollback");
                 }
             }
         }
@@ -433,7 +433,7 @@ public class SQLiteRollbackTest {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml",
-                "--tag", "v1.0.2",
+                "--tag", "1.0.0.20231110.1",
                 "--build-version", "1.0.0.20231110.1",
                 "--verbose"
         };
@@ -444,12 +444,12 @@ public class SQLiteRollbackTest {
         // Verify first deployment
         verifyFirstDeploymentState();
 
-        // Second deploy with v1.0.3 using sqlite-scripts
+        // Second deploy with 1.0.1.20231110.1 using sqlite-scripts
         String[] deployV2Args = {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog-v2.yml",
-                "--tag", "v1.0.3",
+                "--tag", "1.0.1.20231110.1",
                 "--build-version", "1.0.1.20231110.1",
                 "--verbose"
         };
@@ -460,11 +460,11 @@ public class SQLiteRollbackTest {
         // Verify second deployment
         verifySecondDeploymentState();
 
-        // Rollback to v1.0.2
+        // Rollback to 1.0.0.20231110.1
         String[] rollbackArgs = {
                 "--action", "ROLLBACK",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
-                "--tag", "v1.0.2",
+                "--tag", "1.0.0.20231110.1",
                 "--verbose"
         };
 
@@ -474,12 +474,12 @@ public class SQLiteRollbackTest {
         // Verify rollback state
         verifyRollbackState();
 
-        // Deploy v1.0.3 again
+        // Deploy 1.0.1.20231110.1 again
         String[] redeployArgs = {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog-v2.yml",
-                "--tag", "v1.0.3-redeploy",
+                "--tag", "1.0.1.20231110.2",
                 "--build-version", "1.0.1.20231110.2",
                 "--verbose"
         };
@@ -493,12 +493,12 @@ public class SQLiteRollbackTest {
 
     private void verifyFirstDeploymentState() throws SQLException {
         try (Connection connection = connectionManager.getConnection()) {
-            // Verify v1.0.2 tag exists and is active
+            // Verify 1.0.0.20231110.1 tag exists and is active
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='v1.0.2' AND is_active=1")) {
+                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='1.0.0.20231110.1' AND is_active=1")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 1,
-                            "v1.0.2 tag should be created and active");
+                            "1.0.0.20231110.1 tag should be created and active");
                 }
             }
 
@@ -528,12 +528,12 @@ public class SQLiteRollbackTest {
 
     private void verifySecondDeploymentState() throws SQLException {
         try (Connection connection = connectionManager.getConnection()) {
-            // Verify v1.0.3 tag exists and is active
+            // Verify 1.0.1.20231110.1 tag exists and is active
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='v1.0.3' AND is_active=1")) {
+                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='1.0.1.20231110.1' AND is_active=1")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 1,
-                            "v1.0.3 tag should be created and active");
+                            "1.0.1.20231110.1 tag should be created and active");
                 }
             }
 
@@ -559,21 +559,21 @@ public class SQLiteRollbackTest {
 
     private void verifyRollbackState() throws SQLException {
         try (Connection connection = connectionManager.getConnection()) {
-            // Verify v1.0.2 tag is still active
+            // Verify 1.0.0.20231110.1 tag is still active
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='v1.0.2' AND is_active=1")) {
+                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='1.0.0.20231110.1' AND is_active=1")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 1,
-                            "v1.0.2 tag should still be active after rollback");
+                            "1.0.0.20231110.1 tag should still be active after rollback");
                 }
             }
 
-            // Verify v1.0.3 tag is deactivated
+            // Verify 1.0.1.20231110.1 tag is deactivated
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='v1.0.3' AND is_active=0")) {
+                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='1.0.1.20231110.1' AND is_active=0")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 1,
-                            "v1.0.3 tag should be deactivated after rollback");
+                            "1.0.1.20231110.1 tag should be deactivated after rollback");
                 }
             }
 
@@ -599,12 +599,12 @@ public class SQLiteRollbackTest {
 
     private void verifyRedeploymentState() throws SQLException {
         try (Connection connection = connectionManager.getConnection()) {
-            // Verify v1.0.3-redeploy tag exists and is active
+            // Verify 1.0.1.20231110.2 tag exists and is active
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='v1.0.3-redeploy' AND is_active=1")) {
+                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='1.0.1.20231110.2' AND is_active=1")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 1,
-                            "v1.0.3-redeploy tag should be created and active");
+                            "1.0.1.20231110.2 tag should be created and active");
                 }
             }
 
@@ -628,28 +628,28 @@ public class SQLiteRollbackTest {
 
             // Verify add-projects-table script is executed successfully again
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM db_change_log WHERE script_id='feature-12350-add-projects-table' AND tag_name='v1.0.3-redeploy' AND execution_status='SUCCESS'")) {
+                    "SELECT COUNT(*) FROM db_change_log WHERE script_id='feature-12350-add-projects-table' AND tag_name='1.0.1.20231110.2' AND execution_status='SUCCESS'")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 1,
                             "feature-12350-add-projects-table script should be executed successfully in redeployment");
                 }
             }
 
-            // Verify v1.0.2 tag is still active
+            // Verify 1.0.0.20231110.1 tag is still active
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='v1.0.2' AND is_active=1")) {
+                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='1.0.0.20231110.1' AND is_active=1")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 1,
-                            "v1.0.2 tag should still be active after redeployment");
+                            "1.0.0.20231110.1 tag should still be active after redeployment");
                 }
             }
 
-            // Verify v1.0.3 tag is still deactivated
+            // Verify 1.0.1.20231110.1 tag is still deactivated
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='v1.0.3' AND is_active=0")) {
+                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='1.0.1.20231110.1' AND is_active=0")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 1,
-                            "Original v1.0.3 tag should remain deactivated");
+                            "Original 1.0.1.20231110.1 tag should remain deactivated");
                 }
             }
         }

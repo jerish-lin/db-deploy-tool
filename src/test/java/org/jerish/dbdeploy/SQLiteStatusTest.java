@@ -99,7 +99,7 @@ public class SQLiteStatusTest {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml",
-                "--tag", "v1.0.2",
+                "--tag", "1.0.0.20231110.1",
                 "--build-version", "1.0.0.20231110.1",
                 
         };
@@ -125,7 +125,7 @@ public class SQLiteStatusTest {
         // Verify status output after deployment
         assertTrue(output.contains("Database Deployment Status"),
                 "Status output should contain header");
-        assertTrue(output.contains("Current deployment tag: v1.0.2"),
+        assertTrue(output.contains("Current deployment tag: 1.0.0.20231110.1"),
                 "Status should show current tag");
         assertTrue(output.contains("Total scripts executed: 5"),
                 "Status should show total scripts (4 + initial)");
@@ -145,7 +145,7 @@ public class SQLiteStatusTest {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml",
-                "--tag", "v1.0.2",
+                "--tag", "1.0.0.20231110.1",
                 "--build-version", "1.0.0.20231110.1",
                 
         };
@@ -153,12 +153,12 @@ public class SQLiteStatusTest {
         assertDoesNotThrow(() -> DatabaseDeployTool.main(deployArgs),
                 "Deployment should complete without errors");
 
-        // Deploy v1.0.3
+        // Deploy 1.0.1.20231110.1
         String[] deployV2Args = {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog-v2.yml",
-                "--tag", "v1.0.3",
+                "--tag", "1.0.1.20231110.1",
                 "--build-version", "1.0.1.20231110.1",
                 
         };
@@ -166,11 +166,11 @@ public class SQLiteStatusTest {
         assertDoesNotThrow(() -> DatabaseDeployTool.main(deployV2Args),
                 "Second deployment should complete without errors");
 
-        // Rollback to v1.0.2
+        // Rollback to 1.0.0.20231110.1
         String[] rollbackArgs = {
                 "--action", "ROLLBACK",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
-                "--tag", "v1.0.2"
+                "--tag", "1.0.0.20231110.1"
         };
 
         assertDoesNotThrow(() -> DatabaseDeployTool.main(rollbackArgs),
@@ -194,7 +194,7 @@ public class SQLiteStatusTest {
         // Verify status output after rollback
         assertTrue(output.contains("Database Deployment Status"),
                 "Status output should contain header");
-        assertTrue(output.contains("Current deployment tag: v1.0.2"),
+        assertTrue(output.contains("Current deployment tag: 1.0.0.20231110.1"),
                 "Status should show current tag after rollback");
         assertTrue(output.contains("Total scripts executed: 6"),
                 "Status should show total scripts (5 + 1 rolled back)");
@@ -214,7 +214,7 @@ public class SQLiteStatusTest {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml",
-                "--tag", "v1.0.2",
+                "--tag", "1.0.0.20231110.1",
                 "--build-version", "1.0.0.20231110.1",
                 
         };
@@ -270,7 +270,7 @@ public class SQLiteStatusTest {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml",
-                "--tag", "v1.0.2",
+                "--tag", "1.0.0.20231110.1",
                 "--build-version", "1.0.0.20231110.1",
                 
         };
@@ -289,7 +289,7 @@ public class SQLiteStatusTest {
                         ) VALUES (
                             'test-failed-script', 'Test Failed Script', 'test.sql', 'failed',
                             'FAILED', datetime('now'), 0,
-                            '', '', 'v1.0.2', datetime('now'), datetime('now')
+                            '', '', '1.0.0.20231110.1', datetime('now'), datetime('now')
                         )
                     """;
 

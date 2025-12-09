@@ -66,7 +66,7 @@ public class SQLiteDeploymentTest {
                 "--action", "DEPLOY",
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml",
-                "--tag", "v1.0.0-unit-test",
+                "--tag", "1.0.0.20231110.1",
                 "--build-version", "1.0.0.20231110.1",
                 "--verbose"
         };
@@ -224,7 +224,7 @@ public class SQLiteDeploymentTest {
         try (Connection connection = connectionManager.getConnection()) {
             // Verify deployment tag was created
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='v1.0.0-unit-test'")) {
+                    "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='1.0.0.20231110.1'")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 1,
                             "Deployment tag should be created");
