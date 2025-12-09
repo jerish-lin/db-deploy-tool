@@ -62,8 +62,7 @@ public class DatabaseDeployTool {
                     if (options.getTagName() == null) {
                         throw new IllegalArgumentException("Tag name is required for deploy action");
                     }
-                    deployService.deploy(changeLogConfig, options.getTagName(), options.getBuildVersion(),
-                            options.isDryRun());
+                    deployService.deploy(changeLogConfig, options.getTagName(), options.isDryRun());
                 }
                 case ROLLBACK -> {
                     if (options.getTagName() == null) {

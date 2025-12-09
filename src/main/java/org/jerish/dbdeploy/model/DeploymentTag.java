@@ -7,7 +7,7 @@ public class DeploymentTag {
     private String tagName;
     private String description;
     private LocalDateTime deploymentTime;
-    private String buildVersion;
+    
     private String createdBy;
     
     private Boolean isActive;
@@ -47,13 +47,7 @@ public class DeploymentTag {
         this.deploymentTime = deploymentTime;
     }
 
-    public String getBuildVersion() {
-        return buildVersion;
-    }
-
-    public void setBuildVersion(String buildVersion) {
-        this.buildVersion = buildVersion;
-    }
+    
 
     public String getCreatedBy() {
         return createdBy;

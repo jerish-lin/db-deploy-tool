@@ -51,8 +51,7 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
     }
 
     @Override
-    public void deploy(ChangeLogConfig changeLogConfig, String tagName, String buildVersion,
-                       boolean dryRun) throws Exception {
+    public void deploy(ChangeLogConfig changeLogConfig, String tagName, boolean dryRun) throws Exception {
 
         logger.info("Starting deployment with tag: {}", tagName);
 
@@ -108,7 +107,7 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
 
             // Create deployment tag
             if (!dryRun) {
-                createDeploymentTag(tagName, buildVersion);
+                createDeploymentTag(tagName);
             }
 
             logger.info("Deployment completed successfully with tag: {}", tagName);
@@ -186,11 +185,10 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
         }
     }
 
-    private void createDeploymentTag(String tagName, String buildVersion) throws Exception {
+    private void createDeploymentTag(String tagName) throws Exception {
         DeploymentTag tag = new DeploymentTag();
         tag.setTagName(tagName);
         tag.setDescription("Deployment tag created by db-deploy-tool");
-        tag.setBuildVersion(buildVersion);
         tag.setDeploymentTime(LocalDateTime.now());
         tag.setCreatedBy("db-deploy-tool");
         tag.setIsActive(true);
@@ -202,7 +200,7 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
         DeploymentTag tag = new DeploymentTag();
         tag.setTagName("initial");
         tag.setDescription("Initial state - before any changesets applied");
-        tag.setBuildVersion("0.0.0");
+        
         
         tag.setDeploymentTime(LocalDateTime.now());
         tag.setCreatedBy("db-deploy-tool");

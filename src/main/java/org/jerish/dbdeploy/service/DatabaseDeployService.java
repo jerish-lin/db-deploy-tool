@@ -4,8 +4,7 @@ import org.jerish.dbdeploy.config.ChangeLogConfig;
 
 public interface DatabaseDeployService {
 
-    void deploy(ChangeLogConfig changeLogConfig, String tagName, String buildVersion,
-                       boolean dryRun) throws Exception;
+    void deploy(ChangeLogConfig changeLogConfig, String tagName, boolean dryRun) throws Exception;
 
     void rollback(String targetTagName, boolean dryRun) throws Exception;
 

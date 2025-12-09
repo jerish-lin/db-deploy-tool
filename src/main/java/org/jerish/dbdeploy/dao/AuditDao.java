@@ -58,7 +58,6 @@ public class AuditDao {
                             tag_name TEXT NOT NULL UNIQUE,
                             description TEXT,
                             deployment_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                            build_version TEXT,
                             created_by TEXT,
                             is_active INTEGER DEFAULT 1
                         )
@@ -101,7 +100,6 @@ public class AuditDao {
                             tag_name VARCHAR(100) NOT NULL UNIQUE,
                             description TEXT,
                             deployment_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                            build_version VARCHAR(100),
                             created_by VARCHAR(100),
                             is_active BOOLEAN DEFAULT TRUE
                         )
@@ -311,8 +309,8 @@ public class AuditDao {
 
     public void createDeploymentTag(DeploymentTag tag) throws Exception {
         String sql = """
-                INSERT INTO deployment_tags (tag_name, description, deployment_time, build_version, created_by, is_active)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO deployment_tags (tag_name, description, deployment_time, created_by, is_active)
+                VALUES (?, ?, ?, ?, ?)
                 """;
 
         try (Connection connection = connectionManager.getConnection();
@@ -331,13 +329,12 @@ public class AuditDao {
                 statement.setTimestamp(3, Timestamp.valueOf(tag.getDeploymentTime()));
             }
 
-            statement.setString(4, tag.getBuildVersion());
-            statement.setString(5, tag.getCreatedBy());
+            statement.setString(4, tag.getCreatedBy());
 
             if (isSQLite) {
-                statement.setInt(6, tag.getIsActive() ? 1 : 0);
+                statement.setInt(5, tag.getIsActive() ? 1 : 0);
             } else {
-                statement.setBoolean(6, tag.getIsActive());
+                statement.setBoolean(5, tag.getIsActive());
             }
 
             int affectedRows = statement.executeUpdate();
@@ -514,7 +511,6 @@ public class AuditDao {
             tag.setDeploymentTime(LocalDateTime.now());
         }
 
-        tag.setBuildVersion(resultSet.getString("build_version"));
         tag.setCreatedBy(resultSet.getString("created_by"));
         tag.setIsActive(resultSet.getBoolean("is_active"));
         return tag;

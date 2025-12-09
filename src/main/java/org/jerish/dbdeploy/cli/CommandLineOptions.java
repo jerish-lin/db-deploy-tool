@@ -31,9 +31,7 @@ public class CommandLineOptions {
 
     
 
-    @Option(names = {"-b", "--build-version"},
-            description = "Build version for deployment tagging")
-    private String buildVersion;
+    
 
     
 
@@ -83,13 +81,7 @@ public class CommandLineOptions {
 
     
 
-    public String getBuildVersion() {
-        return buildVersion;
-    }
-
-    public void setBuildVersion(String buildVersion) {
-        this.buildVersion = buildVersion;
-    }
+    
 
     
 

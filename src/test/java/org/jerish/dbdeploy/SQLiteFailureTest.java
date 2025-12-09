@@ -66,7 +66,7 @@ public class SQLiteFailureTest {
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog-first3.yml",
                 "--tag", "1.0.1.20231110.1",
-                "--build-version", "1.0.1.20231110.1",
+                
                 "--verbose"
         };
 
@@ -82,7 +82,7 @@ public class SQLiteFailureTest {
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog.yml",
                 "--tag", "1.0.2.20231110.1",
-                "--build-version", "1.0.2.20231110.1",
+                
                 "--verbose"
         };
 
@@ -103,7 +103,7 @@ public class SQLiteFailureTest {
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog-first3.yml",
                 "--tag", "1.0.1.20231110.1",
-                "--build-version", "1.0.1.20231110.1",
+                
                 "--verbose"
         };
 
@@ -116,7 +116,7 @@ public class SQLiteFailureTest {
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog.yml",
                 "--tag", "1.0.2.20231110.1",
-                "--build-version", "1.0.2.20231110.1",
+                
                 "--verbose"
         };
 

@@ -100,7 +100,7 @@ public class SQLiteStatusTest {
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml",
                 "--tag", "1.0.0.20231110.1",
-                "--build-version", "1.0.0.20231110.1",
+                
                 
         };
 
@@ -146,7 +146,7 @@ public class SQLiteStatusTest {
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml",
                 "--tag", "1.0.0.20231110.1",
-                "--build-version", "1.0.0.20231110.1",
+                
                 
         };
 
@@ -159,7 +159,7 @@ public class SQLiteStatusTest {
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog-v2.yml",
                 "--tag", "1.0.1.20231110.1",
-                "--build-version", "1.0.1.20231110.1",
+                
                 
         };
 
@@ -215,7 +215,7 @@ public class SQLiteStatusTest {
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml",
                 "--tag", "1.0.0.20231110.1",
-                "--build-version", "1.0.0.20231110.1",
+                
                 
         };
 
@@ -271,7 +271,7 @@ public class SQLiteStatusTest {
                 "--database-config", "src/test/resources/sqlite-test-config.yml",
                 "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml",
                 "--tag", "1.0.0.20231110.1",
-                "--build-version", "1.0.0.20231110.1",
+                
                 
         };
 
