@@ -14,6 +14,7 @@ public class ChangeLogEntry {
     private String errorMessage;
     private String rollbackScriptPath;
     private String rollbackScriptContent;
+    private String rollbackVerifyScriptContent;
     private String tagName;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -107,6 +108,14 @@ public class ChangeLogEntry {
 
     public void setRollbackScriptContent(String rollbackScriptContent) {
         this.rollbackScriptContent = rollbackScriptContent;
+    }
+
+    public String getRollbackVerifyScriptContent() {
+        return rollbackVerifyScriptContent;
+    }
+
+    public void setRollbackVerifyScriptContent(String rollbackVerifyScriptContent) {
+        this.rollbackVerifyScriptContent = rollbackVerifyScriptContent;
     }
 
     public String getTagName() {

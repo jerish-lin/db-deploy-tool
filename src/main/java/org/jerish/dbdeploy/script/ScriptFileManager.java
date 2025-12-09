@@ -34,16 +34,27 @@ public class ScriptFileManager {
     public ScriptFile loadScript(ScriptConfig config) throws IOException {
         String applyScriptPath = resolveScriptPath(config.getApplyScriptPath());
         String rollbackScriptPath = resolveScriptPath(config.getRollbackScriptPath());
+        String rollbackVerifyScriptPath = resolveScriptPath(config.getRollbackVerifyScriptPath());
 
         String applyContent = readScriptContent(applyScriptPath);
         String rollbackContent = readScriptContent(rollbackScriptPath);
+        String rollbackVerifyContent = null;
+        
+        // Try to read rollback verify script if it exists
+        try {
+            rollbackVerifyContent = readScriptContent(rollbackVerifyScriptPath);
+        } catch (IOException e) {
+            // It's okay if rollback verify script doesn't exist
+            logger.debug("Rollback verify script not found for: {}", config.getId());
+        }
 
         return new ScriptFile(
                 config.getId(),
                 applyScriptPath,
                 rollbackScriptPath,
                 applyContent,
-                rollbackContent
+                rollbackContent,
+                rollbackVerifyContent
         );
     }
 
@@ -79,14 +90,16 @@ public class ScriptFileManager {
         private final String rollbackPath;
         private final String applyContent;
         private final String rollbackContent;
+        private final String rollbackVerifyContent;
 
         public ScriptFile(String id, String applyPath, String rollbackPath,
-                          String applyContent, String rollbackContent) {
+                          String applyContent, String rollbackContent, String rollbackVerifyContent) {
             this.id = id;
             this.applyPath = applyPath;
             this.rollbackPath = rollbackPath;
             this.applyContent = applyContent;
             this.rollbackContent = rollbackContent;
+            this.rollbackVerifyContent = rollbackVerifyContent;
         }
 
         public String getId() {
@@ -107,6 +120,10 @@ public class ScriptFileManager {
 
         public String getRollbackContent() {
             return rollbackContent;
+        }
+
+        public String getRollbackVerifyContent() {
+            return rollbackVerifyContent;
         }
 
         public String getScriptName() {

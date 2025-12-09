@@ -141,7 +141,24 @@ public class ScriptExecutor {
 
         try {
             String verificationContent = readScriptContent(verificationScriptPath);
-            
+            return executeVerificationContent(verificationContent);
+        } catch (Exception e) {
+            result.setSuccess(false);
+            result.setErrorMessage(e.getMessage());
+            result.setEndTime(LocalDateTime.now());
+            result.setDuration(System.currentTimeMillis() - startTime);
+
+            logger.error("Verification script {} execution failed", verificationScriptPath, e);
+            return result;
+        }
+    }
+
+    public VerificationResult executeVerificationContent(String verificationContent) {
+        long startTime = System.currentTimeMillis();
+        VerificationResult result = new VerificationResult();
+        result.setStartTime(LocalDateTime.now());
+
+        try {
             try (Connection connection = connectionManager.getConnection()) {
                 try (Statement statement = connection.createStatement()) {
                     String[] sqlStatements = splitStatements(verificationContent);
@@ -167,7 +184,7 @@ public class ScriptExecutor {
                     result.setEndTime(LocalDateTime.now());
                     result.setDuration(System.currentTimeMillis() - startTime);
 
-                    logger.info("Verification script {} executed successfully", verificationScriptPath);
+                    logger.info("Verification executed successfully");
                 }
             }
         } catch (Exception e) {
@@ -176,7 +193,7 @@ public class ScriptExecutor {
             result.setEndTime(LocalDateTime.now());
             result.setDuration(System.currentTimeMillis() - startTime);
 
-            logger.error("Verification script {} execution failed", verificationScriptPath, e);
+            logger.error("Verification execution failed", e);
         }
 
         return result;

@@ -112,6 +112,7 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
         entry.setScriptPath(script.getApplyPath());
         entry.setRollbackScriptPath(script.getRollbackPath());
         entry.setRollbackScriptContent(script.getRollbackContent());
+        entry.setRollbackVerifyScriptContent(script.getRollbackVerifyContent());
         entry.setTagName(tagName);
         entry.setExecutionStatus(ScriptExecutionStatus.SUCCESS);
         entry.setExecutionTime(LocalDateTime.now());
@@ -267,7 +268,36 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
                     }
                     scriptExecutor.executeScript(rollbackScriptPath);
                 } else {
-                    System.out.println("WARNING: No rollback script available for: " + entry.getScriptId());
+                    logger.warn("No rollback script available for: {}", entry.getScriptId());
+                }
+
+                // Execute rollback verification if available
+                if (entry.getRollbackVerifyScriptContent() != null && !entry.getRollbackVerifyScriptContent().isEmpty()) {
+                    try {
+                        ScriptExecutor.VerificationResult verificationResult = scriptExecutor.executeVerification(
+                                entry.getRollbackVerifyScriptContent());
+                        
+                        // Log verification results
+                        logger.info("\n=== ROLLBACK VERIFICATION RESULTS ===");
+                        logger.info("Script: {}", entry.getScriptId());
+                        logger.info("Verification Status: {}", verificationResult.isSuccess() ? "SUCCESS" : "FAILED");
+                        logger.info("Duration: {}ms", verificationResult.getDuration());
+                        logger.info("Output:");
+                        logger.info("{}", verificationResult.getOutput());
+                        
+                        if (!verificationResult.isSuccess()) {
+                            logger.error("Rollback verification error: {}", verificationResult.getErrorMessage());
+                        }
+                        logger.info("=== END ROLLBACK VERIFICATION ===\n");
+                        
+                        // If verification fails, log warning but continue
+                        if (!verificationResult.isSuccess()) {
+                            logger.warn("Rollback verification failed for script: {}", entry.getScriptId());
+                        }
+                    } catch (Exception e) {
+                        logger.warn("Could not execute rollback verification for script {}: {}", 
+                                entry.getScriptId(), e.getMessage());
+                    }
                 }
 
                 // Update the execution status to ROLLED_BACK

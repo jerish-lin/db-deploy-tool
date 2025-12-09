@@ -45,6 +45,7 @@ public class AuditDao {
                             error_message TEXT,
                             rollback_script_path TEXT,
                             rollback_script_content TEXT,
+                            rollback_verify_script_content TEXT,
                             tag_name TEXT,
                             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -88,6 +89,7 @@ public class AuditDao {
                             error_message TEXT,
                             rollback_script_path VARCHAR(1000),
                             rollback_script_content TEXT,
+                            rollback_verify_script_content TEXT,
                             tag_name VARCHAR(100),
                             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -169,8 +171,8 @@ public class AuditDao {
                 INSERT INTO db_change_log (
                     script_id, script_name, script_path, script_checksum, execution_status,
                     execution_time, execution_duration_ms, error_message, rollback_script_path,
-                    rollback_script_content, tag_name, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    rollback_script_content, rollback_verify_script_content, tag_name, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
 
         try (Connection connection = connectionManager.getConnection();
@@ -196,14 +198,15 @@ public class AuditDao {
             statement.setString(8, entry.getErrorMessage());
             statement.setString(9, entry.getRollbackScriptPath());
             statement.setString(10, entry.getRollbackScriptContent());
-            statement.setString(11, entry.getTagName());
+            statement.setString(11, entry.getRollbackVerifyScriptContent());
+            statement.setString(12, entry.getTagName());
 
             if (isSQLite) {
-                statement.setString(12, entry.getCreatedAt().toString());
-                statement.setString(13, entry.getUpdatedAt().toString());
+                statement.setString(13, entry.getCreatedAt().toString());
+                statement.setString(14, entry.getUpdatedAt().toString());
             } else {
-                statement.setTimestamp(12, Timestamp.valueOf(entry.getCreatedAt()));
-                statement.setTimestamp(13, Timestamp.valueOf(entry.getUpdatedAt()));
+                statement.setTimestamp(13, Timestamp.valueOf(entry.getCreatedAt()));
+                statement.setTimestamp(14, Timestamp.valueOf(entry.getUpdatedAt()));
             }
 
             int affectedRows = statement.executeUpdate();
@@ -432,6 +435,7 @@ public class AuditDao {
         entry.setErrorMessage(resultSet.getString("error_message"));
         entry.setRollbackScriptPath(resultSet.getString("rollback_script_path"));
         entry.setRollbackScriptContent(resultSet.getString("rollback_script_content"));
+        entry.setRollbackVerifyScriptContent(resultSet.getString("rollback_verify_script_content"));
         entry.setTagName(resultSet.getString("tag_name"));
 
         // Handle created_at timestamp
