@@ -1,5 +1,5 @@
 scripts:
-  - name: feature-12346-create-employees-table
-  - name: feature-12347-create-departments-table
-  - name: feature-12348-insert-sample-data
-  - name: feature-12349-add-employee-salary-index
+  - feature-12346/feature-12346-create-employees-table
+  - feature-12347-create-departments-table
+  - feature-12348/feature-12348-insert-sample-data
+  - feature-12349-add-employee-salary-index

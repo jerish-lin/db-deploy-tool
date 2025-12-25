@@ -213,7 +213,7 @@ public class SQLiteRollbackTest {
 
             // Verify add-projects-table script is marked as ROLLED_BACK
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM db_change_log WHERE script_id='feature-12350-add-projects-table' AND execution_status='ROLLED_BACK'")) {
+                    "SELECT COUNT(*) FROM db_change_log WHERE script_name='feature-12350-add-projects-table' AND execution_status='ROLLED_BACK'")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 1,
                             "feature-12350-add-projects-table script should be marked as ROLLED_BACK");
@@ -588,7 +588,7 @@ public class SQLiteRollbackTest {
 
             // Verify add-projects-table script is marked as ROLLED_BACK
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM db_change_log WHERE script_id='feature-12350-add-projects-table' AND execution_status='ROLLED_BACK'")) {
+                    "SELECT COUNT(*) FROM db_change_log WHERE script_name='feature-12350-add-projects-table' AND execution_status='ROLLED_BACK'")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 1,
                             "feature-12350-add-projects-table script should be marked as ROLLED_BACK");
@@ -628,7 +628,7 @@ public class SQLiteRollbackTest {
 
             // Verify add-projects-table script is executed successfully again
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM db_change_log WHERE script_id='feature-12350-add-projects-table' AND tag_name='1.0.1.20231110.2' AND execution_status='SUCCESS'")) {
+                    "SELECT COUNT(*) FROM db_change_log WHERE script_name='feature-12350-add-projects-table' AND tag_name='1.0.1.20231110.2' AND execution_status='SUCCESS'")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 1,
                             "feature-12350-add-projects-table script should be executed successfully in redeployment");

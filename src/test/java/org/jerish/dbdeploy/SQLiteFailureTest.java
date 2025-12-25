@@ -160,14 +160,14 @@ public class SQLiteFailureTest {
 
             // Verify v1.0.1 scripts were executed successfully
             String[] v1_0_1_Scripts = {
-                    "feature-12346-create-users-table",
+                    "feature-12346/feature-12346-create-users-table",
                     "feature-12347-create-orders-table",
-                    "feature-12348-insert-sample-users"
+                    "feature-12348/feature-12348-insert-sample-users"
             };
 
             for (String scriptId : v1_0_1_Scripts) {
                 try (PreparedStatement stmt = connection.prepareStatement(
-                        "SELECT COUNT(*) FROM db_change_log WHERE script_id=? AND execution_status='SUCCESS'")) {
+                        "SELECT COUNT(*) FROM db_change_log WHERE script_name=? AND execution_status='SUCCESS'")) {
                     stmt.setString(1, scriptId);
                     try (ResultSet rs = stmt.executeQuery()) {
                         assertTrue(rs.next() && rs.getInt(1) == 1,
@@ -200,7 +200,7 @@ public class SQLiteFailureTest {
         try (Connection connection = connectionManager.getConnection()) {
             // Verify that the first script in v1.0.2 (add-user-email-index) was executed successfully
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM db_change_log WHERE script_id='feature-12349-add-user-email-index' AND execution_status='SUCCESS'")) {
+                    "SELECT COUNT(*) FROM db_change_log WHERE script_name='feature-12349-add-user-email-index' AND execution_status='SUCCESS'")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 1,
                             "First script in v1.0.2 should be executed successfully");
@@ -209,7 +209,7 @@ public class SQLiteFailureTest {
 
             // Verify that the failing script (create-user-orders-view) was marked as FAILED
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM db_change_log WHERE script_id='feature-12350-create-user-orders-view' AND execution_status='FAILED'")) {
+                    "SELECT COUNT(*) FROM db_change_log WHERE script_name='feature-12350-create-user-orders-view' AND execution_status='FAILED'")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 1,
                             "Failing script should be marked as FAILED");
@@ -218,7 +218,7 @@ public class SQLiteFailureTest {
 
             // Verify that the third script in v1.0.2 (add-order-status-index) was NOT executed
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM db_change_log WHERE script_id='feature-12351-add-order-status-index'")) {
+                    "SELECT COUNT(*) FROM db_change_log WHERE script_name='feature-12351-add-order-status-index'")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 0,
                             "Third script in v1.0.2 should not be executed after failure");
@@ -267,7 +267,7 @@ public class SQLiteFailureTest {
 
             // Verify that the add-user-email-index script is marked as ROLLED_BACK
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM db_change_log WHERE script_id='feature-12349-add-user-email-index' AND execution_status='ROLLED_BACK'")) {
+                    "SELECT COUNT(*) FROM db_change_log WHERE script_name='feature-12349-add-user-email-index' AND execution_status='ROLLED_BACK'")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 1,
                             "feature-12349-add-user-email-index script should be marked as ROLLED_BACK");
@@ -276,14 +276,14 @@ public class SQLiteFailureTest {
 
             // Verify that v1.0.1 scripts are still marked as SUCCESS
             String[] v1_0_1_Scripts = {
-                    "feature-12346-create-users-table",
+                    "feature-12346/feature-12346-create-users-table",
                     "feature-12347-create-orders-table",
-                    "feature-12348-insert-sample-users"
+                    "feature-12348/feature-12348-insert-sample-users"
             };
 
             for (String scriptId : v1_0_1_Scripts) {
                 try (PreparedStatement stmt = connection.prepareStatement(
-                        "SELECT COUNT(*) FROM db_change_log WHERE script_id=? AND execution_status='SUCCESS'")) {
+                        "SELECT COUNT(*) FROM db_change_log WHERE script_name=? AND execution_status='SUCCESS'")) {
                     stmt.setString(1, scriptId);
                     try (ResultSet rs = stmt.executeQuery()) {
                         assertTrue(rs.next() && rs.getInt(1) == 1,

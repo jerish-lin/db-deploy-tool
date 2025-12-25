@@ -282,12 +282,12 @@ public class SQLiteStatusTest {
         try (Connection connection = connectionManager.getConnection()) {
             String sql = """
                         INSERT INTO db_change_log (
-                            script_id, script_name, script_path, script_checksum,
+                            script_name, script_checksum,
                             execution_status, execution_time, execution_duration_ms,
-                            rollback_script_path, rollback_script_content,
+                            rollback_script_content, rollback_verify_script_content,
                             tag_name, created_at, updated_at
                         ) VALUES (
-                            'test-failed-script', 'Test Failed Script', 'test.sql', 'failed',
+                            'Test Failed Script', 'failed',
                             'FAILED', datetime('now'), 0,
                             '', '', '1.0.0.20231110.1', datetime('now'), datetime('now')
                         )

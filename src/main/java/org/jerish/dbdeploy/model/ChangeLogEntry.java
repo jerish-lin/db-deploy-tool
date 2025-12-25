@@ -4,15 +4,12 @@ import java.time.LocalDateTime;
 
 public class ChangeLogEntry {
     private Long id;
-    private String scriptId;
     private String scriptName;
-    private String scriptPath;
     private String scriptChecksum;
     private ScriptExecutionStatus executionStatus;
     private LocalDateTime executionTime;
     private Long executionDurationMs;
     private String errorMessage;
-    private String rollbackScriptPath;
     private String rollbackScriptContent;
     private String rollbackVerifyScriptContent;
     private String tagName;
@@ -30,28 +27,12 @@ public class ChangeLogEntry {
         this.id = id;
     }
 
-    public String getScriptId() {
-        return scriptId;
-    }
-
-    public void setScriptId(String scriptId) {
-        this.scriptId = scriptId;
-    }
-
     public String getScriptName() {
         return scriptName;
     }
 
     public void setScriptName(String scriptName) {
         this.scriptName = scriptName;
-    }
-
-    public String getScriptPath() {
-        return scriptPath;
-    }
-
-    public void setScriptPath(String scriptPath) {
-        this.scriptPath = scriptPath;
     }
 
     public String getScriptChecksum() {
@@ -92,14 +73,6 @@ public class ChangeLogEntry {
 
     public void setErrorMessage(String errorMessage) {
         this.errorMessage = errorMessage;
-    }
-
-    public String getRollbackScriptPath() {
-        return rollbackScriptPath;
-    }
-
-    public void setRollbackScriptPath(String rollbackScriptPath) {
-        this.rollbackScriptPath = rollbackScriptPath;
     }
 
     public String getRollbackScriptContent() {

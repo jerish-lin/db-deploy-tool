@@ -15,4 +15,11 @@ public class ChangeLogConfig {
     public void setScripts(List<ScriptConfig> scripts) {
         this.scripts = scripts;
     }
+
+    @Override
+    public String toString() {
+        return "ChangeLogConfig{" +
+                "scripts=" + scripts +
+                '}';
+    }
 }

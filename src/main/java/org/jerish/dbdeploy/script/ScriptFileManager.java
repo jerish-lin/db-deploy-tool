@@ -45,11 +45,11 @@ public class ScriptFileManager {
             rollbackVerifyContent = readScriptContent(rollbackVerifyScriptPath);
         } catch (IOException e) {
             // It's okay if rollback verify script doesn't exist
-            logger.debug("Rollback verify script not found for: {}", config.getId());
+            logger.debug("Rollback verify script not found for: {}", config.getName());
         }
 
         return new ScriptFile(
-                config.getId(),
+                config.getName(),
                 applyScriptPath,
                 rollbackScriptPath,
                 applyContent,
@@ -85,16 +85,16 @@ public class ScriptFileManager {
     }
 
     public static class ScriptFile {
-        private final String id;
+        private final String name;
         private final String applyPath;
         private final String rollbackPath;
         private final String applyContent;
         private final String rollbackContent;
         private final String rollbackVerifyContent;
 
-        public ScriptFile(String id, String applyPath, String rollbackPath,
+        public ScriptFile(String name, String applyPath, String rollbackPath,
                           String applyContent, String rollbackContent, String rollbackVerifyContent) {
-            this.id = id;
+            this.name = name;
             this.applyPath = applyPath;
             this.rollbackPath = rollbackPath;
             this.applyContent = applyContent;
@@ -102,8 +102,8 @@ public class ScriptFileManager {
             this.rollbackVerifyContent = rollbackVerifyContent;
         }
 
-        public String getId() {
-            return id;
+        public String getName() {
+            return name;
         }
 
         public String getApplyPath() {

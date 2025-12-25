@@ -91,17 +91,18 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
 
             for (ScriptFileManager.ScriptFile script : scripts) {
                 if (dryRun) {
-                    logger.info("[DRY RUN] Would execute script: {}", script.getId());
+                    logger.info("[DRY RUN] Would execute script: {}", script.getName());
                     continue;
                 }
 
                 // Check if script was already executed
-                if (auditDao.isScriptExecuted(script.getId())) {
-                    logger.info("Skipping already executed script: {}", script.getId());
+                String scriptNameForDb = script.getName();
+                if (auditDao.isScriptExecuted(scriptNameForDb)) {
+                    logger.info("Skipping already executed script: {}", script.getName());
                     continue;
                 }
 
-                logger.info("Executing script: {}", script.getId());
+                logger.info("Executing script: {}", script.getName());
                 executeScriptWithAudit(script, tagName);
             }
 
@@ -121,10 +122,9 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
 
     private void executeScriptWithAudit(ScriptFileManager.ScriptFile script, String tagName) throws Exception {
         ChangeLogEntry entry = new ChangeLogEntry();
-        entry.setScriptId(script.getId());
-        entry.setScriptName(script.getScriptName());
-        entry.setScriptPath(script.getApplyPath());
-        entry.setRollbackScriptPath(script.getRollbackPath());
+        // Use the full script name including folder structure
+        String scriptNameForDb = script.getName();
+        entry.setScriptName(scriptNameForDb);
         entry.setRollbackScriptContent(script.getRollbackContent());
         entry.setRollbackVerifyScriptContent(script.getRollbackVerifyContent());
         entry.setTagName(tagName);
@@ -139,7 +139,7 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
 
         try {
             // Execute script with verification
-            ScriptExecutor.ScriptExecutionResult result = scriptExecutor.executeScript(script.getApplyPath(), script.getId());
+            ScriptExecutor.ScriptExecutionResult result = scriptExecutor.executeScript(script.getApplyPath(), script.getName());
 
             if (result.isSuccess()) {
                 entry.setExecutionDurationMs(result.getDuration());
@@ -152,7 +152,7 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
                         
                         // Log verification results
                         logger.info(" === VERIFICATION RESULTS ===");
-                        logger.info("Script: {}", script.getId());
+                        logger.info("Script: {}", script.getName());
                         logger.info("Verification Status: {}", verificationResult.isSuccess() ? "SUCCESS" : "FAILED");
                         logger.info("Duration: {}ms", verificationResult.getDuration());
                         logger.info("Output:");
@@ -165,7 +165,7 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
                         
                         // If verification fails, mark as failed
                         if (!verificationResult.isSuccess()) {
-                            throw new RuntimeException("Verification failed for script: " + script.getId());
+                            throw new RuntimeException("Verification failed for script: " + script.getName());
                         }
                     }
                 } catch (Exception e) {
@@ -173,7 +173,7 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
                 }
                 
                 auditDao.recordScriptExecution(entry);
-                logger.info("Script {} executed and verified successfully", script.getId());
+                logger.info("Script {} executed and verified successfully", script.getName());
             } else {
                 throw new RuntimeException(result.getErrorMessage());
             }
@@ -210,14 +210,11 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
 
         // Create a fake changelog entry for the initial state
         ChangeLogEntry initialEntry = new ChangeLogEntry();
-        initialEntry.setScriptId("initial-state");
         initialEntry.setScriptName("Initial Database State");
-        initialEntry.setScriptPath("N/A");
         initialEntry.setScriptChecksum("initial");
         initialEntry.setExecutionStatus(ScriptExecutionStatus.SUCCESS);
         initialEntry.setExecutionTime(LocalDateTime.now());
         initialEntry.setExecutionDurationMs(0L);
-        initialEntry.setRollbackScriptPath("N/A");
         initialEntry.setRollbackScriptContent("-- Initial state - no rollback needed");
         initialEntry.setTagName("initial");
         initialEntry.setCreatedAt(LocalDateTime.now());
@@ -263,24 +260,17 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
                 ChangeLogEntry entry = scriptsToRollback.get(i);
 
                 if (dryRun) {
-                    logger.info("[DRY RUN] Would rollback script: {}", entry.getScriptId());
+                    logger.info("[DRY RUN] Would rollback script: {}", entry.getScriptName());
                     continue;
                 }
 
-                logger.info("Rolling back script: {}", entry.getScriptId());
+                logger.info("Rolling back script: {}", entry.getScriptName());
 
                 // Execute rollback script if available
                 if (entry.getRollbackScriptContent() != null && !entry.getRollbackScriptContent().isEmpty()) {
                     scriptExecutor.executeScriptContent(entry.getRollbackScriptContent());
-                } else if (entry.getRollbackScriptPath() != null && !entry.getRollbackScriptPath().isEmpty()) {
-                    String rollbackScriptPath = entry.getRollbackScriptPath();
-                    if (!rollbackScriptPath.startsWith("/") && !rollbackScriptPath.contains(":")) {
-                        // Relative path, resolve using script file manager
-                        rollbackScriptPath = Paths.get(scriptFileManager.getScriptBasePath(), rollbackScriptPath).toString();
-                    }
-                    scriptExecutor.executeScript(rollbackScriptPath);
                 } else {
-                    logger.warn("No rollback script available for: {}", entry.getScriptId());
+                    logger.warn("No rollback script available for: {}", entry.getScriptName());
                 }
 
                 // Execute rollback verification if available
@@ -291,7 +281,7 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
                         
                         // Log verification results
                         logger.info("\n=== ROLLBACK VERIFICATION RESULTS ===");
-                        logger.info("Script: {}", entry.getScriptId());
+                        logger.info("Script: {}", entry.getScriptName());
                         logger.info("Verification Status: {}", verificationResult.isSuccess() ? "SUCCESS" : "FAILED");
                         logger.info("Duration: {}ms", verificationResult.getDuration());
                         logger.info("Output:");
@@ -304,18 +294,18 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
                         
                         // If verification fails, log warning but continue
                         if (!verificationResult.isSuccess()) {
-                            logger.warn("Rollback verification failed for script: {}", entry.getScriptId());
+                            logger.warn("Rollback verification failed for script: {}", entry.getScriptName());
                         }
                     } catch (Exception e) {
                         logger.warn("Could not execute rollback verification for script {}: {}", 
-                                entry.getScriptId(), e.getMessage());
+                                entry.getScriptName(), e.getMessage());
                     }
                 }
 
                 // Update the execution status to ROLLED_BACK
                 auditDao.updateScriptExecutionStatus(entry.getId(), ScriptExecutionStatus.ROLLED_BACK, null);
 
-                logger.info("Script {} rolled back successfully", entry.getScriptId());
+                logger.info("Script {} rolled back successfully", entry.getScriptName());
             }
 
             // Deactivate all deployment tags that were rolled back

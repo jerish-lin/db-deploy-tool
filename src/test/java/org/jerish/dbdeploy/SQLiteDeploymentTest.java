@@ -241,17 +241,16 @@ public class SQLiteDeploymentTest {
             }
 
             // Verify specific scripts were executed
-            // Verify specific scripts were executed
             String[] expectedScripts = {
-                    "feature-12346-create-employees-table",
+                    "feature-12346/feature-12346-create-employees-table",
                     "feature-12347-create-departments-table",
-                    "feature-12348-insert-sample-data",
+                    "feature-12348/feature-12348-insert-sample-data",
                     "feature-12349-add-employee-salary-index"
             };
 
             for (String scriptId : expectedScripts) {
                 try (PreparedStatement stmt = connection.prepareStatement(
-                        "SELECT COUNT(*) FROM db_change_log WHERE script_id=? AND execution_status='SUCCESS'")) {
+                        "SELECT COUNT(*) FROM db_change_log WHERE script_name=? AND execution_status='SUCCESS'")) {
                     stmt.setString(1, scriptId);
                     try (ResultSet rs = stmt.executeQuery()) {
                         assertTrue(rs.next() && rs.getInt(1) == 1,

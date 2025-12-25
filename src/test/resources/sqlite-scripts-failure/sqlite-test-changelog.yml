@@ -1,7 +1,7 @@
 scripts:
-  - name: feature-12346-create-users-table
-  - name: feature-12347-create-orders-table
-  - name: feature-12348-insert-sample-users
-  - name: feature-12349-add-user-email-index
-  - name: feature-12350-create-user-orders-view
-  - name: feature-12351-add-order-status-index
+  - feature-12346/feature-12346-create-users-table
+  - feature-12347-create-orders-table
+  - feature-12348/feature-12348-insert-sample-users
+  - feature-12349-add-user-email-index
+  - feature-12350-create-user-orders-view
+  - feature-12351-add-order-status-index

@@ -8,26 +8,63 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 public class ConfigLoader {
 
     public static ChangeLogConfig loadChangeLogConfig(String configPath) throws Exception {
         LoaderOptions loaderOptions = new LoaderOptions();
-        Constructor constructor = new Constructor(ChangeLogConfig.class, loaderOptions);
-        Yaml yaml = new Yaml(constructor);
+        Yaml yaml = new Yaml(loaderOptions);
 
         InputStream inputStream = getConfigInputStream(configPath);
         try {
-            ChangeLogConfig config = yaml.load(inputStream);
-            if (config == null) {
+            // Load as generic map to handle both formats
+            Object rawConfig = yaml.load(inputStream);
+            if (rawConfig == null) {
                 throw new RuntimeException("ChangeLog config is null or empty");
             }
-            return config;
+            
+            return parseChangeLogConfig(rawConfig);
         } finally {
             if (inputStream != null) {
                 inputStream.close();
             }
         }
+    }
+    
+    @SuppressWarnings("unchecked")
+    private static ChangeLogConfig parseChangeLogConfig(Object rawConfig) {
+        ChangeLogConfig config = new ChangeLogConfig();
+        
+        if (rawConfig instanceof Map) {
+            Map<String, Object> configMap = (Map<String, Object>) rawConfig;
+            Object scriptsObj = configMap.get("scripts");
+            
+            if (scriptsObj instanceof List) {
+                List<Object> scriptsList = (List<Object>) scriptsObj;
+                List<ScriptConfig> scriptConfigs = new ArrayList<>();
+                
+                for (Object scriptItem : scriptsList) {
+                    if (scriptItem instanceof String) {
+                        // New format: direct string
+                        scriptConfigs.add(new ScriptConfig((String) scriptItem));
+                    } else if (scriptItem instanceof Map) {
+                        // Old format: object with name field
+                        Map<String, Object> scriptMap = (Map<String, Object>) scriptItem;
+                        Object nameObj = scriptMap.get("name");
+                        if (nameObj instanceof String) {
+                            scriptConfigs.add(new ScriptConfig((String) nameObj));
+                        }
+                    }
+                }
+                
+                config.setScripts(scriptConfigs);
+            }
+        }
+        
+        return config;
     }
 
     private static InputStream getConfigInputStream(String configPath) throws Exception {

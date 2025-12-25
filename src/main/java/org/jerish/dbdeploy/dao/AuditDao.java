@@ -35,15 +35,12 @@ public class AuditDao {
                 createChangeLogTable = """
                         CREATE TABLE IF NOT EXISTS db_change_log (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            script_id TEXT NOT NULL,
                             script_name TEXT NOT NULL,
-                            script_path TEXT NOT NULL,
                             script_checksum TEXT NOT NULL,
                             execution_status TEXT NOT NULL CHECK (execution_status IN ('SUCCESS', 'FAILED', 'ROLLED_BACK')),
                             execution_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                             execution_duration_ms INTEGER,
                             error_message TEXT,
-                            rollback_script_path TEXT,
                             rollback_script_content TEXT,
                             rollback_verify_script_content TEXT,
                             tag_name TEXT,
@@ -77,15 +74,12 @@ public class AuditDao {
                 createChangeLogTable = """
                         CREATE TABLE IF NOT EXISTS db_change_log (
                             id BIGSERIAL PRIMARY KEY,
-                            script_id VARCHAR(255) NOT NULL,
                             script_name VARCHAR(500) NOT NULL,
-                            script_path VARCHAR(1000) NOT NULL,
                             script_checksum VARCHAR(64) NOT NULL,
                             execution_status VARCHAR(20) NOT NULL CHECK (execution_status IN ('SUCCESS', 'FAILED', 'ROLLED_BACK')),
                             execution_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                             execution_duration_ms BIGINT,
                             error_message TEXT,
-                            rollback_script_path VARCHAR(1000),
                             rollback_script_content TEXT,
                             rollback_verify_script_content TEXT,
                             tag_name VARCHAR(100),
@@ -131,7 +125,7 @@ public class AuditDao {
 
     private void createIndexes(Connection connection) throws SQLException {
         String[] indexes = {
-                "CREATE INDEX IF NOT EXISTS idx_script_id ON db_change_log(script_id)",
+                "CREATE INDEX IF NOT EXISTS idx_script_name ON db_change_log(script_name)",
                 "CREATE INDEX IF NOT EXISTS idx_execution_status ON db_change_log(execution_status)",
                 "CREATE INDEX IF NOT EXISTS idx_execution_time ON db_change_log(execution_time)",
                 "CREATE INDEX IF NOT EXISTS idx_tag_name ON db_change_log(tag_name)",
@@ -148,13 +142,13 @@ public class AuditDao {
         }
     }
 
-    public boolean isScriptExecuted(String scriptId) throws SQLException {
-        String sql = "SELECT COUNT(*) FROM db_change_log WHERE script_id = ? AND execution_status = 'SUCCESS'";
+    public boolean isScriptExecuted(String scriptName) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM db_change_log WHERE script_name = ? AND execution_status = 'SUCCESS'";
 
         try (Connection connection = connectionManager.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
 
-            statement.setString(1, scriptId);
+            statement.setString(1, scriptName);
 
             try (ResultSet resultSet = statement.executeQuery()) {
                 return resultSet.next() && resultSet.getInt(1) > 0;
@@ -165,44 +159,41 @@ public class AuditDao {
     public void recordScriptExecution(ChangeLogEntry entry) throws SQLException {
         String sql = """
                 INSERT INTO db_change_log (
-                    script_id, script_name, script_path, script_checksum, execution_status,
-                    execution_time, execution_duration_ms, error_message, rollback_script_path,
+                    script_name, script_checksum, execution_status,
+                    execution_time, execution_duration_ms, error_message,
                     rollback_script_content, rollback_verify_script_content, tag_name, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
 
         try (Connection connection = connectionManager.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
-            statement.setString(1, entry.getScriptId());
-            statement.setString(2, entry.getScriptName());
-            statement.setString(3, entry.getScriptPath());
-            statement.setString(4, entry.getScriptChecksum());
-            statement.setString(5, entry.getExecutionStatus().getValue());
+            statement.setString(1, entry.getScriptName());
+            statement.setString(2, entry.getScriptChecksum());
+            statement.setString(3, entry.getExecutionStatus().getValue());
 
             // Check if it's SQLite by checking the URL
             String url = connection.getMetaData().getURL();
             boolean isSQLite = url.toLowerCase().contains("sqlite");
 
             if (isSQLite) {
-                statement.setString(6, entry.getExecutionTime().toString());
+                statement.setString(4, entry.getExecutionTime().toString());
             } else {
-                statement.setTimestamp(6, Timestamp.valueOf(entry.getExecutionTime()));
+                statement.setTimestamp(4, Timestamp.valueOf(entry.getExecutionTime()));
             }
 
-            statement.setObject(7, entry.getExecutionDurationMs());
-            statement.setString(8, entry.getErrorMessage());
-            statement.setString(9, entry.getRollbackScriptPath());
-            statement.setString(10, entry.getRollbackScriptContent());
-            statement.setString(11, entry.getRollbackVerifyScriptContent());
-            statement.setString(12, entry.getTagName());
+            statement.setObject(5, entry.getExecutionDurationMs());
+            statement.setString(6, entry.getErrorMessage());
+            statement.setString(7, entry.getRollbackScriptContent());
+            statement.setString(8, entry.getRollbackVerifyScriptContent());
+            statement.setString(9, entry.getTagName());
 
             if (isSQLite) {
-                statement.setString(13, entry.getCreatedAt().toString());
-                statement.setString(14, entry.getUpdatedAt().toString());
+                statement.setString(10, entry.getCreatedAt().toString());
+                statement.setString(11, entry.getUpdatedAt().toString());
             } else {
-                statement.setTimestamp(13, Timestamp.valueOf(entry.getCreatedAt()));
-                statement.setTimestamp(14, Timestamp.valueOf(entry.getUpdatedAt()));
+                statement.setTimestamp(10, Timestamp.valueOf(entry.getCreatedAt()));
+                statement.setTimestamp(11, Timestamp.valueOf(entry.getUpdatedAt()));
             }
 
             int affectedRows = statement.executeUpdate();
@@ -435,9 +426,7 @@ public class AuditDao {
     private ChangeLogEntry mapResultSetToChangeLogEntry(ResultSet resultSet) throws SQLException {
         ChangeLogEntry entry = new ChangeLogEntry();
         entry.setId(resultSet.getLong("id"));
-        entry.setScriptId(resultSet.getString("script_id"));
         entry.setScriptName(resultSet.getString("script_name"));
-        entry.setScriptPath(resultSet.getString("script_path"));
         entry.setScriptChecksum(resultSet.getString("script_checksum"));
         entry.setExecutionStatus(ScriptExecutionStatus.fromValue(resultSet.getString("execution_status")));
 
@@ -460,7 +449,6 @@ public class AuditDao {
             entry.setExecutionDurationMs(null);
         }
         entry.setErrorMessage(resultSet.getString("error_message"));
-        entry.setRollbackScriptPath(resultSet.getString("rollback_script_path"));
         entry.setRollbackScriptContent(resultSet.getString("rollback_script_content"));
         entry.setRollbackVerifyScriptContent(resultSet.getString("rollback_verify_script_content"));
         entry.setTagName(resultSet.getString("tag_name"));
