@@ -138,40 +138,11 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
         entry.setScriptChecksum(checksum);
 
         try {
-            // Execute script with verification
-            ScriptExecutor.ScriptExecutionResult result = scriptExecutor.executeScript(script.getApplyPath(), script.getName());
+            // Execute script with verification in the same transaction
+            ScriptExecutor.ScriptExecutionResult result = scriptExecutor.executeScriptWithVerificationInTransaction(script.getApplyPath(), script.getName());
 
             if (result.isSuccess()) {
                 entry.setExecutionDurationMs(result.getDuration());
-                
-                // Run verification after successful execution
-                String verificationPath = script.getApplyPath().replace(".apply.sql", ".apply.verify.sql");
-                try {
-                    if (Files.exists(Paths.get(verificationPath))) {
-                        ScriptExecutor.VerificationResult verificationResult = scriptExecutor.executeVerification(verificationPath);
-                        
-                        // Log verification results
-                        logger.info(" === VERIFICATION RESULTS ===");
-                        logger.info("Script: {}", script.getName());
-                        logger.info("Verification Status: {}", verificationResult.isSuccess() ? "SUCCESS" : "FAILED");
-                        logger.info("Duration: {}ms", verificationResult.getDuration());
-                        logger.info("Output:");
-                        logger.info("{}", verificationResult.getOutput());
-                        
-                        if (!verificationResult.isSuccess()) {
-                            logger.error("Error: {}", verificationResult.getErrorMessage());
-                        }
-                        logger.info("=== END VERIFICATION ===");
-                        
-                        // If verification fails, mark as failed
-                        if (!verificationResult.isSuccess()) {
-                            throw new RuntimeException("Verification failed for script: " + script.getName());
-                        }
-                    }
-                } catch (Exception e) {
-                    logger.warn("Could not check for verification script: {}", e.getMessage());
-                }
-                
                 auditDao.recordScriptExecution(entry);
                 logger.info("Script {} executed and verified successfully", script.getName());
             } else {

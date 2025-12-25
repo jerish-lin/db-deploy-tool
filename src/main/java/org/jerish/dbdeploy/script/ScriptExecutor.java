@@ -12,6 +12,7 @@ import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.Statement;
 import java.time.LocalDateTime;
 
@@ -236,6 +237,86 @@ public class ScriptExecutor {
         } catch (Exception e) {
             logger.warn("Could not check for verification script: {}", e.getMessage());
         }
+    }
+
+    /**
+     * Execute script and verification in the same transaction.
+     * If verification fails, the entire transaction is rolled back.
+     */
+    public ScriptExecutionResult executeScriptWithVerificationInTransaction(String scriptPath, String scriptId) {
+        long startTime = System.currentTimeMillis();
+        ScriptExecutionResult result = new ScriptExecutionResult();
+        result.setScriptId(scriptId);
+        result.setScriptPath(scriptPath);
+        result.setStartTime(LocalDateTime.now());
+
+        try {
+            String scriptContent = readScriptContent(scriptPath);
+            String checksum = calculateChecksum(scriptContent);
+            result.setScriptChecksum(checksum);
+
+            // Check if verification script exists
+            final String verificationPath = scriptPath.replace(".apply.sql", ".apply.verify.sql");
+            final String verificationContent;
+            final boolean hasVerification = Files.exists(Paths.get(verificationPath));
+            if (hasVerification) {
+                verificationContent = readScriptContent(verificationPath);
+            } else {
+                verificationContent = null;
+            }
+
+            try (Connection connection = connectionManager.getConnection()) {
+                TransactionManager transactionManager = new TransactionManager(connection);
+
+                transactionManager.executeInTransaction(() -> {
+                    try (Statement statement = connection.createStatement()) {
+                        // Execute the main script
+                        String[] sqlStatements = splitStatements(scriptContent);
+
+                        for (String sql : sqlStatements) {
+                            if (!sql.trim().isEmpty()) {
+                                logger.debug("Executing SQL: {}", sql.trim());
+                                statement.execute(sql);
+                            }
+                        }
+
+                        logger.info("Script {} executed successfully", scriptId);
+
+                        // Execute verification if it exists
+                        if (hasVerification && verificationContent != null) {
+                            logger.info("Running verification for script: {}", scriptId);
+                            String[] verificationStatements = splitStatements(verificationContent);
+                            
+                            for (String sql : verificationStatements) {
+                                if (!sql.trim().isEmpty()) {
+                                    logger.debug("Executing verification SQL: {}", sql.trim());
+                                    try (ResultSet resultSet = statement.executeQuery(sql.trim())) {
+                                        // Consume results to ensure execution
+                                        while (resultSet.next()) {
+                                            // Just consume the results - verification queries typically return status info
+                                        }
+                                    }
+                                }
+                            }
+                            logger.info("Verification completed successfully for script: {}", scriptId);
+                        }
+
+                        result.setSuccess(true);
+                        result.setEndTime(LocalDateTime.now());
+                        result.setDuration(System.currentTimeMillis() - startTime);
+                    }
+                });
+            }
+        } catch (Exception e) {
+            result.setSuccess(false);
+            result.setErrorMessage("Script execution or verification failed: " + e.getMessage());
+            result.setEndTime(LocalDateTime.now());
+            result.setDuration(System.currentTimeMillis() - startTime);
+
+            logger.error("Script {} execution or verification failed", scriptId, e);
+        }
+
+        return result;
     }
 
     public static class VerificationResult {

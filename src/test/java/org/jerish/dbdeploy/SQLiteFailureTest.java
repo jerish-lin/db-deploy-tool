@@ -47,7 +47,7 @@ public class SQLiteFailureTest {
         if (connectionManager != null) {
             connectionManager.close();
         }
-        cleanupDatabase();
+//        cleanupDatabase();
     }
 
     private void cleanupDatabase() {
@@ -91,7 +91,7 @@ public class SQLiteFailureTest {
                 "Deployment should fail due to intentional SQL error");
 
         // Verify failure state
-        verifyFailureState();
+        verifyFailureState("feature-12350-create-user-orders-view");
     }
 
     @Test
@@ -124,7 +124,7 @@ public class SQLiteFailureTest {
                 "Deployment should fail due to intentional SQL error");
 
         // Verify failure state
-        verifyFailureState();
+        verifyFailureState("feature-12350-create-user-orders-view");
 
         // Now rollback to v1.0.1
         String[] rollbackArgs = {
@@ -196,7 +196,7 @@ public class SQLiteFailureTest {
         }
     }
 
-    private void verifyFailureState() throws SQLException {
+    private void verifyFailureState(String failedSql) throws SQLException {
         try (Connection connection = connectionManager.getConnection()) {
             // Verify that the first script in v1.0.2 (add-user-email-index) was executed successfully
             try (PreparedStatement stmt = connection.prepareStatement(
@@ -209,7 +209,7 @@ public class SQLiteFailureTest {
 
             // Verify that the failing script (create-user-orders-view) was marked as FAILED
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM db_change_log WHERE script_name='feature-12350-create-user-orders-view' AND execution_status='FAILED'")) {
+                    "SELECT COUNT(*) FROM db_change_log WHERE script_name='%s' AND execution_status='FAILED'".formatted(failedSql))) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next() && rs.getInt(1) == 1,
                             "Failing script should be marked as FAILED");
@@ -310,5 +310,40 @@ public class SQLiteFailureTest {
                 }
             }
         }
+    }
+
+    @Test
+    @DisplayName("Test verification failure handling")
+    void testVerificationFailure() throws Exception {
+        // First deploy working scripts up to feature-12348 (before the failing verification)
+        String[] deployArgsInitial = {
+                "--action", "DEPLOY",
+                "--database-config", "src/test/resources/sqlite-test-config.yml",
+                "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog-first3.yml",
+                "--tag", "1.0.1.20231110.1",
+                "--verbose"
+        };
+
+        assertDoesNotThrow(() -> DatabaseDeployTool.main(deployArgsInitial),
+                "Initial deployment should complete without errors");
+
+        // Verify initial deployment was successful
+        verifySuccessfulDeploymentV1_0_1();
+
+        // Now attempt to deploy including the script with failing verification (feature-12349)
+        String[] deployArgsWithVerificationFailure = {
+                "--action", "DEPLOY",
+                "--database-config", "src/test/resources/sqlite-test-config.yml",
+                "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog-verify-failure.yml",
+                "--tag", "1.0.2.20231110.1",
+                "--verbose"
+        };
+
+        // This should fail due to the intentional SQL error in create-user-orders-view
+        assertThrows(Exception.class, () -> DatabaseDeployTool.main(deployArgsWithVerificationFailure),
+                "Deployment should fail due to intentional SQL error");
+
+        // Verify failure state
+        verifyFailureState("verify-failure/feature-12350-create-user-orders-view");
     }
 }
