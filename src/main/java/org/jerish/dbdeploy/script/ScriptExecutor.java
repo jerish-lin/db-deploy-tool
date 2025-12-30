@@ -3,7 +3,6 @@ package org.jerish.dbdeploy.script;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jerish.dbdeploy.database.DatabaseConnectionManager;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,9 +20,7 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 @Slf4j
 public class ScriptExecutor {
-
-    private final DatabaseConnectionManager connectionManager;
-    private final JdbcTemplate jdbcTemplate;
+    private final JdbcTemplate dbDeployJdbcTemplate;
 
     @Transactional
     public ScriptExecutionResult executeScript(String scriptPath, String scriptId) {
@@ -44,7 +41,7 @@ public class ScriptExecutor {
             for (String sql : sqlStatements) {
                 if (!sql.trim().isEmpty()) {
                     log.debug("Executing SQL: {}", sql.trim());
-                    jdbcTemplate.execute(sql.trim());
+                    dbDeployJdbcTemplate.execute(sql.trim());
                 }
             }
 
@@ -85,7 +82,7 @@ public class ScriptExecutor {
             for (String sql : sqlStatements) {
                 if (!sql.trim().isEmpty()) {
                     log.debug("Executing SQL: {}", sql.trim());
-                    jdbcTemplate.execute(sql.trim());
+                    dbDeployJdbcTemplate.execute(sql.trim());
                 }
             }
 
@@ -163,7 +160,7 @@ public class ScriptExecutor {
                 if (!sql.trim().isEmpty()) {
                     log.debug("Executing verification SQL: {}", sql.trim());
 
-                    jdbcTemplate.query(sql.trim(), (ResultSet rs) -> {
+                    dbDeployJdbcTemplate.query(sql.trim(), (ResultSet rs) -> {
                         while (rs.next()) {
                             if (output.length() > 0) {
                                 output.append("\n");
@@ -265,7 +262,7 @@ public class ScriptExecutor {
             for (String sql : sqlStatements) {
                 if (!sql.trim().isEmpty()) {
                     log.debug("Executing SQL: {}", sql.trim());
-                    jdbcTemplate.execute(sql.trim());
+                    dbDeployJdbcTemplate.execute(sql.trim());
                 }
             }
 
@@ -279,7 +276,7 @@ public class ScriptExecutor {
                 for (String sql : verificationStatements) {
                     if (!sql.trim().isEmpty()) {
                         log.debug("Executing verification SQL: {}", sql.trim());
-                        jdbcTemplate.query(sql.trim(), (ResultSet rs) -> {
+                        dbDeployJdbcTemplate.query(sql.trim(), (ResultSet rs) -> {
                             // Consume results to ensure execution
                             while (rs.next()) {
                                 // Just consume the results - verification queries typically return status info

@@ -2,6 +2,7 @@ package org.jerish.dbdeploy.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
@@ -21,7 +22,12 @@ public class TransactionConfig {
      * This will be used by @Transactional annotations throughout the application.
      */
     @Bean
-    public PlatformTransactionManager transactionManager(DataSource dataSource) {
-        return new DataSourceTransactionManager(dataSource);
+    public PlatformTransactionManager transactionManager(DataSource dbDeployDataSource) {
+        return new DataSourceTransactionManager(dbDeployDataSource);
+    }
+
+    @Bean
+    public JdbcTemplate dbDeployJdbcTemplate(DataSource dbDeployDataSource) {
+        return new JdbcTemplate(dbDeployDataSource);
     }
 }

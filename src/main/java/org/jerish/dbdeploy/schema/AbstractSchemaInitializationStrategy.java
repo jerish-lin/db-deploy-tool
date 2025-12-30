@@ -1,43 +1,48 @@
 package org.jerish.dbdeploy.schema;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
 public abstract class AbstractSchemaInitializationStrategy implements SchemaInitializationStrategy {
 
-
     @Override
-    public boolean isSchemaInitialized(Connection connection) throws SQLException {
+    public boolean isSchemaInitialized(JdbcTemplate jdbcTemplate) {
         try {
             // Check if the main audit table exists
-            var metaData = connection.getMetaData();
-            try (var tables = metaData.getTables(null, null, "db_change_log", null)) {
-                return tables.next();
+            String sql = """
+                SELECT COUNT(*) FROM information_schema.tables 
+                WHERE table_name = 'db_change_log'
+                """;
+            
+            // For SQLite, use different query
+            if (getSupportedDatabaseType().name().toLowerCase().contains("sqlite")) {
+                sql = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='db_change_log'";
             }
-        } catch (SQLException e) {
+            
+            Integer count = jdbcTemplate.queryForObject(sql, Integer.class);
+            return count != null && count > 0;
+        } catch (Exception e) {
             log.debug("Error checking schema initialization status", e);
             return false;
         }
     }
 
     @Override
-    public void initializeSchema(Connection connection) throws SQLException {
+    public void initializeSchema(JdbcTemplate jdbcTemplate) {
         log.info("Initializing database schema for {}", getSupportedDatabaseType());
 
         List<String> schemaFiles = getSchemaFiles();
 
         for (String schemaFile : schemaFiles) {
-            executeSqlFile(connection, schemaFile);
+            executeSqlFile(jdbcTemplate, schemaFile);
         }
 
         log.info("Database schema initialization completed for {}", getSupportedDatabaseType());
@@ -58,37 +63,33 @@ public abstract class AbstractSchemaInitializationStrategy implements SchemaInit
     /**
      * Execute a SQL file from the classpath resources.
      *
-     * @param connection database connection
-     * @param fileName   the SQL file name
-     * @throws SQLException if execution fails
+     * @param jdbcTemplate JdbcTemplate for database operations
+     * @param fileName      the SQL file name
      */
-    protected void executeSqlFile(Connection connection, String fileName) throws SQLException {
+    protected void executeSqlFile(JdbcTemplate jdbcTemplate, String fileName) {
         String fullPath = getSchemaFilesBasePath() + "/" + fileName;
 
         log.debug("Executing SQL file: {}", fullPath);
 
         try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream(fullPath)) {
             if (inputStream == null) {
-                throw new SQLException("Schema file not found: " + fullPath);
+                throw new RuntimeException("Schema file not found: " + fullPath);
             }
 
             String sqlContent = readSqlContent(inputStream);
 
-            try (Statement statement = connection.createStatement()) {
-                // Split content by semicolon and execute each statement
-                String[] statements = sqlContent.split(";");
+            // Split content by semicolon and execute each statement
+            String[] statements = sqlContent.split(";");
 
-                for (String statementStr : statements) {
-                    String trimmedStatement = statementStr.trim();
-                    if (!trimmedStatement.isEmpty() && !trimmedStatement.startsWith("--")) {
-                        log.debug("Executing SQL statement: {}", trimmedStatement.substring(0, Math.min(50, trimmedStatement.length())) + "...");
-                        statement.execute(trimmedStatement);
-                    }
+            for (String statementStr : statements) {
+                String trimmedStatement = statementStr.trim();
+                if (!trimmedStatement.isEmpty()) {
+                    log.debug("Executing SQL: {}", trimmedStatement);
+                    jdbcTemplate.execute(trimmedStatement);
                 }
             }
-
         } catch (Exception e) {
-            throw new SQLException("Failed to execute schema file: " + fullPath, e);
+            throw new RuntimeException("Failed to execute SQL file: " + fullPath, e);
         }
     }
 

@@ -3,7 +3,7 @@ package org.jerish.dbdeploy.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jerish.dbdeploy.dao.AuditDao;
-import org.jerish.dbdeploy.database.DatabaseConnectionManager;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.jerish.dbdeploy.entity.ChangeLogConfig;
 import org.jerish.dbdeploy.model.ChangeLogEntry;
 import org.jerish.dbdeploy.model.DeploymentTag;
@@ -23,7 +23,7 @@ import java.util.List;
 @Slf4j
 public class DefaultDatabaseDeployService implements DatabaseDeployService {
 
-    private final DatabaseConnectionManager connectionManager;
+    private final JdbcTemplate jdbcTemplate;
     private final AuditDao auditDao;
     private final ScriptExecutor scriptExecutor;
     private final ScriptFileManager scriptFileManager;
@@ -59,9 +59,11 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
             boolean isFirstDeployment = false;
             if (!dryRun) {
                 // Debug: Check database URL
-                try (Connection conn = connectionManager.getConnection()) {
-                    String dbUrl = conn.getMetaData().getURL();
+                try {
+                    String dbUrl = jdbcTemplate.getDataSource().getConnection().getMetaData().getURL();
                     log.info("Database URL: {}", dbUrl);
+                } catch (Exception e) {
+                    log.debug("Could not retrieve database URL", e);
                 }
 
                 List<DeploymentTag> existingTags = auditDao.getDeploymentTags();

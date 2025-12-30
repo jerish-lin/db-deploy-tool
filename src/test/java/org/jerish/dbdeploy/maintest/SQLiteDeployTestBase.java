@@ -1,5 +1,6 @@
 package org.jerish.dbdeploy.maintest;
 
+import com.zaxxer.hikari.HikariDataSource;
 import org.jerish.dbdeploy.TestApplication;
 import org.jerish.dbdeploy.database.DatabaseConnectionManager;
 import org.jerish.dbdeploy.service.DatabaseDeployManager;
@@ -8,6 +9,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.TestPropertySource;
 
@@ -26,6 +28,9 @@ public class SQLiteDeployTestBase {
     @Autowired
     protected DatabaseConnectionManager connectionManager;
 
+    @Autowired
+    protected JdbcTemplate dbDeployJdbcTemplate;
+
     @BeforeAll
     static void setUpClass() {
         cleanupDatabase();
@@ -40,6 +45,9 @@ public class SQLiteDeployTestBase {
     @AfterEach
     void tearDown() throws SQLException {
         try {
+            if (dbDeployJdbcTemplate != null){
+                ((HikariDataSource)dbDeployJdbcTemplate.getDataSource()).close();
+            }
             // Close Spring's connection manager to release all connections
             if (connectionManager != null) {
                 connectionManager.close();

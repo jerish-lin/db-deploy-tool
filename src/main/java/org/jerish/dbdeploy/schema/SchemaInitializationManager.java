@@ -1,13 +1,11 @@
 package org.jerish.dbdeploy.schema;
 
 import lombok.extern.slf4j.Slf4j;
-import org.jerish.dbdeploy.database.DatabaseConnectionManager;
 import org.jerish.dbdeploy.database.DatabaseType;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -22,12 +20,12 @@ import java.util.stream.Collectors;
 public class SchemaInitializationManager {
 
     private final Map<DatabaseType, SchemaInitializationStrategy> strategyMap;
-    private final DatabaseConnectionManager connectionManager;
+    private final JdbcTemplate jdbcTemplate;
 
     @Autowired
     public SchemaInitializationManager(List<SchemaInitializationStrategy> strategies,
-                                       DatabaseConnectionManager connectionManager) {
-        this.connectionManager = connectionManager;
+                                       JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
         this.strategyMap = strategies.stream()
                 .collect(Collectors.toMap(
                         SchemaInitializationStrategy::getSupportedDatabaseType,
@@ -42,24 +40,19 @@ public class SchemaInitializationManager {
      * Check if the database schema is initialized for the current database type.
      *
      * @return true if schema exists, false otherwise
-     * @throws SQLException if database access error occurs
      */
-    public boolean isSchemaInitialized() throws SQLException {
+    public boolean isSchemaInitialized() {
         DatabaseType databaseType = getCurrentDatabaseType();
         SchemaInitializationStrategy strategy = getStrategyForDatabaseType(databaseType);
 
-        try (Connection connection = connectionManager.getConnection()) {
-            return strategy.isSchemaInitialized(connection);
-        }
+        return strategy.isSchemaInitialized(jdbcTemplate);
     }
 
     /**
      * Initialize the database schema for the current database type.
      * Only initializes if the schema doesn't already exist.
-     *
-     * @throws SQLException if schema initialization fails
      */
-    public void initializeSchemaIfNeeded() throws SQLException {
+    public void initializeSchemaIfNeeded() {
         if (!isSchemaInitialized()) {
             initializeSchema();
         } else {
@@ -69,21 +62,19 @@ public class SchemaInitializationManager {
 
     /**
      * Force initialize the database schema for the current database type.
-     *
-     * @throws SQLException if schema initialization fails
      */
-    public void initializeSchema() throws SQLException {
+    public void initializeSchema() {
         DatabaseType databaseType = getCurrentDatabaseType();
         SchemaInitializationStrategy strategy = getStrategyForDatabaseType(databaseType);
 
         log.info("Initializing database schema for type: {}", databaseType);
 
-        try (Connection connection = connectionManager.getConnection()) {
-            strategy.initializeSchema(connection);
+        try {
+            strategy.initializeSchema(jdbcTemplate);
             log.info("Database schema initialization completed for type: {}", databaseType);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             log.error("Failed to initialize database schema for type: {}", databaseType, e);
-            throw e;
+            throw new RuntimeException("Schema initialization failed", e);
         }
     }
 
@@ -91,11 +82,12 @@ public class SchemaInitializationManager {
      * Get the current database type from the connection metadata.
      *
      * @return the current database type
-     * @throws SQLException if unable to determine database type
+     * @throws RuntimeException if unable to determine database type
      */
-    private DatabaseType getCurrentDatabaseType() throws SQLException {
-        try (Connection connection = connectionManager.getConnection()) {
-            String url = connection.getMetaData().getURL().toLowerCase();
+    private DatabaseType getCurrentDatabaseType() {
+        try {
+            // Try to get database URL using JdbcTemplate's DataSource
+            String url = jdbcTemplate.getDataSource().getConnection().getMetaData().getURL().toLowerCase();
 
             if (url.contains("postgresql")) {
                 return DatabaseType.POSTGRESQL;
@@ -104,8 +96,10 @@ public class SchemaInitializationManager {
             } else if (url.contains("clickhouse")) {
                 return DatabaseType.CLICKHOUSE;
             } else {
-                throw new SQLException("Unsupported database type. URL: " + url);
+                throw new RuntimeException("Unsupported database type. URL: " + url);
             }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to determine database type", e);
         }
     }
 

@@ -1,9 +1,7 @@
 package org.jerish.dbdeploy.schema;
 
 import org.jerish.dbdeploy.database.DatabaseType;
-
-import java.sql.Connection;
-import java.sql.SQLException;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * Strategy interface for database schema initialization.
@@ -14,19 +12,17 @@ public interface SchemaInitializationStrategy {
     /**
      * Check if the database schema is already initialized.
      *
-     * @param connection database connection
+     * @param jdbcTemplate JdbcTemplate for database operations
      * @return true if schema exists, false otherwise
-     * @throws SQLException if database access error occurs
      */
-    boolean isSchemaInitialized(Connection connection) throws SQLException;
+    boolean isSchemaInitialized(JdbcTemplate jdbcTemplate);
 
     /**
      * Initialize the database schema by executing the appropriate SQL scripts.
      *
-     * @param connection database connection
-     * @throws SQLException if database access error occurs
+     * @param jdbcTemplate JdbcTemplate for database operations
      */
-    void initializeSchema(Connection connection) throws SQLException;
+    void initializeSchema(JdbcTemplate jdbcTemplate);
 
     /**
      * Get the database type this strategy supports.
