@@ -22,10 +22,6 @@
     </appender>
 
     <logger name="org.jerish.dbdeploy" level="INFO"/>
-    <logger name="org.jerish.dbdeploy.DatabaseDeployTool" level="INFO"/>
-    <logger name="org.jerish.dbdeploy.service" level="INFO"/>
-    <logger name="org.jerish.dbdeploy.dao" level="INFO"/>
-    <logger name="org.jerish.dbdeploy.script" level="INFO"/>
 
     <root level="WARN">
         <appender-ref ref="CONSOLE"/>

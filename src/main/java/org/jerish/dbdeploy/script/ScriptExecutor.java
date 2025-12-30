@@ -4,8 +4,9 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jerish.dbdeploy.database.DatabaseConnectionManager;
-import org.jerish.dbdeploy.database.TransactionManager;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -13,9 +14,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.sql.Connection;
 import java.sql.ResultSet;
-import java.sql.Statement;
 import java.time.LocalDateTime;
 
 @Service
@@ -24,7 +23,9 @@ import java.time.LocalDateTime;
 public class ScriptExecutor {
 
     private final DatabaseConnectionManager connectionManager;
+    private final JdbcTemplate jdbcTemplate;
 
+    @Transactional
     public ScriptExecutionResult executeScript(String scriptPath, String scriptId) {
         long startTime = System.currentTimeMillis();
         ScriptExecutionResult result = new ScriptExecutionResult();
@@ -37,28 +38,22 @@ public class ScriptExecutor {
             String checksum = calculateChecksum(scriptContent);
             result.setScriptChecksum(checksum);
 
-            try (Connection connection = connectionManager.getConnection()) {
-                TransactionManager transactionManager = new TransactionManager(connection);
+            // Execute SQL statements within the Spring-managed transaction
+            String[] sqlStatements = splitStatements(scriptContent);
 
-                transactionManager.executeInTransaction(() -> {
-                    try (Statement statement = connection.createStatement()) {
-                        String[] sqlStatements = splitStatements(scriptContent);
-
-                        for (String sql : sqlStatements) {
-                            if (!sql.trim().isEmpty()) {
-                                log.debug("Executing SQL: {}", sql.trim());
-                                statement.execute(sql);
-                            }
-                        }
-
-                        result.setSuccess(true);
-                        result.setEndTime(LocalDateTime.now());
-                        result.setDuration(System.currentTimeMillis() - startTime);
-
-                        log.info("Script {} executed successfully", scriptId);
-                    }
-                });
+            for (String sql : sqlStatements) {
+                if (!sql.trim().isEmpty()) {
+                    log.debug("Executing SQL: {}", sql.trim());
+                    jdbcTemplate.execute(sql.trim());
+                }
             }
+
+            result.setSuccess(true);
+            result.setEndTime(LocalDateTime.now());
+            result.setDuration(System.currentTimeMillis() - startTime);
+
+            log.info("Script {} executed successfully", scriptId);
+
         } catch (Exception e) {
             result.setSuccess(false);
             result.setErrorMessage(e.getMessage());
@@ -66,6 +61,8 @@ public class ScriptExecutor {
             result.setDuration(System.currentTimeMillis() - startTime);
 
             log.error("Script {} execution failed", scriptId, e);
+            // Spring will automatically rollback the transaction on exception
+            throw new RuntimeException("Script execution failed: " + e.getMessage(), e);
         }
 
         return result;
@@ -80,24 +77,23 @@ public class ScriptExecutor {
 //        }
 //    }
 
+    @Transactional
     public void executeScriptContent(String scriptContent) throws Exception {
-        try (Connection connection = connectionManager.getConnection()) {
-            TransactionManager transactionManager = new TransactionManager(connection);
+        try {
+            String[] sqlStatements = splitStatements(scriptContent);
 
-            transactionManager.executeInTransaction(() -> {
-                try (Statement statement = connection.createStatement()) {
-                    String[] sqlStatements = splitStatements(scriptContent);
-
-                    for (String sql : sqlStatements) {
-                        if (!sql.trim().isEmpty()) {
-                            log.debug("Executing SQL: {}", sql.trim());
-                            statement.execute(sql);
-                        }
-                    }
-
-                    log.info("Script content executed successfully");
+            for (String sql : sqlStatements) {
+                if (!sql.trim().isEmpty()) {
+                    log.debug("Executing SQL: {}", sql.trim());
+                    jdbcTemplate.execute(sql.trim());
                 }
-            });
+            }
+
+            log.info("Script content executed successfully");
+        } catch (Exception e) {
+            log.error("Script content execution failed", e);
+            // Spring will automatically rollback the transaction on exception
+            throw new RuntimeException("Script content execution failed: " + e.getMessage(), e);
         }
     }
 
@@ -160,34 +156,31 @@ public class ScriptExecutor {
         result.setStartTime(LocalDateTime.now());
 
         try {
-            try (Connection connection = connectionManager.getConnection()) {
-                try (Statement statement = connection.createStatement()) {
-                    String[] sqlStatements = splitStatements(verificationContent);
-                    StringBuilder output = new StringBuilder();
+            String[] sqlStatements = splitStatements(verificationContent);
+            StringBuilder output = new StringBuilder();
 
-                    for (String sql : sqlStatements) {
-                        if (!sql.trim().isEmpty()) {
-                            log.debug("Executing verification SQL: {}", sql.trim());
+            for (String sql : sqlStatements) {
+                if (!sql.trim().isEmpty()) {
+                    log.debug("Executing verification SQL: {}", sql.trim());
 
-                            try (var resultSet = statement.executeQuery(sql.trim())) {
-                                while (resultSet.next()) {
-                                    if (output.length() > 0) {
-                                        output.append("\n");
-                                    }
-                                    output.append(resultSet.getString(1));
-                                }
+                    jdbcTemplate.query(sql.trim(), (ResultSet rs) -> {
+                        while (rs.next()) {
+                            if (output.length() > 0) {
+                                output.append("\n");
                             }
+                            output.append(rs.getString(1));
                         }
-                    }
-
-                    result.setSuccess(true);
-                    result.setOutput(output.toString());
-                    result.setEndTime(LocalDateTime.now());
-                    result.setDuration(System.currentTimeMillis() - startTime);
-
-                    log.info("Verification executed successfully");
+                    });
                 }
             }
+
+            result.setSuccess(true);
+            result.setOutput(output.toString());
+            result.setEndTime(LocalDateTime.now());
+            result.setDuration(System.currentTimeMillis() - startTime);
+
+            log.info("Verification executed successfully");
+
         } catch (Exception e) {
             result.setSuccess(false);
             result.setErrorMessage(e.getMessage());
@@ -243,6 +236,7 @@ public class ScriptExecutor {
      * Execute script and verification in the same transaction.
      * If verification fails, the entire transaction is rolled back.
      */
+    @Transactional
     public ScriptExecutionResult executeScriptWithVerificationInTransaction(String scriptPath, String scriptId) {
         long startTime = System.currentTimeMillis();
         ScriptExecutionResult result = new ScriptExecutionResult();
@@ -265,48 +259,41 @@ public class ScriptExecutor {
                 verificationContent = null;
             }
 
-            try (Connection connection = connectionManager.getConnection()) {
-                TransactionManager transactionManager = new TransactionManager(connection);
+            // Execute the main script
+            String[] sqlStatements = splitStatements(scriptContent);
 
-                transactionManager.executeInTransaction(() -> {
-                    try (Statement statement = connection.createStatement()) {
-                        // Execute the main script
-                        String[] sqlStatements = splitStatements(scriptContent);
-
-                        for (String sql : sqlStatements) {
-                            if (!sql.trim().isEmpty()) {
-                                log.debug("Executing SQL: {}", sql.trim());
-                                statement.execute(sql);
-                            }
-                        }
-
-                        log.info("Script {} executed successfully", scriptId);
-
-                        // Execute verification if it exists
-                        if (hasVerification && verificationContent != null) {
-                            log.info("Running verification for script: {}", scriptId);
-                            String[] verificationStatements = splitStatements(verificationContent);
-
-                            for (String sql : verificationStatements) {
-                                if (!sql.trim().isEmpty()) {
-                                    log.debug("Executing verification SQL: {}", sql.trim());
-                                    try (ResultSet resultSet = statement.executeQuery(sql.trim())) {
-                                        // Consume results to ensure execution
-                                        while (resultSet.next()) {
-                                            // Just consume the results - verification queries typically return status info
-                                        }
-                                    }
-                                }
-                            }
-                            log.info("Verification completed successfully for script: {}", scriptId);
-                        }
-
-                        result.setSuccess(true);
-                        result.setEndTime(LocalDateTime.now());
-                        result.setDuration(System.currentTimeMillis() - startTime);
-                    }
-                });
+            for (String sql : sqlStatements) {
+                if (!sql.trim().isEmpty()) {
+                    log.debug("Executing SQL: {}", sql.trim());
+                    jdbcTemplate.execute(sql.trim());
+                }
             }
+
+            log.info("Script {} executed successfully", scriptId);
+
+            // Execute verification if it exists
+            if (hasVerification && verificationContent != null) {
+                log.info("Running verification for script: {}", scriptId);
+                String[] verificationStatements = splitStatements(verificationContent);
+
+                for (String sql : verificationStatements) {
+                    if (!sql.trim().isEmpty()) {
+                        log.debug("Executing verification SQL: {}", sql.trim());
+                        jdbcTemplate.query(sql.trim(), (ResultSet rs) -> {
+                            // Consume results to ensure execution
+                            while (rs.next()) {
+                                // Just consume the results - verification queries typically return status info
+                            }
+                        });
+                    }
+                }
+                log.info("Verification completed successfully for script: {}", scriptId);
+            }
+
+            result.setSuccess(true);
+            result.setEndTime(LocalDateTime.now());
+            result.setDuration(System.currentTimeMillis() - startTime);
+
         } catch (Exception e) {
             result.setSuccess(false);
             result.setErrorMessage("Script execution or verification failed: " + e.getMessage());
@@ -314,6 +301,8 @@ public class ScriptExecutor {
             result.setDuration(System.currentTimeMillis() - startTime);
 
             log.error("Script {} execution or verification failed", scriptId, e);
+            // Spring will automatically rollback the transaction on exception
+            throw new RuntimeException("Script execution or verification failed: " + e.getMessage(), e);
         }
 
         return result;

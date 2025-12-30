@@ -1,83 +1,80 @@
 package org.jerish.dbdeploy;
 
+import lombok.extern.slf4j.Slf4j;
 import org.jerish.dbdeploy.cli.CommandLineOptions;
-import org.jerish.dbdeploy.config.ChangeLogConfig;
-import org.jerish.dbdeploy.config.ConfigLoader;
-import org.jerish.dbdeploy.config.DatabaseConfig;
-import org.jerish.dbdeploy.dao.AuditDao;
-import org.jerish.dbdeploy.database.DatabaseConnectionManager;
-import org.jerish.dbdeploy.service.DatabaseDeployService;
-import org.jerish.dbdeploy.service.InhouseDatabaseDeployService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jerish.dbdeploy.cli.CommandLineOptionsResolver;
+import org.jerish.dbdeploy.entity.DatabaseStatus;
+import org.jerish.dbdeploy.service.DatabaseDeployManager;
+import org.jerish.dbdeploy.service.DatabaseStatusPrinter;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-public class DatabaseDeployTool {
-    private static final Logger logger = LoggerFactory.getLogger(DatabaseDeployTool.class);
+@SpringBootApplication
+@Slf4j
+public class DatabaseDeployTool implements CommandLineRunner {
+    @Autowired
+    private DatabaseDeployManager deployManager;
+    @Autowired
+    private CommandLineOptionsResolver optionsResolver;
+    @Autowired
+    private DatabaseStatusPrinter statusPrinter;
 
-    public static void main(String[] args) throws Exception {
-//        try {
-        CommandLineOptions options = CommandLineOptions.parseArgs(args);
+    @Value("${db-deploy.test-mode:false}")
+    private boolean testMode;
 
-        if (options.isVerbose()) {
-            System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "debug");
+    public static void main(String[] args) {
+        try {
+            log.info("Starting Database Deploy Tool");
+            System.exit(SpringApplication.exit(SpringApplication.run(DatabaseDeployTool.class, args)));
+        } catch (Exception e) {
+            log.error("Database deploy tool failed", e);
+            System.exit(1);
+        }
+    }
+
+    @Override
+    public void run(String... args) throws Exception {
+        // Skip execution in test mode
+        if (testMode) {
+            log.info("DatabaseDeployTool skipped - running in test mode");
+            return;
         }
 
-        logger.info("Starting Database Deploy Tool with action: {}", options.getAction());
-
-        DatabaseDeployTool tool = new DatabaseDeployTool();
-        tool.run(options);
-
-//        } catch (Exception e) {
-//            logger.error("Database deploy tool failed", e);
-////            System.exit(1);
-//        }
+        CommandLineOptions options = optionsResolver.resolve(args);
+        if (options.isVerbose()) {
+            System.setProperty("org.slf4j.simplelog.defaultLogLevel", "debug");
+        }
+        run(options);
     }
 
     public void run(CommandLineOptions options) throws Exception {
-        DatabaseConfig dbConfig = ConfigLoader.loadDatabaseConfig(options.getDatabaseConfigPath());
-        ChangeLogConfig changeLogConfig = null;
-
-        // Only load changelog config for deploy action
-        if (options.getAction() == CommandLineOptions.Action.DEPLOY) {
-            changeLogConfig = ConfigLoader.loadChangeLogConfig(options.getChangelogPath());
-        }
-
-        DatabaseConnectionManager connectionManager = new DatabaseConnectionManager(dbConfig);
         try {
-            if (!connectionManager.isValid()) {
-                throw new RuntimeException("Failed to establish database connection");
-            }
-
-            AuditDao auditDao = new AuditDao(connectionManager);
-            auditDao.initializeSchema();
-
-            DatabaseDeployService deployService = new InhouseDatabaseDeployService(
-                    connectionManager,
-                    auditDao,
-                    options.getChangelogPath()
-            );
-
-            switch (options.getAction()) {
-                case DEPLOY -> {
-                    if (options.getTagName() == null) {
-                        throw new IllegalArgumentException("Tag name is required for deploy action");
-                    }
-                    deployService.deploy(changeLogConfig, options.getTagName(), options.isDryRun());
-                }
-                case ROLLBACK -> {
-                    if (options.getTagName() == null) {
-                        throw new IllegalArgumentException("Target tag name is required for rollback action");
-                    }
-                    deployService.rollback(options.getTagName(), options.isDryRun());
-                }
-                case STATUS -> {
-                    deployService.showStatus();
-                }
-            }
-        } finally {
-            connectionManager.close();
+            executeAction(options);
+            log.info("Database deploy tool completed successfully");
+        } catch (Exception e) {
+            log.error("Error executing action: {}", options.getAction(), e);
+            throw e;
         }
+    }
 
-        logger.info("Database deploy tool completed successfully");
+    private void executeAction(CommandLineOptions options) throws Exception {
+        switch (options.getAction()) {
+            case DEPLOY_OR_ROLLBACK -> {
+                deployManager.deployOrRollback(options.getChangelogPath(), options.getTagName(), options.isDryRun());
+            }
+            case DEPLOY -> {
+                deployManager.deploy(options.getChangelogPath(), options.getTagName(), options.isDryRun());
+            }
+            case ROLLBACK -> {
+                deployManager.rollback(options.getTagName(), options.isDryRun());
+            }
+            case STATUS -> {
+                DatabaseStatus status = deployManager.status();
+                statusPrinter.printStatus(status);
+            }
+        }
     }
 }
