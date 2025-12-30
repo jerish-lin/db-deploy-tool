@@ -1,14 +1,12 @@
 package org.jerish.dbdeploy.database;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.SQLException;
 
+@Slf4j
 public class TransactionManager {
-    private static final Logger logger = LoggerFactory.getLogger(TransactionManager.class);
-
     private final Connection connection;
 
     public TransactionManager(Connection connection) {
@@ -18,7 +16,7 @@ public class TransactionManager {
     public void begin() throws SQLException {
         if (connection.getAutoCommit()) {
             connection.setAutoCommit(false);
-            logger.debug("Transaction started");
+            log.debug("Transaction started");
         }
     }
 
@@ -26,7 +24,7 @@ public class TransactionManager {
         if (!connection.getAutoCommit()) {
             connection.commit();
             connection.setAutoCommit(true);
-            logger.debug("Transaction committed");
+            log.debug("Transaction committed");
         }
     }
 
@@ -34,7 +32,7 @@ public class TransactionManager {
         if (!connection.getAutoCommit()) {
             connection.rollback();
             connection.setAutoCommit(true);
-            logger.debug("Transaction rolled back");
+            log.debug("Transaction rolled back");
         }
     }
 

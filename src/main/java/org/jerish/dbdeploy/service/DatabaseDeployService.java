@@ -1,6 +1,6 @@
 package org.jerish.dbdeploy.service;
 
-import org.jerish.dbdeploy.config.ChangeLogConfig;
+import org.jerish.dbdeploy.entity.ChangeLogConfig;
 
 public interface DatabaseDeployService {
 

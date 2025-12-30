@@ -3,10 +3,7 @@ package org.jerish.dbdeploy.database;
 public enum DatabaseType {
     POSTGRESQL("postgresql", "org.postgresql.Driver"),
     SQLITE("sqlite", "org.sqlite.JDBC"),
-    CLICKHOUSE("clickhouse", "com.clickhouse.jdbc.ClickHouseDriver"),
-    MYSQL("mysql", "com.mysql.cj.jdbc.Driver"),
-    ORACLE("oracle", "oracle.jdbc.OracleDriver"),
-    SQL_SERVER("sqlserver", "com.microsoft.sqlserver.jdbc.SQLServerDriver");
+    CLICKHOUSE("clickhouse", "com.clickhouse.jdbc.ClickHouseDriver");
 
     private final String scheme;
     private final String driverClass;

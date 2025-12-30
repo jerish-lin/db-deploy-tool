@@ -1,13 +1,8 @@
-package org.jerish.dbdeploy;
+package org.jerish.dbdeploy.maintest;
 
-import org.jerish.dbdeploy.config.DatabaseConfig;
-import org.jerish.dbdeploy.database.DatabaseConnectionManager;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -23,54 +18,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 2. Rolling back to a previous tag
  * 3. Verifying the rollback was successful
  */
-public class SQLiteRollbackTest {
-
-    //    private static final String DB_FILE = "testdb-rollback.sqlite";
-    private static final String DB_FILE = "testdb.sqlite";
-    private DatabaseConnectionManager connectionManager;
-
-    @BeforeEach
-    void setUp() throws SQLException {
-        // Clean up any existing database file
-        cleanupDatabase();
-
-        // Initialize database connection manager
-        DatabaseConfig dbConfig = new DatabaseConfig();
-        dbConfig.setUrl("jdbc:sqlite:" + DB_FILE);
-        dbConfig.setDriver("org.sqlite.JDBC");
-
-        connectionManager = new DatabaseConnectionManager(dbConfig);
-    }
-
-    @AfterEach
-    void tearDown() {
-        if (connectionManager != null) {
-            connectionManager.close();
-        }
-        cleanupDatabase();
-    }
-
-    private void cleanupDatabase() {
-        File dbFile = new File(DB_FILE);
-        if (dbFile.exists() && !dbFile.delete()) {
-            System.err.println("Warning: Could not delete existing database file");
-        }
-    }
-
+public class SQLiteRollbackTest extends SQLiteDeployTestBase {
     @Test
     @DisplayName("Test basic rollback functionality")
     void testBasicRollback() throws Exception {
-        // First deploy
-        String[] deployArgs = {
-                "--action", "DEPLOY",
-                "--database-config", "src/test/resources/sqlite-test-config.yml",
-                "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml",
-                "--tag", "1.0.0.20231110.1",
-                
-                "--verbose"
-        };
+        String changelogPath = "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml";
+        String tagName = "1.0.0.20231110.1";
 
-        assertDoesNotThrow(() -> DatabaseDeployTool.main(deployArgs),
+        assertDoesNotThrow(() -> deployManager.deploy(changelogPath, tagName, false),
                 "Deployment should complete without errors");
 
         // Verify deployment
@@ -95,16 +50,10 @@ public class SQLiteRollbackTest {
         }
 
         // Second deploy with 1.0.1.20231110.1 using sqlite-scripts
-        String[] deployV2Args = {
-                "--action", "DEPLOY",
-                "--database-config", "src/test/resources/sqlite-test-config.yml",
-                "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog-v2.yml",
-                "--tag", "1.0.1.20231110.1",
-                
-                "--verbose"
-        };
+        String changelogPathV2 = "src/test/resources/sqlite-scripts/sqlite-test-changelog-v2.yml";
+        String tagNameV2 = "1.0.1.20231110.1";
 
-        assertDoesNotThrow(() -> DatabaseDeployTool.main(deployV2Args),
+        assertDoesNotThrow(() -> deployManager.deploy(changelogPathV2, tagNameV2, false),
                 "Second deployment should complete without errors");
 
         // Verify 1.0.1.20231110.1 state - projects table should exist
@@ -128,15 +77,9 @@ public class SQLiteRollbackTest {
             }
         }
 
-        // Now rollback to v1.0.0
-        String[] rollbackArgs = {
-                "--action", "ROLLBACK",
-                "--database-config", "src/test/resources/sqlite-test-config.yml",
-                "--tag", "1.0.0.20231110.1",
-                "--verbose"
-        };
+        String rollbackTagName = "1.0.0.20231110.1";
 
-        assertDoesNotThrow(() -> DatabaseDeployTool.main(rollbackArgs),
+        assertDoesNotThrow(() -> deployManager.rollback(rollbackTagName, false),
                 "Rollback should complete without errors");
 
 //         Verify rollback - projects table should be gone but employees and departments should remain
@@ -235,30 +178,19 @@ public class SQLiteRollbackTest {
     @DisplayName("Test deploy then rollback to initial version")
     void testDeployThenRollbackToInitial() throws Exception {
         // Deploy all scripts
-        String[] deployArgs = {
-                "--action", "DEPLOY",
-                "--database-config", "src/test/resources/sqlite-test-config.yml",
-                "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml",
-                "--tag", "1.0.0.20231110.1",
-                
-                "--verbose"
-        };
+        String changelogPath = "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml";
+        String tagName = "1.0.0.20231110.1";
 
-        assertDoesNotThrow(() -> DatabaseDeployTool.main(deployArgs),
+        assertDoesNotThrow(() -> deployManager.deploy(changelogPath, tagName, false),
                 "Deployment should complete without errors");
 
         // Verify deployment was successful
         verifyDeploymentState();
 
         // Rollback to initial version
-        String[] rollbackArgs = {
-                "--action", "ROLLBACK",
-                "--database-config", "src/test/resources/sqlite-test-config.yml",
-                "--tag", "initial",
-                "--verbose"
-        };
+        String rollbackTagName = "initial";
 
-        assertDoesNotThrow(() -> DatabaseDeployTool.main(rollbackArgs),
+        assertDoesNotThrow(() -> deployManager.rollback(rollbackTagName, false),
                 "Rollback to initial should complete without errors");
 
         // Verify rollback to initial state
@@ -429,62 +361,39 @@ public class SQLiteRollbackTest {
     @DisplayName("Test deploy, rollback, then deploy again with same changes")
     void testDeployRollbackRedeploy() throws Exception {
         // First deployment
-        String[] deployArgs = {
-                "--action", "DEPLOY",
-                "--database-config", "src/test/resources/sqlite-test-config.yml",
-                "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml",
-                "--tag", "1.0.0.20231110.1",
-                
-                "--verbose"
-        };
+        String changelogPathV1 = "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml";
+        String tagNameV1 = "1.0.0.20231110.1";
 
-        assertDoesNotThrow(() -> DatabaseDeployTool.main(deployArgs),
+        assertDoesNotThrow(() -> deployManager.deploy(changelogPathV1, tagNameV1, false),
                 "First deployment should complete without errors");
 
         // Verify first deployment
         verifyFirstDeploymentState();
 
         // Second deploy with 1.0.1.20231110.1 using sqlite-scripts
-        String[] deployV2Args = {
-                "--action", "DEPLOY",
-                "--database-config", "src/test/resources/sqlite-test-config.yml",
-                "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog-v2.yml",
-                "--tag", "1.0.1.20231110.1",
-                
-                "--verbose"
-        };
+        String changelogPathV2 = "src/test/resources/sqlite-scripts/sqlite-test-changelog-v2.yml";
+        String tagNameV2 = "1.0.1.20231110.1";
 
-        assertDoesNotThrow(() -> DatabaseDeployTool.main(deployV2Args),
+        assertDoesNotThrow(() -> deployManager.deploy(changelogPathV2, tagNameV2, false),
                 "Second deployment should complete without errors");
 
         // Verify second deployment
         verifySecondDeploymentState();
 
         // Rollback to 1.0.0.20231110.1
-        String[] rollbackArgs = {
-                "--action", "ROLLBACK",
-                "--database-config", "src/test/resources/sqlite-test-config.yml",
-                "--tag", "1.0.0.20231110.1",
-                "--verbose"
-        };
+        String rollbackTagName = "1.0.0.20231110.1";
 
-        assertDoesNotThrow(() -> DatabaseDeployTool.main(rollbackArgs),
+        assertDoesNotThrow(() -> deployManager.rollback(rollbackTagName, false),
                 "Rollback should complete without errors");
 
         // Verify rollback state
         verifyRollbackState();
 
-        // Deploy 1.0.1.20231110.1 again
-        String[] redeployArgs = {
-                "--action", "DEPLOY",
-                "--database-config", "src/test/resources/sqlite-test-config.yml",
-                "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog-v2.yml",
-                "--tag", "1.0.1.20231110.2",
-                
-                "--verbose"
-        };
+        // Deploy 1.0.1.20231110.1 again with new tag
+        String changelogPathRedeploy = "src/test/resources/sqlite-scripts/sqlite-test-changelog-v2.yml";
+        String tagNameRedeploy = "1.0.1.20231110.2";
 
-        assertDoesNotThrow(() -> DatabaseDeployTool.main(redeployArgs),
+        assertDoesNotThrow(() -> deployManager.deploy(changelogPathRedeploy, tagNameRedeploy, false),
                 "Redeployment should complete without errors");
 
         // Verify redeployment state

@@ -1,9 +1,11 @@
 package org.jerish.dbdeploy.script;
 
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.jerish.dbdeploy.database.DatabaseConnectionManager;
 import org.jerish.dbdeploy.database.TransactionManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -16,14 +18,12 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.time.LocalDateTime;
 
+@Service
+@RequiredArgsConstructor
+@Slf4j
 public class ScriptExecutor {
-    private static final Logger logger = LoggerFactory.getLogger(ScriptExecutor.class);
 
     private final DatabaseConnectionManager connectionManager;
-
-    public ScriptExecutor(DatabaseConnectionManager connectionManager) {
-        this.connectionManager = connectionManager;
-    }
 
     public ScriptExecutionResult executeScript(String scriptPath, String scriptId) {
         long startTime = System.currentTimeMillis();
@@ -46,7 +46,7 @@ public class ScriptExecutor {
 
                         for (String sql : sqlStatements) {
                             if (!sql.trim().isEmpty()) {
-                                logger.debug("Executing SQL: {}", sql.trim());
+                                log.debug("Executing SQL: {}", sql.trim());
                                 statement.execute(sql);
                             }
                         }
@@ -55,7 +55,7 @@ public class ScriptExecutor {
                         result.setEndTime(LocalDateTime.now());
                         result.setDuration(System.currentTimeMillis() - startTime);
 
-                        logger.info("Script {} executed successfully", scriptId);
+                        log.info("Script {} executed successfully", scriptId);
                     }
                 });
             }
@@ -65,20 +65,20 @@ public class ScriptExecutor {
             result.setEndTime(LocalDateTime.now());
             result.setDuration(System.currentTimeMillis() - startTime);
 
-            logger.error("Script {} execution failed", scriptId, e);
+            log.error("Script {} execution failed", scriptId, e);
         }
 
         return result;
     }
 
-    public void executeScript(String scriptPath) throws Exception {
-        String scriptId = Paths.get(scriptPath).getFileName().toString();
-        ScriptExecutionResult result = executeScript(scriptPath, scriptId);
-
-        if (!result.isSuccess()) {
-            throw new RuntimeException("Script execution failed: " + result.getErrorMessage());
-        }
-    }
+//    public void executeScript(String scriptPath) throws Exception {
+//        String scriptId = Paths.get(scriptPath).getFileName().toString();
+//        ScriptExecutionResult result = executeScript(scriptPath, scriptId);
+//
+//        if (!result.isSuccess()) {
+//            throw new RuntimeException("Script execution failed: " + result.getErrorMessage());
+//        }
+//    }
 
     public void executeScriptContent(String scriptContent) throws Exception {
         try (Connection connection = connectionManager.getConnection()) {
@@ -90,12 +90,12 @@ public class ScriptExecutor {
 
                     for (String sql : sqlStatements) {
                         if (!sql.trim().isEmpty()) {
-                            logger.debug("Executing SQL: {}", sql.trim());
+                            log.debug("Executing SQL: {}", sql.trim());
                             statement.execute(sql);
                         }
                     }
 
-                    logger.info("Script content executed successfully");
+                    log.info("Script content executed successfully");
                 }
             });
         }
@@ -149,7 +149,7 @@ public class ScriptExecutor {
             result.setEndTime(LocalDateTime.now());
             result.setDuration(System.currentTimeMillis() - startTime);
 
-            logger.error("Verification script {} execution failed", verificationScriptPath, e);
+            log.error("Verification script {} execution failed", verificationScriptPath, e);
             return result;
         }
     }
@@ -167,8 +167,8 @@ public class ScriptExecutor {
 
                     for (String sql : sqlStatements) {
                         if (!sql.trim().isEmpty()) {
-                            logger.debug("Executing verification SQL: {}", sql.trim());
-                            
+                            log.debug("Executing verification SQL: {}", sql.trim());
+
                             try (var resultSet = statement.executeQuery(sql.trim())) {
                                 while (resultSet.next()) {
                                     if (output.length() > 0) {
@@ -185,7 +185,7 @@ public class ScriptExecutor {
                     result.setEndTime(LocalDateTime.now());
                     result.setDuration(System.currentTimeMillis() - startTime);
 
-                    logger.info("Verification executed successfully");
+                    log.info("Verification executed successfully");
                 }
             }
         } catch (Exception e) {
@@ -194,7 +194,7 @@ public class ScriptExecutor {
             result.setEndTime(LocalDateTime.now());
             result.setDuration(System.currentTimeMillis() - startTime);
 
-            logger.error("Verification execution failed", e);
+            log.error("Verification execution failed", e);
         }
 
         return result;
@@ -203,7 +203,7 @@ public class ScriptExecutor {
     public void executeScriptWithVerification(String scriptPath, String scriptId) throws Exception {
         // Execute the main script
         ScriptExecutionResult result = executeScript(scriptPath, scriptId);
-        
+
         if (!result.isSuccess()) {
             throw new RuntimeException("Script execution failed: " + result.getErrorMessage());
         }
@@ -213,29 +213,29 @@ public class ScriptExecutor {
         try {
             if (Files.exists(Paths.get(verificationPath))) {
                 VerificationResult verificationResult = executeVerification(verificationPath);
-                
+
                 // Log verification results
-                logger.info("\n=== VERIFICATION RESULTS ===");
-                logger.info("Script: {}", scriptId);
-                logger.info("Verification Status: {}", verificationResult.isSuccess() ? "SUCCESS" : "FAILED");
-                logger.info("Duration: {}ms", verificationResult.getDuration());
-                logger.info("Output:");
-                logger.info("{}", verificationResult.getOutput());
-                
+                log.info("\n=== VERIFICATION RESULTS ===");
+                log.info("Script: {}", scriptId);
+                log.info("Verification Status: {}", verificationResult.isSuccess() ? "SUCCESS" : "FAILED");
+                log.info("Duration: {}ms", verificationResult.getDuration());
+                log.info("Output:");
+                log.info("{}", verificationResult.getOutput());
+
                 if (!verificationResult.isSuccess()) {
-                    logger.error("Error: {}", verificationResult.getErrorMessage());
+                    log.error("Error: {}", verificationResult.getErrorMessage());
                 }
-                logger.info("=== END VERIFICATION ===\n");
-                
+                log.info("=== END VERIFICATION ===\n");
+
                 // If verification fails, throw exception
                 if (!verificationResult.isSuccess()) {
                     throw new RuntimeException("Verification failed for script: " + scriptId);
                 }
             } else {
-                logger.info("No verification script found for: {}", scriptId);
+                log.info("No verification script found for: {}", scriptId);
             }
         } catch (Exception e) {
-            logger.warn("Could not check for verification script: {}", e.getMessage());
+            log.warn("Could not check for verification script: {}", e.getMessage());
         }
     }
 
@@ -275,21 +275,21 @@ public class ScriptExecutor {
 
                         for (String sql : sqlStatements) {
                             if (!sql.trim().isEmpty()) {
-                                logger.debug("Executing SQL: {}", sql.trim());
+                                log.debug("Executing SQL: {}", sql.trim());
                                 statement.execute(sql);
                             }
                         }
 
-                        logger.info("Script {} executed successfully", scriptId);
+                        log.info("Script {} executed successfully", scriptId);
 
                         // Execute verification if it exists
                         if (hasVerification && verificationContent != null) {
-                            logger.info("Running verification for script: {}", scriptId);
+                            log.info("Running verification for script: {}", scriptId);
                             String[] verificationStatements = splitStatements(verificationContent);
-                            
+
                             for (String sql : verificationStatements) {
                                 if (!sql.trim().isEmpty()) {
-                                    logger.debug("Executing verification SQL: {}", sql.trim());
+                                    log.debug("Executing verification SQL: {}", sql.trim());
                                     try (ResultSet resultSet = statement.executeQuery(sql.trim())) {
                                         // Consume results to ensure execution
                                         while (resultSet.next()) {
@@ -298,7 +298,7 @@ public class ScriptExecutor {
                                     }
                                 }
                             }
-                            logger.info("Verification completed successfully for script: {}", scriptId);
+                            log.info("Verification completed successfully for script: {}", scriptId);
                         }
 
                         result.setSuccess(true);
@@ -313,12 +313,13 @@ public class ScriptExecutor {
             result.setEndTime(LocalDateTime.now());
             result.setDuration(System.currentTimeMillis() - startTime);
 
-            logger.error("Script {} execution or verification failed", scriptId, e);
+            log.error("Script {} execution or verification failed", scriptId, e);
         }
 
         return result;
     }
 
+    @Data
     public static class VerificationResult {
         private String verificationScriptPath;
         private boolean success;
@@ -327,64 +328,9 @@ public class ScriptExecutor {
         private LocalDateTime startTime;
         private LocalDateTime endTime;
         private long duration;
-
-        public String getVerificationScriptPath() {
-            return verificationScriptPath;
-        }
-
-        public void setVerificationScriptPath(String verificationScriptPath) {
-            this.verificationScriptPath = verificationScriptPath;
-        }
-
-        public boolean isSuccess() {
-            return success;
-        }
-
-        public void setSuccess(boolean success) {
-            this.success = success;
-        }
-
-        public String getOutput() {
-            return output;
-        }
-
-        public void setOutput(String output) {
-            this.output = output;
-        }
-
-        public String getErrorMessage() {
-            return errorMessage;
-        }
-
-        public void setErrorMessage(String errorMessage) {
-            this.errorMessage = errorMessage;
-        }
-
-        public LocalDateTime getStartTime() {
-            return startTime;
-        }
-
-        public void setStartTime(LocalDateTime startTime) {
-            this.startTime = startTime;
-        }
-
-        public LocalDateTime getEndTime() {
-            return endTime;
-        }
-
-        public void setEndTime(LocalDateTime endTime) {
-            this.endTime = endTime;
-        }
-
-        public long getDuration() {
-            return duration;
-        }
-
-        public void setDuration(long duration) {
-            this.duration = duration;
-        }
     }
 
+    @Data
     public static class ScriptExecutionResult {
         private String scriptId;
         private String scriptPath;
@@ -394,69 +340,5 @@ public class ScriptExecutor {
         private LocalDateTime startTime;
         private LocalDateTime endTime;
         private long duration;
-
-        public String getScriptId() {
-            return scriptId;
-        }
-
-        public void setScriptId(String scriptId) {
-            this.scriptId = scriptId;
-        }
-
-        public String getScriptPath() {
-            return scriptPath;
-        }
-
-        public void setScriptPath(String scriptPath) {
-            this.scriptPath = scriptPath;
-        }
-
-        public String getScriptChecksum() {
-            return scriptChecksum;
-        }
-
-        public void setScriptChecksum(String scriptChecksum) {
-            this.scriptChecksum = scriptChecksum;
-        }
-
-        public boolean isSuccess() {
-            return success;
-        }
-
-        public void setSuccess(boolean success) {
-            this.success = success;
-        }
-
-        public String getErrorMessage() {
-            return errorMessage;
-        }
-
-        public void setErrorMessage(String errorMessage) {
-            this.errorMessage = errorMessage;
-        }
-
-        public LocalDateTime getStartTime() {
-            return startTime;
-        }
-
-        public void setStartTime(LocalDateTime startTime) {
-            this.startTime = startTime;
-        }
-
-        public LocalDateTime getEndTime() {
-            return endTime;
-        }
-
-        public void setEndTime(LocalDateTime endTime) {
-            this.endTime = endTime;
-        }
-
-        public long getDuration() {
-            return duration;
-        }
-
-        public void setDuration(long duration) {
-            this.duration = duration;
-        }
     }
 }

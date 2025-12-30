@@ -1,42 +1,32 @@
 package org.jerish.dbdeploy.service;
 
-import org.jerish.dbdeploy.config.ChangeLogConfig;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.jerish.dbdeploy.dao.AuditDao;
 import org.jerish.dbdeploy.database.DatabaseConnectionManager;
+import org.jerish.dbdeploy.entity.ChangeLogConfig;
 import org.jerish.dbdeploy.model.ChangeLogEntry;
 import org.jerish.dbdeploy.model.DeploymentTag;
 import org.jerish.dbdeploy.model.ScriptExecutionStatus;
 import org.jerish.dbdeploy.script.ScriptExecutor;
 import org.jerish.dbdeploy.script.ScriptFileManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.time.LocalDateTime;
 import java.util.List;
 
-public class InhouseDatabaseDeployService implements DatabaseDeployService {
-    private static final Logger logger = LoggerFactory.getLogger(InhouseDatabaseDeployService.class);
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class DefaultDatabaseDeployService implements DatabaseDeployService {
 
     private final DatabaseConnectionManager connectionManager;
     private final AuditDao auditDao;
     private final ScriptExecutor scriptExecutor;
     private final ScriptFileManager scriptFileManager;
-
-    public InhouseDatabaseDeployService(DatabaseConnectionManager connectionManager,
-                                        AuditDao auditDao,
-                                        String changelogPath) {
-        this.connectionManager = connectionManager;
-        this.auditDao = auditDao;
-        this.scriptExecutor = new ScriptExecutor(connectionManager);
-        // Derive script base path from changelog path (scripts folder in same directory as changelog)
-        String scriptBasePath = deriveScriptBasePath(changelogPath);
-        this.scriptFileManager = new ScriptFileManager(scriptBasePath);
-    }
 
     private String deriveScriptBasePath(String changelogPath) {
         if (changelogPath == null) {
@@ -44,16 +34,16 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
         }
         // Get the parent directory of the changelog file and append "scripts"
         Path changelogFile = Paths.get(changelogPath);
-        Path scriptsDir = changelogFile.getParent() != null ? 
-            changelogFile.getParent().resolve("scripts") : 
-            Paths.get("scripts");
+        Path scriptsDir = changelogFile.getParent() != null ?
+                changelogFile.getParent().resolve("scripts") :
+                Paths.get("scripts");
         return scriptsDir.toString();
     }
 
     @Override
     public void deploy(ChangeLogConfig changeLogConfig, String tagName, boolean dryRun) throws Exception {
 
-        logger.info("Starting deployment with tag: {}", tagName);
+        log.info("Starting deployment with tag: {}", tagName);
 
         String lockOwner = "deploy-" + System.currentTimeMillis();
 
@@ -71,38 +61,39 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
                 // Debug: Check database URL
                 try (Connection conn = connectionManager.getConnection()) {
                     String dbUrl = conn.getMetaData().getURL();
-                    logger.info("Database URL: {}", dbUrl);
+                    log.info("Database URL: {}", dbUrl);
                 }
 
                 List<DeploymentTag> existingTags = auditDao.getDeploymentTags();
-                logger.info("Found {} existing tags", existingTags.size());
+                log.info("Found {} existing tags", existingTags.size());
                 for (DeploymentTag tag : existingTags) {
-                    logger.info("Existing tag: {}", tag.getTagName());
+                    log.info("Existing tag: {}", tag.getTagName());
                 }
                 if (existingTags.isEmpty()) {
                     isFirstDeployment = true;
-                    logger.info("First deployment detected, creating initial tag");
+                    log.info("First deployment detected, creating initial tag");
                     createInitialTag();
                 }
             }
 
             // Load all scripts from changelog
-            List<ScriptFileManager.ScriptFile> scripts = scriptFileManager.loadScripts(changeLogConfig.getScripts());
+            String scriptBasePath = deriveScriptBasePath(changeLogConfig.getChangelogFilePath());
+            List<ScriptFileManager.ScriptFile> scripts = scriptFileManager.loadScripts(scriptBasePath, changeLogConfig.getScripts());
 
             for (ScriptFileManager.ScriptFile script : scripts) {
                 if (dryRun) {
-                    logger.info("[DRY RUN] Would execute script: {}", script.getName());
+                    log.info("[DRY RUN] Would execute script: {}", script.getName());
                     continue;
                 }
 
                 // Check if script was already executed
                 String scriptNameForDb = script.getName();
                 if (auditDao.isScriptExecuted(scriptNameForDb)) {
-                    logger.info("Skipping already executed script: {}", script.getName());
+                    log.info("Skipping already executed script: {}", script.getName());
                     continue;
                 }
 
-                logger.info("Executing script: {}", script.getName());
+                log.info("Executing script: {}", script.getName());
                 executeScriptWithAudit(script, tagName);
             }
 
@@ -111,7 +102,7 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
                 createDeploymentTag(tagName);
             }
 
-            logger.info("Deployment completed successfully with tag: {}", tagName);
+            log.info("Deployment completed successfully with tag: {}", tagName);
 
         } finally {
             if (!dryRun) {
@@ -144,7 +135,7 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
             if (result.isSuccess()) {
                 entry.setExecutionDurationMs(result.getDuration());
                 auditDao.recordScriptExecution(entry);
-                logger.info("Script {} executed and verified successfully", script.getName());
+                log.info("Script {} executed and verified successfully", script.getName());
             } else {
                 throw new RuntimeException(result.getErrorMessage());
             }
@@ -171,8 +162,8 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
         DeploymentTag tag = new DeploymentTag();
         tag.setTagName("initial");
         tag.setDescription("Initial state - before any changesets applied");
-        
-        
+
+
         tag.setDeploymentTime(LocalDateTime.now());
         tag.setCreatedBy("db-deploy-tool");
         tag.setIsActive(true);
@@ -193,12 +184,12 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
 
         auditDao.recordScriptExecution(initialEntry);
 
-        logger.info("Created initial tag and changelog entry for rollback capability");
+        log.info("Created initial tag and changelog entry for rollback capability");
     }
 
     @Override
     public void rollback(String targetTagName, boolean dryRun) throws Exception {
-        logger.info("Starting rollback to tag: {}", targetTagName);
+        log.info("Starting rollback to tag: {}", targetTagName);
 
         String lockOwner = "rollback-" + System.currentTimeMillis();
 
@@ -220,28 +211,28 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
             List<ChangeLogEntry> scriptsToRollback = auditDao.getScriptsExecutedAfter(targetTagName);
 
             if (scriptsToRollback.isEmpty()) {
-                logger.info("No scripts to rollback. Database is already at tag: {}", targetTagName);
+                log.info("No scripts to rollback. Database is already at tag: {}", targetTagName);
                 return;
             }
 
-            logger.info("Found {} scripts to rollback", scriptsToRollback.size());
+            log.info("Found {} scripts to rollback", scriptsToRollback.size());
 
             // Execute rollback scripts in reverse order
             for (int i = 0; i < scriptsToRollback.size(); i++) {
                 ChangeLogEntry entry = scriptsToRollback.get(i);
 
                 if (dryRun) {
-                    logger.info("[DRY RUN] Would rollback script: {}", entry.getScriptName());
+                    log.info("[DRY RUN] Would rollback script: {}", entry.getScriptName());
                     continue;
                 }
 
-                logger.info("Rolling back script: {}", entry.getScriptName());
+                log.info("Rolling back script: {}", entry.getScriptName());
 
                 // Execute rollback script if available
                 if (entry.getRollbackScriptContent() != null && !entry.getRollbackScriptContent().isEmpty()) {
                     scriptExecutor.executeScriptContent(entry.getRollbackScriptContent());
                 } else {
-                    logger.warn("No rollback script available for: {}", entry.getScriptName());
+                    log.warn("No rollback script available for: {}", entry.getScriptName());
                 }
 
                 // Execute rollback verification if available
@@ -249,26 +240,26 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
                     try {
                         ScriptExecutor.VerificationResult verificationResult = scriptExecutor.executeVerification(
                                 entry.getRollbackVerifyScriptContent());
-                        
+
                         // Log verification results
-                        logger.info("\n=== ROLLBACK VERIFICATION RESULTS ===");
-                        logger.info("Script: {}", entry.getScriptName());
-                        logger.info("Verification Status: {}", verificationResult.isSuccess() ? "SUCCESS" : "FAILED");
-                        logger.info("Duration: {}ms", verificationResult.getDuration());
-                        logger.info("Output:");
-                        logger.info("{}", verificationResult.getOutput());
-                        
+                        log.info("\n=== ROLLBACK VERIFICATION RESULTS ===");
+                        log.info("Script: {}", entry.getScriptName());
+                        log.info("Verification Status: {}", verificationResult.isSuccess() ? "SUCCESS" : "FAILED");
+                        log.info("Duration: {}ms", verificationResult.getDuration());
+                        log.info("Output:");
+                        log.info("{}", verificationResult.getOutput());
+
                         if (!verificationResult.isSuccess()) {
-                            logger.error("Rollback verification error: {}", verificationResult.getErrorMessage());
+                            log.error("Rollback verification error: {}", verificationResult.getErrorMessage());
                         }
-                        logger.info("=== END ROLLBACK VERIFICATION ===\n");
-                        
+                        log.info("=== END ROLLBACK VERIFICATION ===\n");
+
                         // If verification fails, log warning but continue
                         if (!verificationResult.isSuccess()) {
-                            logger.warn("Rollback verification failed for script: {}", entry.getScriptName());
+                            log.warn("Rollback verification failed for script: {}", entry.getScriptName());
                         }
                     } catch (Exception e) {
-                        logger.warn("Could not execute rollback verification for script {}: {}", 
+                        log.warn("Could not execute rollback verification for script {}: {}",
                                 entry.getScriptName(), e.getMessage());
                     }
                 }
@@ -276,7 +267,7 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
                 // Update the execution status to ROLLED_BACK
                 auditDao.updateScriptExecutionStatus(entry.getId(), ScriptExecutionStatus.ROLLED_BACK, null);
 
-                logger.info("Script {} rolled back successfully", entry.getScriptName());
+                log.info("Script {} rolled back successfully", entry.getScriptName());
             }
 
             // Deactivate all deployment tags that were rolled back
@@ -299,12 +290,12 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
                     // that were deployed after the target tag (because of DESC order)
                     if (!foundTargetTag && tag.getIsActive()) {
                         auditDao.deactivateDeploymentTag(tag.getTagName());
-                        logger.info("Deactivated deployment tag: {}", tag.getTagName());
+                        log.info("Deactivated deployment tag: {}", tag.getTagName());
                     }
                 }
             }
 
-            logger.info("Rollback to tag '{}' completed successfully", targetTagName);
+            log.info("Rollback to tag '{}' completed successfully", targetTagName);
 
         } finally {
             if (!dryRun) {
@@ -315,7 +306,7 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
 
     @Override
     public void showStatus() throws Exception {
-        logger.info("=== Database Deployment Status ===");
+        log.info("=== Database Deployment Status ===");
 
         // Get the latest deployment tag from active deployment tags
         List<DeploymentTag> activeTags = auditDao.getDeploymentTags();
@@ -330,16 +321,16 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
         }
 
         if (currentTag != null) {
-            logger.info("Current deployment tag: {}", currentTag);
+            log.info("Current deployment tag: {}", currentTag);
         } else {
-            logger.info("No deployment tag found");
+            log.info("No deployment tag found");
         }
 
         // Get all script executions
         List<ChangeLogEntry> recentExecutions = auditDao.getScriptsExecutedAfter("");
 
         if (recentExecutions.isEmpty()) {
-            logger.info("No scripts have been executed yet");
+            log.info("No scripts have been executed yet");
             return;
         }
 
@@ -358,10 +349,10 @@ public class InhouseDatabaseDeployService implements DatabaseDeployService {
             }
         }
 
-        logger.info("Total scripts executed: {}", recentExecutions.size());
-        logger.info("Successful: {}", successCount);
-        logger.info("Failed: {}", failedCount);
-        logger.info("Rolled back: {}", rolledBackCount);
+        log.info("Total scripts executed: {}", recentExecutions.size());
+        log.info("Successful: {}", successCount);
+        log.info("Failed: {}", failedCount);
+        log.info("Rolled back: {}", rolledBackCount);
     }
 
     private DeploymentTag getCurrentDeploymentTag() throws Exception {

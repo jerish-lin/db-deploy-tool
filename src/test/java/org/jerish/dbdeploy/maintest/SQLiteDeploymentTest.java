@@ -1,13 +1,8 @@
-package org.jerish.dbdeploy;
+package org.jerish.dbdeploy.maintest;
 
-import org.jerish.dbdeploy.config.DatabaseConfig;
-import org.jerish.dbdeploy.database.DatabaseConnectionManager;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -25,53 +20,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 4. Verifying all indexes were created
  * 5. Verifying audit information is correct
  */
-public class SQLiteDeploymentTest {
 
-    private static final String DB_FILE = "testdb.sqlite";
-    private DatabaseConnectionManager connectionManager;
-
-    @BeforeEach
-    void setUp() throws SQLException {
-        // Clean up any existing database file
-        cleanupDatabase();
-
-        // Initialize database connection manager
-        DatabaseConfig dbConfig = new DatabaseConfig();
-        dbConfig.setUrl("jdbc:sqlite:" + DB_FILE);
-        dbConfig.setDriver("org.sqlite.JDBC");
-
-        connectionManager = new DatabaseConnectionManager(dbConfig);
-    }
-
-    @AfterEach
-    void tearDown() {
-        if (connectionManager != null) {
-            connectionManager.close();
-        }
-//        cleanupDatabase();
-    }
-
-    private void cleanupDatabase() {
-        File dbFile = new File(DB_FILE);
-        if (dbFile.exists() && !dbFile.delete()) {
-            System.err.println("Warning: Could not delete existing database file");
-        }
-    }
-
+public class SQLiteDeploymentTest extends SQLiteDeployTestBase {
     @Test
     @DisplayName("Test complete database deployment with SQLite")
     void testCompleteDeployment() throws Exception {
-        // Run the deployment
-        String[] deployArgs = {
-                "--action", "DEPLOY",
-                "--database-config", "src/test/resources/sqlite-test-config.yml",
-                "--changelog", "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml",
-                "--tag", "1.0.0.20231110.1",
-                
-                "--verbose"
-        };
+        // Define deployment parameters
+        String changelogPath = "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml";
+        String tagName = "1.0.0.20231110.1";
+        boolean dryRun = false;
 
-        assertDoesNotThrow(() -> DatabaseDeployTool.main(deployArgs),
+        // Run the deployment using DatabaseDeployManager
+        assertDoesNotThrow(() -> deployManager.deploy(changelogPath, tagName, dryRun),
                 "Database deployment should complete without errors");
 
         // Verify all expected tables exist

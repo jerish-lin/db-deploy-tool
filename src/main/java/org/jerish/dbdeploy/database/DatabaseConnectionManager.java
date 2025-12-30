@@ -2,17 +2,17 @@ package org.jerish.dbdeploy.database;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import lombok.extern.slf4j.Slf4j;
 import org.jerish.dbdeploy.config.DatabaseConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
 
+@Service
+@Slf4j
 public class DatabaseConnectionManager {
-    private static final Logger logger = LoggerFactory.getLogger(DatabaseConnectionManager.class);
-
     private final HikariDataSource dataSource;
 
     public DatabaseConnectionManager(DatabaseConfig config) {
@@ -28,7 +28,7 @@ public class DatabaseConnectionManager {
         hikariConfig.setPoolName("db-deploy-tool-pool");
 
         this.dataSource = new HikariDataSource(hikariConfig);
-        logger.info("Database connection pool initialized with URL: {}", config.getUrl());
+        log.info("Database connection pool initialized with URL: {}", config.getUrl());
     }
 
     public Connection getConnection() throws SQLException {
@@ -42,7 +42,7 @@ public class DatabaseConnectionManager {
     public void close() {
         if (dataSource != null && !dataSource.isClosed()) {
             dataSource.close();
-            logger.info("Database connection pool closed");
+            log.info("Database connection pool closed");
         }
     }
 
@@ -50,7 +50,7 @@ public class DatabaseConnectionManager {
         try (Connection connection = getConnection()) {
             return connection.isValid(5);
         } catch (SQLException e) {
-            logger.error("Database connection validation failed", e);
+            log.error("Database connection validation failed", e);
             return false;
         }
     }

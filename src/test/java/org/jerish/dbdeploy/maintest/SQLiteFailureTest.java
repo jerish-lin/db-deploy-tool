@@ -1,13 +1,8 @@
-package org.jerish.dbdeploy;
+package org.jerish.dbdeploy.maintest;
 
-import org.jerish.dbdeploy.config.DatabaseConfig;
-import org.jerish.dbdeploy.database.DatabaseConnectionManager;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -24,70 +19,27 @@ import static org.junit.jupiter.api.Assertions.*;
  * 4. Verifying rollback works correctly after failure
  * 5. Verifying audit information correctly tracks the failure
  */
-public class SQLiteFailureTest {
 
-    private static final String DB_FILE = "testdb.sqlite";
-    private DatabaseConnectionManager connectionManager;
-
-    @BeforeEach
-    void setUp() throws SQLException {
-        // Clean up any existing database file
-        cleanupDatabase();
-
-        // Initialize database connection manager
-        DatabaseConfig dbConfig = new DatabaseConfig();
-        dbConfig.setUrl("jdbc:sqlite:" + DB_FILE);
-        dbConfig.setDriver("org.sqlite.JDBC");
-
-        connectionManager = new DatabaseConnectionManager(dbConfig);
-    }
-
-    @AfterEach
-    void tearDown() {
-        if (connectionManager != null) {
-            connectionManager.close();
-        }
-//        cleanupDatabase();
-    }
-
-    private void cleanupDatabase() {
-        File dbFile = new File(DB_FILE);
-        if (dbFile.exists() && !dbFile.delete()) {
-            System.err.println("Warning: Could not delete existing database file");
-        }
-    }
-
+public class SQLiteFailureTest extends SQLiteDeployTestBase {
     @Test
     @DisplayName("Test deployment failure handling")
     void testDeploymentFailure() throws Exception {
         // First deploy up to v1.0.1 (working scripts)
-        String[] deployArgsV1_0_1 = {
-                "--action", "DEPLOY",
-                "--database-config", "src/test/resources/sqlite-test-config.yml",
-                "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog-first3.yml",
-                "--tag", "1.0.1.20231110.1",
-                
-                "--verbose"
-        };
+        String changelogPathV1_0_1 = "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog-first3.yml";
+        String tagNameV1_0_1 = "1.0.1.20231110.1";
 
-        assertDoesNotThrow(() -> DatabaseDeployTool.main(deployArgsV1_0_1),
+        assertDoesNotThrow(() -> deployManager.deploy(changelogPathV1_0_1, tagNameV1_0_1, false),
                 "Initial deployment up to v1.0.1 should complete without errors");
 
         // Verify v1.0.1 deployment was successful
         verifySuccessfulDeploymentV1_0_1();
 
         // Now attempt to deploy v1.0.2 which contains a failing script
-        String[] deployArgsV1_0_2 = {
-                "--action", "DEPLOY",
-                "--database-config", "src/test/resources/sqlite-test-config.yml",
-                "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog.yml",
-                "--tag", "1.0.2.20231110.1",
-                
-                "--verbose"
-        };
+        String changelogPathV1_0_2 = "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog.yml";
+        String tagNameV1_0_2 = "1.0.2.20231110.1";
 
         // This should fail due to the intentional SQL error in create-user-orders-view
-        assertThrows(Exception.class, () -> DatabaseDeployTool.main(deployArgsV1_0_2),
+        assertThrows(Exception.class, () -> deployManager.deploy(changelogPathV1_0_2, tagNameV1_0_2, false),
                 "Deployment should fail due to intentional SQL error");
 
         // Verify failure state
@@ -98,44 +50,24 @@ public class SQLiteFailureTest {
     @DisplayName("Test rollback after failure")
     void testRollbackAfterFailure() throws Exception {
         // First deploy up to v1.0.1
-        String[] deployArgsV1_0_1 = {
-                "--action", "DEPLOY",
-                "--database-config", "src/test/resources/sqlite-test-config.yml",
-                "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog-first3.yml",
-                "--tag", "1.0.1.20231110.1",
-                
-                "--verbose"
-        };
+        String changelogPathV1_0_1 = "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog-first3.yml";
+        String tagNameV1_0_1 = "1.0.1.20231110.1";
 
-        assertDoesNotThrow(() -> DatabaseDeployTool.main(deployArgsV1_0_1),
+        assertDoesNotThrow(() -> deployManager.deploy(changelogPathV1_0_1, tagNameV1_0_1, false),
                 "Initial deployment up to v1.0.1 should complete without errors");
 
         // Attempt to deploy v1.0.2 which will fail
-        String[] deployArgsV1_0_2 = {
-                "--action", "DEPLOY",
-                "--database-config", "src/test/resources/sqlite-test-config.yml",
-                "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog.yml",
-                "--tag", "1.0.2.20231110.1",
-                
-                "--verbose"
-        };
+        String changelogPathV1_0_2 = "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog.yml";
+        String tagNameV1_0_2 = "1.0.2.20231110.1";
 
-        assertThrows(Exception.class, () -> DatabaseDeployTool.main(deployArgsV1_0_2),
+        assertThrows(Exception.class, () -> deployManager.deploy(changelogPathV1_0_2, tagNameV1_0_2, false),
                 "Deployment should fail due to intentional SQL error");
 
         // Verify failure state
         verifyFailureState("feature-12350-create-user-orders-view");
 
         // Now rollback to v1.0.1
-        String[] rollbackArgs = {
-                "--action", "ROLLBACK",
-                "--database-config", "src/test/resources/sqlite-test-config.yml",
-                "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog.yml",
-                "--tag", "1.0.1.20231110.1",
-                "--verbose"
-        };
-
-        assertDoesNotThrow(() -> DatabaseDeployTool.main(rollbackArgs),
+        assertDoesNotThrow(() -> deployManager.rollback(tagNameV1_0_1, false),
                 "Rollback should complete without errors");
 
         // Verify rollback was successful
@@ -316,31 +248,21 @@ public class SQLiteFailureTest {
     @DisplayName("Test verification failure handling")
     void testVerificationFailure() throws Exception {
         // First deploy working scripts up to feature-12348 (before the failing verification)
-        String[] deployArgsInitial = {
-                "--action", "DEPLOY",
-                "--database-config", "src/test/resources/sqlite-test-config.yml",
-                "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog-first3.yml",
-                "--tag", "1.0.1.20231110.1",
-                "--verbose"
-        };
+        String changelogPathInitial = "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog-first3.yml";
+        String tagNameInitial = "1.0.1.20231110.1";
 
-        assertDoesNotThrow(() -> DatabaseDeployTool.main(deployArgsInitial),
+        assertDoesNotThrow(() -> deployManager.deploy(changelogPathInitial, tagNameInitial, false),
                 "Initial deployment should complete without errors");
 
         // Verify initial deployment was successful
         verifySuccessfulDeploymentV1_0_1();
 
         // Now attempt to deploy including the script with failing verification (feature-12349)
-        String[] deployArgsWithVerificationFailure = {
-                "--action", "DEPLOY",
-                "--database-config", "src/test/resources/sqlite-test-config.yml",
-                "--changelog", "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog-verify-failure.yml",
-                "--tag", "1.0.2.20231110.1",
-                "--verbose"
-        };
+        String changelogPathWithVerificationFailure = "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog-verify-failure.yml";
+        String tagNameWithVerificationFailure = "1.0.2.20231110.1";
 
         // This should fail due to the intentional SQL error in create-user-orders-view
-        assertThrows(Exception.class, () -> DatabaseDeployTool.main(deployArgsWithVerificationFailure),
+        assertThrows(Exception.class, () -> deployManager.deploy(changelogPathWithVerificationFailure, tagNameWithVerificationFailure, false),
                 "Deployment should fail due to intentional SQL error");
 
         // Verify failure state

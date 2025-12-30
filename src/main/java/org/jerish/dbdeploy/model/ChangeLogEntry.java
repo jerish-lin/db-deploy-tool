@@ -1,7 +1,12 @@
 package org.jerish.dbdeploy.model;
 
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.time.LocalDateTime;
 
+@Data
+@NoArgsConstructor
 public class ChangeLogEntry {
     private Long id;
     private String scriptName;
@@ -15,104 +20,4 @@ public class ChangeLogEntry {
     private String tagName;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-
-    public ChangeLogEntry() {
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getScriptName() {
-        return scriptName;
-    }
-
-    public void setScriptName(String scriptName) {
-        this.scriptName = scriptName;
-    }
-
-    public String getScriptChecksum() {
-        return scriptChecksum;
-    }
-
-    public void setScriptChecksum(String scriptChecksum) {
-        this.scriptChecksum = scriptChecksum;
-    }
-
-    public ScriptExecutionStatus getExecutionStatus() {
-        return executionStatus;
-    }
-
-    public void setExecutionStatus(ScriptExecutionStatus executionStatus) {
-        this.executionStatus = executionStatus;
-    }
-
-    public LocalDateTime getExecutionTime() {
-        return executionTime;
-    }
-
-    public void setExecutionTime(LocalDateTime executionTime) {
-        this.executionTime = executionTime;
-    }
-
-    public Long getExecutionDurationMs() {
-        return executionDurationMs;
-    }
-
-    public void setExecutionDurationMs(Long executionDurationMs) {
-        this.executionDurationMs = executionDurationMs;
-    }
-
-    public String getErrorMessage() {
-        return errorMessage;
-    }
-
-    public void setErrorMessage(String errorMessage) {
-        this.errorMessage = errorMessage;
-    }
-
-    public String getRollbackScriptContent() {
-        return rollbackScriptContent;
-    }
-
-    public void setRollbackScriptContent(String rollbackScriptContent) {
-        this.rollbackScriptContent = rollbackScriptContent;
-    }
-
-    public String getRollbackVerifyScriptContent() {
-        return rollbackVerifyScriptContent;
-    }
-
-    public void setRollbackVerifyScriptContent(String rollbackVerifyScriptContent) {
-        this.rollbackVerifyScriptContent = rollbackVerifyScriptContent;
-    }
-
-    public String getTagName() {
-        return tagName;
-    }
-
-    public void setTagName(String tagName) {
-        this.tagName = tagName;
-    }
-
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
 }

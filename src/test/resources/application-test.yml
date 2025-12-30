@@ -1,0 +1,10 @@
+db-deploy:
+  database:
+    url: jdbc:sqlite:testdb.sqlite
+    username:
+    password:
+    driver: org.sqlite.JDBC
+    max-pool-size: 5
+    connection-timeout: 10000
+    idle-timeout: 300000
+    max-lifetime: 600000

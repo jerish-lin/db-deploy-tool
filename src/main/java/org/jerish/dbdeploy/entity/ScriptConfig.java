@@ -1,24 +1,16 @@
-package org.jerish.dbdeploy.config;
+package org.jerish.dbdeploy.entity;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode
 public class ScriptConfig {
     private String name;
-
-    public ScriptConfig() {
-    }
-
-    public ScriptConfig(String name) {
-        this.name = name;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    
 
     public String getApplyScriptPath() {
         return name + ".apply.sql";
@@ -74,16 +66,5 @@ public class ScriptConfig {
         return name;
     }
 
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null || getClass() != obj.getClass()) return false;
-        ScriptConfig that = (ScriptConfig) obj;
-        return name != null ? name.equals(that.name) : that.name == null;
-    }
 
-    @Override
-    public int hashCode() {
-        return name != null ? name.hashCode() : 0;
-    }
 }

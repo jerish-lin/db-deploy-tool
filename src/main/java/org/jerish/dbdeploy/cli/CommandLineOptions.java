@@ -1,5 +1,6 @@
 package org.jerish.dbdeploy.cli;
 
+import lombok.Data;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -8,13 +9,14 @@ import picocli.CommandLine.Option;
         mixinStandardHelpOptions = true,
         description = "Database version management and deployment tool",
         version = "1.0.0")
+@Data
 public class CommandLineOptions {
 
     @Option(names = {"-a", "--action"},
             description = "Action to perform: ${COMPLETION-CANDIDATES}",
-            required = true,
-            defaultValue = "deploy")
-    private Action action = Action.DEPLOY;
+            required = false,
+            defaultValue = "DEPLOY_OR_ROLLBACK")
+    private Action action = Action.DEPLOY_OR_ROLLBACK;
 
     @Option(names = {"-c", "--changelog"},
             description = "Path to the db-changelog.yml file (required for deploy, optional for status, not used for rollback)")
@@ -23,17 +25,6 @@ public class CommandLineOptions {
     @Option(names = {"-t", "--tag"},
             description = "For deploy: tag name to assign after deployment; For rollback: target tag name to rollback to")
     private String tagName;
-
-    @Option(names = {"-d", "--database-config"},
-            description = "Path to database configuration file",
-            required = true)
-    private String databaseConfigPath;
-
-    
-
-    
-
-    
 
     @Option(names = {"-v", "--verbose"},
             description = "Enable verbose logging")
@@ -44,62 +35,13 @@ public class CommandLineOptions {
     private boolean dryRun = false;
 
     public enum Action {
-        DEPLOY, ROLLBACK, STATUS
+        DEPLOY, ROLLBACK, STATUS, DEPLOY_OR_ROLLBACK;
+
+        public boolean tagRequired() {
+            return this == DEPLOY || this == DEPLOY_OR_ROLLBACK;
+        }
     }
 
-    public Action getAction() {
-        return action;
-    }
-
-    public void setAction(Action action) {
-        this.action = action;
-    }
-
-    public String getChangelogPath() {
-        return changelogPath;
-    }
-
-    public void setChangelogPath(String changelogPath) {
-        this.changelogPath = changelogPath;
-    }
-
-    public String getTagName() {
-        return tagName;
-    }
-
-    public void setTagName(String tagName) {
-        this.tagName = tagName;
-    }
-
-    public String getDatabaseConfigPath() {
-        return databaseConfigPath;
-    }
-
-    public void setDatabaseConfigPath(String databaseConfigPath) {
-        this.databaseConfigPath = databaseConfigPath;
-    }
-
-    
-
-    
-
-    
-
-    public boolean isVerbose() {
-        return verbose;
-    }
-
-    public void setVerbose(boolean verbose) {
-        this.verbose = verbose;
-    }
-
-    public boolean isDryRun() {
-        return dryRun;
-    }
-
-    public void setDryRun(boolean dryRun) {
-        this.dryRun = dryRun;
-    }
 
     public static CommandLineOptions parseArgs(String[] args) {
         CommandLineOptions options = new CommandLineOptions();

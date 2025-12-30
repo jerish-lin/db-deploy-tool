@@ -1,146 +1,38 @@
 package org.jerish.dbdeploy.dao;
 
+import lombok.extern.slf4j.Slf4j;
 import org.jerish.dbdeploy.database.DatabaseConnectionManager;
 import org.jerish.dbdeploy.model.ChangeLogEntry;
 import org.jerish.dbdeploy.model.DeploymentTag;
 import org.jerish.dbdeploy.model.ScriptExecutionStatus;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jerish.dbdeploy.schema.SchemaInitializationManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
 
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+@Repository
+@Slf4j
 public class AuditDao {
-    private static final Logger logger = LoggerFactory.getLogger(AuditDao.class);
 
     private final DatabaseConnectionManager connectionManager;
+    private final SchemaInitializationManager schemaInitializationManager;
 
-    public AuditDao(DatabaseConnectionManager connectionManager) {
+    @Autowired
+    public AuditDao(DatabaseConnectionManager connectionManager,
+                    SchemaInitializationManager schemaInitializationManager) {
         this.connectionManager = connectionManager;
+        this.schemaInitializationManager = schemaInitializationManager;
     }
 
     public void initializeSchema() throws SQLException {
-        // Check if it's SQLite by checking the URL
-        try (Connection connection = connectionManager.getConnection()) {
-            String url = connection.getMetaData().getURL();
-            boolean isSQLite = url.toLowerCase().contains("sqlite");
-
-            String createChangeLogTable;
-            String createDeploymentTagsTable;
-            String createDatabaseLockTable;
-
-            if (isSQLite) {
-                createChangeLogTable = """
-                        CREATE TABLE IF NOT EXISTS db_change_log (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            script_name TEXT NOT NULL,
-                            script_checksum TEXT NOT NULL,
-                            execution_status TEXT NOT NULL CHECK (execution_status IN ('SUCCESS', 'FAILED', 'ROLLED_BACK')),
-                            execution_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                            execution_duration_ms INTEGER,
-                            error_message TEXT,
-                            rollback_script_content TEXT,
-                            rollback_verify_script_content TEXT,
-                            tag_name TEXT,
-                            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-                        )
-                        """;
-
-                createDeploymentTagsTable = """
-                        CREATE TABLE IF NOT EXISTS deployment_tags (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            tag_name TEXT NOT NULL UNIQUE,
-                            description TEXT,
-                            deployment_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                            created_by TEXT,
-                            is_active INTEGER DEFAULT 1
-                        )
-                        """;
-
-                createDatabaseLockTable = """
-                        CREATE TABLE IF NOT EXISTS database_lock (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            lock_key TEXT NOT NULL UNIQUE,
-                            lock_owner TEXT,
-                            lock_acquired_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                            lock_expires_at TEXT,
-                            is_active INTEGER DEFAULT 1
-                        )
-                        """;
-            } else {
-                createChangeLogTable = """
-                        CREATE TABLE IF NOT EXISTS db_change_log (
-                            id BIGSERIAL PRIMARY KEY,
-                            script_name VARCHAR(500) NOT NULL,
-                            script_checksum VARCHAR(64) NOT NULL,
-                            execution_status VARCHAR(20) NOT NULL CHECK (execution_status IN ('SUCCESS', 'FAILED', 'ROLLED_BACK')),
-                            execution_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                            execution_duration_ms BIGINT,
-                            error_message TEXT,
-                            rollback_script_content TEXT,
-                            rollback_verify_script_content TEXT,
-                            tag_name VARCHAR(100),
-                            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-                        )
-                        """;
-
-                createDeploymentTagsTable = """
-                        CREATE TABLE IF NOT EXISTS deployment_tags (
-                            id BIGSERIAL PRIMARY KEY,
-                            tag_name VARCHAR(100) NOT NULL UNIQUE,
-                            description TEXT,
-                            deployment_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                            created_by VARCHAR(100),
-                            is_active BOOLEAN DEFAULT TRUE
-                        )
-                        """;
-
-                createDatabaseLockTable = """
-                        CREATE TABLE IF NOT EXISTS database_lock (
-                            id BIGSERIAL PRIMARY KEY,
-                            lock_key VARCHAR(100) NOT NULL UNIQUE,
-                            lock_owner VARCHAR(255),
-                            lock_acquired_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                            lock_expires_at TIMESTAMP,
-                            is_active BOOLEAN DEFAULT TRUE
-                        )
-                        """;
-            }
-
-            try (Statement statement = connection.createStatement()) {
-                statement.execute(createChangeLogTable);
-                statement.execute(createDeploymentTagsTable);
-                statement.execute(createDatabaseLockTable);
-
-                createIndexes(connection);
-
-                logger.info("Database schema initialized successfully");
-            }
-        }
+        log.info("Initializing database schema using strategy pattern");
+        schemaInitializationManager.initializeSchemaIfNeeded();
     }
 
-    private void createIndexes(Connection connection) throws SQLException {
-        String[] indexes = {
-                "CREATE INDEX IF NOT EXISTS idx_script_name ON db_change_log(script_name)",
-                "CREATE INDEX IF NOT EXISTS idx_execution_status ON db_change_log(execution_status)",
-                "CREATE INDEX IF NOT EXISTS idx_execution_time ON db_change_log(execution_time)",
-                "CREATE INDEX IF NOT EXISTS idx_tag_name ON db_change_log(tag_name)",
-                "CREATE INDEX IF NOT EXISTS idx_deployment_tags_tag_name ON deployment_tags(tag_name)",
-                "CREATE INDEX IF NOT EXISTS idx_deployment_time ON deployment_tags(deployment_time)",
-                "CREATE INDEX IF NOT EXISTS idx_lock_key ON database_lock(lock_key)",
-                "CREATE INDEX IF NOT EXISTS idx_lock_expires_at ON database_lock(lock_expires_at)"
-        };
-
-        try (Statement statement = connection.createStatement()) {
-            for (String index : indexes) {
-                statement.execute(index);
-            }
-        }
-    }
 
     public boolean isScriptExecuted(String scriptName) throws SQLException {
         String sql = "SELECT COUNT(*) FROM db_change_log WHERE script_name = ? AND execution_status = 'SUCCESS'";
@@ -514,9 +406,9 @@ public class AuditDao {
             int rowsUpdated = stmt.executeUpdate();
 
             if (rowsUpdated > 0) {
-                logger.info("Deactivated deployment tag: {}", tagName);
+                log.info("Deactivated deployment tag: {}", tagName);
             } else {
-                logger.warn("No deployment tag found to deactivate: {}", tagName);
+                log.warn("No deployment tag found to deactivate: {}", tagName);
             }
         }
     }

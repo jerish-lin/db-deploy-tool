@@ -1,5 +1,8 @@
-package org.jerish.dbdeploy.config;
+package org.jerish.dbdeploy.configloader;
 
+import org.jerish.dbdeploy.config.DatabaseConfig;
+import org.jerish.dbdeploy.entity.ChangeLogConfig;
+import org.jerish.dbdeploy.entity.ScriptConfig;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
@@ -20,32 +23,31 @@ public class ConfigLoader {
 
         InputStream inputStream = getConfigInputStream(configPath);
         try {
+            ChangeLogConfig config = new ChangeLogConfig();
+            config.setChangelogFilePath(configPath);
             // Load as generic map to handle both formats
             Object rawConfig = yaml.load(inputStream);
             if (rawConfig == null) {
                 throw new RuntimeException("ChangeLog config is null or empty");
             }
-            
-            return parseChangeLogConfig(rawConfig);
+            config.setScripts(parseChangeLogConfig(rawConfig));
+            return config;
         } finally {
             if (inputStream != null) {
                 inputStream.close();
             }
         }
     }
-    
+
     @SuppressWarnings("unchecked")
-    private static ChangeLogConfig parseChangeLogConfig(Object rawConfig) {
-        ChangeLogConfig config = new ChangeLogConfig();
-        
+    private static List<ScriptConfig> parseChangeLogConfig(Object rawConfig) {
+        List<ScriptConfig> scriptConfigs = new ArrayList<>();
         if (rawConfig instanceof Map) {
             Map<String, Object> configMap = (Map<String, Object>) rawConfig;
             Object scriptsObj = configMap.get("scripts");
-            
+
             if (scriptsObj instanceof List) {
                 List<Object> scriptsList = (List<Object>) scriptsObj;
-                List<ScriptConfig> scriptConfigs = new ArrayList<>();
-                
                 for (Object scriptItem : scriptsList) {
                     if (scriptItem instanceof String) {
                         // New format: direct string
@@ -59,12 +61,10 @@ public class ConfigLoader {
                         }
                     }
                 }
-                
-                config.setScripts(scriptConfigs);
             }
         }
-        
-        return config;
+
+        return scriptConfigs;
     }
 
     private static InputStream getConfigInputStream(String configPath) throws Exception {

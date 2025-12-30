@@ -1,19 +1,16 @@
 package org.jerish.dbdeploy.model;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
+@Getter
+@RequiredArgsConstructor
 public enum ScriptExecutionStatus {
     SUCCESS("SUCCESS"),
     FAILED("FAILED"),
     ROLLED_BACK("ROLLED_BACK");
 
     private final String value;
-
-    ScriptExecutionStatus(String value) {
-        this.value = value;
-    }
-
-    public String getValue() {
-        return value;
-    }
 
     public static ScriptExecutionStatus fromValue(String value) {
         for (ScriptExecutionStatus status : values()) {

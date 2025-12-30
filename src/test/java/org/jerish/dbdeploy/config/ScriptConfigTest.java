@@ -1,6 +1,8 @@
 package org.jerish.dbdeploy.config;
 
+import org.jerish.dbdeploy.entity.ScriptConfig;
 import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 public class ScriptConfigTest {
@@ -8,7 +10,7 @@ public class ScriptConfigTest {
     @Test
     public void testScriptConfigWithoutFolder() {
         ScriptConfig config = new ScriptConfig("create-users-table");
-        
+
         assertEquals("create-users-table", config.getName());
         assertEquals("", config.getFolderPath());
         assertEquals("create-users-table", config.getBaseScriptName());
@@ -20,7 +22,7 @@ public class ScriptConfigTest {
     @Test
     public void testScriptConfigWithFolder() {
         ScriptConfig config = new ScriptConfig("feature-12346/create-users-table");
-        
+
         assertEquals("feature-12346/create-users-table", config.getName());
         assertEquals("feature-12346", config.getFolderPath());
         assertEquals("create-users-table", config.getBaseScriptName());
@@ -32,7 +34,7 @@ public class ScriptConfigTest {
     @Test
     public void testScriptConfigWithNestedFolder() {
         ScriptConfig config = new ScriptConfig("feature-12346/v1.0/create-users-table");
-        
+
         assertEquals("feature-12346/v1.0/create-users-table", config.getName());
         assertEquals("feature-12346/v1.0", config.getFolderPath());
         assertEquals("create-users-table", config.getBaseScriptName());
