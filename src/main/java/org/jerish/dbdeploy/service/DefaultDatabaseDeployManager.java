@@ -3,7 +3,7 @@ package org.jerish.dbdeploy.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jerish.dbdeploy.configloader.ConfigLoader;
-import org.jerish.dbdeploy.dao.AuditDao;
+import org.jerish.dbdeploy.repository.AuditRepository;
 import org.jerish.dbdeploy.entity.ChangeLogConfig;
 import org.jerish.dbdeploy.entity.DatabaseStatus;
 import org.springframework.stereotype.Service;
@@ -17,7 +17,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
     private final DatabaseDeployService deployService;
-    private final AuditDao auditDao;
+    private final AuditRepository auditDao;
 
     @Override
     public void deploy(String changeLogConfigPath, String tagName, boolean dryRun) throws Exception {

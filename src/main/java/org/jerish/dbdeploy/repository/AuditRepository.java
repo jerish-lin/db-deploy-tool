@@ -1,4 +1,4 @@
-package org.jerish.dbdeploy.dao;
+package org.jerish.dbdeploy.repository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,9 +19,9 @@ import java.util.List;
 @Repository
 @Slf4j
 @RequiredArgsConstructor
-public class AuditDao {
+public class AuditRepository {
 
-    private final JdbcTemplate jdbcTemplate;
+    private final JdbcTemplate dbDeployJdbcTemplate;
     private final SchemaInitializationManager schemaInitializationManager;
 
     public void initializeSchema() {
@@ -34,7 +34,7 @@ public class AuditDao {
      */
     private boolean isSQLiteDatabase() {
         try {
-            return jdbcTemplate.queryForObject("SELECT sqlite_version()", String.class) != null;
+            return dbDeployJdbcTemplate.queryForObject("SELECT sqlite_version()", String.class) != null;
         } catch (Exception e) {
             return false;
         }
@@ -128,7 +128,7 @@ public class AuditDao {
     public boolean isScriptExecuted(String scriptName) {
         String sql = "SELECT COUNT(*) FROM db_change_log WHERE script_name = ? AND execution_status = 'SUCCESS'";
 
-        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, scriptName);
+        Integer count = dbDeployJdbcTemplate.queryForObject(sql, Integer.class, scriptName);
         return count != null && count > 0;
     }
 
@@ -144,7 +144,7 @@ public class AuditDao {
         KeyHolder keyHolder = new GeneratedKeyHolder();
 
         if (isSQLiteDatabase()) {
-            jdbcTemplate.update(connection -> {
+            dbDeployJdbcTemplate.update(connection -> {
                 PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
                 ps.setString(1, entry.getScriptName());
                 ps.setString(2, entry.getScriptChecksum());
@@ -160,7 +160,7 @@ public class AuditDao {
                 return ps;
             }, keyHolder);
         } else {
-            jdbcTemplate.update(connection -> {
+            dbDeployJdbcTemplate.update(connection -> {
                 PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
                 ps.setString(1, entry.getScriptName());
                 ps.setString(2, entry.getScriptChecksum());
@@ -193,9 +193,9 @@ public class AuditDao {
                 """;
 
         if (isSQLiteDatabase()) {
-            jdbcTemplate.update(sql, status.getValue(), errorMessage, LocalDateTime.now().toString(), id);
+            dbDeployJdbcTemplate.update(sql, status.getValue(), errorMessage, LocalDateTime.now().toString(), id);
         } else {
-            jdbcTemplate.update(sql, status.getValue(), errorMessage, Timestamp.valueOf(LocalDateTime.now()), id);
+            dbDeployJdbcTemplate.update(sql, status.getValue(), errorMessage, Timestamp.valueOf(LocalDateTime.now()), id);
         }
     }
 
@@ -207,7 +207,7 @@ public class AuditDao {
                     WHERE tag_name IS NOT NULL
                     ORDER BY execution_time DESC
                     """;
-            return jdbcTemplate.query(sql, changeLogEntryRowMapper);
+            return dbDeployJdbcTemplate.query(sql, changeLogEntryRowMapper);
         }
 
         // Normal case: get scripts after specific tag
@@ -226,7 +226,7 @@ public class AuditDao {
                 ORDER BY execution_time DESC
                 """;
 
-        return jdbcTemplate.query(sql, changeLogEntryRowMapper, targetTag.getId());
+        return dbDeployJdbcTemplate.query(sql, changeLogEntryRowMapper, targetTag.getId());
     }
 
     public void createDeploymentTag(DeploymentTag tag) {
@@ -238,7 +238,7 @@ public class AuditDao {
         KeyHolder keyHolder = new GeneratedKeyHolder();
 
         if (isSQLiteDatabase()) {
-            jdbcTemplate.update(connection -> {
+            dbDeployJdbcTemplate.update(connection -> {
                 PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
                 ps.setString(1, tag.getTagName());
                 ps.setString(2, tag.getDescription());
@@ -248,7 +248,7 @@ public class AuditDao {
                 return ps;
             }, keyHolder);
         } else {
-            jdbcTemplate.update(connection -> {
+            dbDeployJdbcTemplate.update(connection -> {
                 PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
                 ps.setString(1, tag.getTagName());
                 ps.setString(2, tag.getDescription());
@@ -271,7 +271,7 @@ public class AuditDao {
         String sql = "SELECT * FROM deployment_tags WHERE tag_name = ? AND is_active = TRUE";
 
         try {
-            return jdbcTemplate.queryForObject(sql, deploymentTagRowMapper, tagName);
+            return dbDeployJdbcTemplate.queryForObject(sql, deploymentTagRowMapper, tagName);
         } catch (Exception e) {
             return null;
         }
@@ -282,32 +282,32 @@ public class AuditDao {
             // SQLite doesn't support INTERVAL, use datetime function
             String sql = "INSERT OR IGNORE INTO database_lock (lock_key, lock_owner, lock_expires_at, is_active) " +
                     "VALUES (?, ?, datetime('now', '+' || ? || ' minutes'), 1)";
-            return jdbcTemplate.update(sql, lockKey, lockOwner, timeoutMinutes) > 0;
+            return dbDeployJdbcTemplate.update(sql, lockKey, lockOwner, timeoutMinutes) > 0;
         } else {
             // PostgreSQL syntax
             String sql = String.format(
                     "INSERT INTO database_lock (lock_key, lock_owner, lock_expires_at, is_active) " +
                             "VALUES (?, ?, CURRENT_TIMESTAMP + INTERVAL '%d minutes', TRUE) " +
                             "ON CONFLICT (lock_key) DO NOTHING", timeoutMinutes);
-            return jdbcTemplate.update(sql, lockKey, lockOwner) > 0;
+            return dbDeployJdbcTemplate.update(sql, lockKey, lockOwner) > 0;
         }
     }
 
     public void releaseLock(String lockKey, String lockOwner) {
         String sql = "DELETE FROM database_lock WHERE lock_key = ? AND lock_owner = ?";
-        jdbcTemplate.update(sql, lockKey, lockOwner);
+        dbDeployJdbcTemplate.update(sql, lockKey, lockOwner);
     }
 
     public List<DeploymentTag> getDeploymentTags() {
         String sql = "SELECT * FROM deployment_tags ORDER BY deployment_time DESC";
-        return jdbcTemplate.query(sql, deploymentTagRowMapper);
+        return dbDeployJdbcTemplate.query(sql, deploymentTagRowMapper);
     }
 
 
     public void deactivateDeploymentTag(String tagName) {
         String sql = "UPDATE deployment_tags SET is_active = FALSE WHERE tag_name = ?";
 
-        int rowsUpdated = jdbcTemplate.update(sql, tagName);
+        int rowsUpdated = dbDeployJdbcTemplate.update(sql, tagName);
 
         if (rowsUpdated > 0) {
             log.info("Deactivated deployment tag: {}", tagName);

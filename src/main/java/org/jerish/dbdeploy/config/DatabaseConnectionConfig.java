@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 @Component
 @ConfigurationProperties(prefix = "db-deploy.database")
 @Data
-public class DatabaseConfig {
+public class DatabaseConnectionConfig {
     private String url;
     private String username;
     private String password;

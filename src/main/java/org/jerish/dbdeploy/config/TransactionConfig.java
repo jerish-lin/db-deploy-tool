@@ -25,9 +25,4 @@ public class TransactionConfig {
     public PlatformTransactionManager transactionManager(DataSource dbDeployDataSource) {
         return new DataSourceTransactionManager(dbDeployDataSource);
     }
-
-    @Bean
-    public JdbcTemplate dbDeployJdbcTemplate(DataSource dbDeployDataSource) {
-        return new JdbcTemplate(dbDeployDataSource);
-    }
 }

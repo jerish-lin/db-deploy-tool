@@ -2,7 +2,7 @@ package org.jerish.dbdeploy.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jerish.dbdeploy.dao.AuditDao;
+import org.jerish.dbdeploy.repository.AuditRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.jerish.dbdeploy.entity.ChangeLogConfig;
 import org.jerish.dbdeploy.model.ChangeLogEntry;
@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.sql.Connection;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -24,7 +23,7 @@ import java.util.List;
 public class DefaultDatabaseDeployService implements DatabaseDeployService {
 
     private final JdbcTemplate jdbcTemplate;
-    private final AuditDao auditDao;
+    private final AuditRepository auditDao;
     private final ScriptExecutor scriptExecutor;
     private final ScriptFileManager scriptFileManager;
 

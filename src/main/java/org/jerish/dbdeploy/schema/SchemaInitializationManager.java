@@ -1,5 +1,6 @@
 package org.jerish.dbdeploy.schema;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jerish.dbdeploy.database.DatabaseType;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,15 +18,16 @@ import java.util.stream.Collectors;
  */
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class SchemaInitializationManager {
 
     private final Map<DatabaseType, SchemaInitializationStrategy> strategyMap;
-    private final JdbcTemplate jdbcTemplate;
+    private final JdbcTemplate dbDeployJdbcTemplate;
 
     @Autowired
     public SchemaInitializationManager(List<SchemaInitializationStrategy> strategies,
-                                       JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+                                       JdbcTemplate dbDeployJdbcTemplate) {
+        this.dbDeployJdbcTemplate = dbDeployJdbcTemplate;
         this.strategyMap = strategies.stream()
                 .collect(Collectors.toMap(
                         SchemaInitializationStrategy::getSupportedDatabaseType,
@@ -45,7 +47,7 @@ public class SchemaInitializationManager {
         DatabaseType databaseType = getCurrentDatabaseType();
         SchemaInitializationStrategy strategy = getStrategyForDatabaseType(databaseType);
 
-        return strategy.isSchemaInitialized(jdbcTemplate);
+        return strategy.isSchemaInitialized(dbDeployJdbcTemplate);
     }
 
     /**
@@ -70,7 +72,7 @@ public class SchemaInitializationManager {
         log.info("Initializing database schema for type: {}", databaseType);
 
         try {
-            strategy.initializeSchema(jdbcTemplate);
+            strategy.initializeSchema(dbDeployJdbcTemplate);
             log.info("Database schema initialization completed for type: {}", databaseType);
         } catch (Exception e) {
             log.error("Failed to initialize database schema for type: {}", databaseType, e);
@@ -87,7 +89,7 @@ public class SchemaInitializationManager {
     private DatabaseType getCurrentDatabaseType() {
         try {
             // Try to get database URL using JdbcTemplate's DataSource
-            String url = jdbcTemplate.getDataSource().getConnection().getMetaData().getURL().toLowerCase();
+            String url = dbDeployJdbcTemplate.getDataSource().getConnection().getMetaData().getURL().toLowerCase();
 
             if (url.contains("postgresql")) {
                 return DatabaseType.POSTGRESQL;

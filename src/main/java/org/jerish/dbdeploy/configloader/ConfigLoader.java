@@ -1,6 +1,6 @@
 package org.jerish.dbdeploy.configloader;
 
-import org.jerish.dbdeploy.config.DatabaseConfig;
+import org.jerish.dbdeploy.config.DatabaseConnectionConfig;
 import org.jerish.dbdeploy.entity.ChangeLogConfig;
 import org.jerish.dbdeploy.entity.ScriptConfig;
 import org.yaml.snakeyaml.LoaderOptions;
@@ -84,14 +84,14 @@ public class ConfigLoader {
         }
     }
 
-    public static DatabaseConfig loadDatabaseConfig(String configPath) throws Exception {
+    public static DatabaseConnectionConfig loadDatabaseConfig(String configPath) throws Exception {
         LoaderOptions loaderOptions = new LoaderOptions();
-        Constructor constructor = new Constructor(DatabaseConfig.class, loaderOptions);
+        Constructor constructor = new Constructor(DatabaseConnectionConfig.class, loaderOptions);
         Yaml yaml = new Yaml(constructor);
 
         InputStream inputStream = getConfigInputStream(configPath);
         try {
-            DatabaseConfig config = yaml.load(inputStream);
+            DatabaseConnectionConfig config = yaml.load(inputStream);
             if (config == null) {
                 throw new RuntimeException("Database config is null or empty");
             }
