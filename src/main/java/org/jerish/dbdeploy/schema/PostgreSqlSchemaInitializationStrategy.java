@@ -16,6 +16,6 @@ public class PostgreSqlSchemaInitializationStrategy extends AbstractSchemaInitia
 
     @Override
     public String getSchemaFilesBasePath() {
-        return "db/schema/postgresql";
+        return "db-deploy/schema/postgresql";
     }
 }

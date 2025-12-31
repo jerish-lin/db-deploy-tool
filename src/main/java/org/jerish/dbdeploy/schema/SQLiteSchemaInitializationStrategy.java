@@ -16,6 +16,6 @@ public class SQLiteSchemaInitializationStrategy extends AbstractSchemaInitializa
 
     @Override
     public String getSchemaFilesBasePath() {
-        return "db/schema/sqlite";
+        return "db-deploy/schema/sqlite";
     }
 }

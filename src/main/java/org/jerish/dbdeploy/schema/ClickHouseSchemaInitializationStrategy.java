@@ -16,6 +16,6 @@ public class ClickHouseSchemaInitializationStrategy extends AbstractSchemaInitia
 
     @Override
     public String getSchemaFilesBasePath() {
-        return "db/schema/clickhouse";
+        return "db-deploy/schema/clickhouse";
     }
 }

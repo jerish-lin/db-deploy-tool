@@ -57,6 +57,7 @@ public abstract class AbstractSchemaInitializationStrategy implements SchemaInit
         List<String> files = new ArrayList<>();
         files.add("01-create-audit-tables.sql");
         files.add("02-create-indexes.sql");
+        files.add("03-create-views.sql");
         return files;
     }
 
