@@ -1,6 +1,7 @@
 package org.jerish.dbdeploy.service;
 
 import org.jerish.dbdeploy.entity.ChangeLogConfig;
+import org.jerish.dbdeploy.entity.DatabaseStatus;
 
 public interface DatabaseDeployService {
 
@@ -8,5 +9,5 @@ public interface DatabaseDeployService {
 
     void rollback(String targetTagName, boolean dryRun) throws Exception;
 
-    void showStatus() throws Exception;
+    DatabaseStatus getComprehensiveStatus();
 }

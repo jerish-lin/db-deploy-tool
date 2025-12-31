@@ -17,14 +17,14 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
     private final DatabaseDeployService deployService;
-    private final AuditRepository auditDao;
+    private final AuditRepository auditRepository;
 
     @Override
     public void deploy(String changeLogConfigPath, String tagName, boolean dryRun) throws Exception {
         log.info("Starting deployment with tag: {} (dry-run: {})", tagName, dryRun);
 
         // Initialize schema
-        auditDao.initializeSchema();
+        auditRepository.initializeSchema();
 
         // Load changelog config
         ChangeLogConfig changeLogConfig = ConfigLoader.loadChangeLogConfig(changeLogConfigPath);
@@ -40,7 +40,7 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
         log.info("Starting rollback to tag: {} (dry-run: {})", targetTagName, dryRun);
 
         // Initialize schema
-        auditDao.initializeSchema();
+        auditRepository.initializeSchema();
 
         // Delegate to the deploy service
         deployService.rollback(targetTagName, dryRun);
@@ -54,7 +54,7 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
 
         try {
             // Initialize schema
-            auditDao.initializeSchema();
+            auditRepository.initializeSchema();
 
             // Check current deployment status to decide whether to deploy or rollback
             DatabaseStatus currentStatus = status();
@@ -95,38 +95,47 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
 
     @Override
     public DatabaseStatus status() {
-        DatabaseStatus status = new DatabaseStatus();
+
 
         try {
-            // Initialize schema if needed
-            auditDao.initializeSchema();
+            // Check if schema is initialized without initializing it
+            if (!auditRepository.isSchemaInitialized()) {
+                log.info("Database schema not initialized - returning empty status");
+                DatabaseStatus status = new DatabaseStatus();
+                status.setDatabaseConnected(true);
+                status.setDatabaseHealthy(true);
+                status.setDatabaseHealthMessage("Database connected but schema not initialized");
+                status.setCurrentTag("");
+                status.setConfigurationValid(true);
+                status.setConfigurationMessage("Ready for initial deployment");
 
-            // Get current deployment information from audit tables
-            // This is a simplified implementation - you'll need to implement the actual logic
-            // based on your audit table structure
+                // Initialize lists to prevent null pointer exceptions
+                status.setExecutedScriptNames(new java.util.ArrayList<>());
+                status.setFailedScriptNames(new java.util.ArrayList<>());
+                status.setRolledBackScriptNames(new java.util.ArrayList<>());
+                status.setPendingScriptNames(new java.util.ArrayList<>());
+                status.setRecentDeployments(new java.util.ArrayList<>());
+                return status;
+            }
 
-            status.setDatabaseConnected(true);
-            status.setCurrentTag(getCurrentDeploymentTag());
-            status.setExecutedScripts(getExecutedScriptCount());
-            status.setFailedScripts(getFailedScriptCount());
-            status.setRolledBackScripts(getRolledBackScriptCount());
-            status.setLastDeploymentTime(getLastDeploymentTime());
-            status.setExecutedScriptNames(getExecutedScriptNames());
-            status.setTotalScripts(getTotalScriptCount());
+            return deployService.getComprehensiveStatus();
 
         } catch (Exception e) {
             log.warn("Failed to get database status", e);
+            DatabaseStatus status = new DatabaseStatus();
             status.setDatabaseConnected(false);
+            status.setDatabaseHealthy(false);
+            status.setDatabaseHealthMessage("Database connection failed: " + e.getMessage());
+            return status;
         }
-
-        return status;
     }
+
 
     // Helper methods - implemented using AuditDao methods
     private String getCurrentDeploymentTag() {
         try {
             // Get the most recent active deployment tag
-            var tags = auditDao.getDeploymentTags();
+            var tags = auditRepository.getDeploymentTags();
             return tags.stream()
                     .filter(tag -> tag.getIsActive())
                     .findFirst()
@@ -141,12 +150,12 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
     private int getExecutedScriptCount() {
         try {
             // Count successful script executions
-            var tags = auditDao.getDeploymentTags();
+            var tags = auditRepository.getDeploymentTags();
             return tags.stream()
                     .filter(tag -> tag.getIsActive())
                     .mapToInt(tag -> {
                         try {
-                            return auditDao.getScriptsExecutedAfter("").size();
+                            return auditRepository.getScriptsExecutedAfter("").size();
                         } catch (Exception e) {
                             return 0;
                         }
@@ -180,7 +189,7 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
 
     private java.time.LocalDateTime getLastDeploymentTime() {
         try {
-            var tags = auditDao.getDeploymentTags();
+            var tags = auditRepository.getDeploymentTags();
             return tags.stream()
                     .filter(tag -> tag.getIsActive())
                     .findFirst()
@@ -195,10 +204,10 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
     private java.util.List<String> getExecutedScriptNames() {
         try {
             java.util.List<String> scriptNames = new java.util.ArrayList<>();
-            var tags = auditDao.getDeploymentTags();
+            var tags = auditRepository.getDeploymentTags();
             for (var tag : tags) {
                 if (tag.getIsActive()) {
-                    var scripts = auditDao.getScriptsExecutedAfter("");
+                    var scripts = auditRepository.getScriptsExecutedAfter("");
                     scriptNames.addAll(scripts.stream()
                             .map(script -> script.getScriptName())
                             .toList());

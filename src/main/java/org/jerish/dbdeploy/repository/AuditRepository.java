@@ -30,6 +30,20 @@ public class AuditRepository {
     }
 
     /**
+     * Check if database schema is initialized without initializing it
+     */
+    public boolean isSchemaInitialized() {
+        return schemaInitializationManager.isSchemaInitialized();
+    }
+
+    /**
+     * Get the JdbcTemplate for direct database operations
+     */
+    public JdbcTemplate getJdbcTemplate() {
+        return dbDeployJdbcTemplate;
+    }
+
+    /**
      * Helper method to check if the database is SQLite
      */
     private boolean isSQLiteDatabase() {
