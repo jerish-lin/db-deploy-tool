@@ -10,16 +10,31 @@ mechanisms for deployment and rollback.
 
 ## Functional Requirements
 
-### 1. Script Versioning and Management
+### 1. Library Integration and Configuration
+
+- **JAR Distribution**: The tool should be released as a standalone JAR file that can be included as a dependency in applications
+- **Dependency Integration**: Applications should be able to import the tool as a Maven/Gradle dependency and use it programmatically
+- **Resource Discovery**: The tool must automatically discover and read changelog configuration files and SQL scripts from the application's classpath/resources
+- **Aligned Structure**: Applications should organize their changelog config and SQL scripts in a structure aligned with the tool's expectations
+- **Classpath Loading**: Support loading configuration and scripts from the application's classpath, enabling seamless integration when packaged as JAR/WAR
+
+### 2. Administrative User Configuration
+
+- **Admin User Support**: Configure and use a dedicated database user with DDL and DML permissions for deployment operations
+- **Separation of Concerns**: The admin user should be different from the regular application database user used for runtime operations
+- **Security Isolation**: Support configuring separate credentials for admin operations and regular application operations
+- **Permission Management**: Ensure the admin user has sufficient privileges for schema changes, table creation/alteration, and data modifications
+
+### 3. Script Versioning and Management
 
 - Maintain a main configuration file listing all scripts in execution order.
 - Enable developers to create database scripts for specific features or bug fixes, and add into the configuration file.
-- Allow organizing scripts into subfolders based on user preferences (e.g., by release version).
-- Ensure each script includes both "update" and "rollback" versions for deployment and rollback.
+- Allow organizing scripts into subfolders based on user preferences.
+- Ensure each script includes both "apply" and "rollback" versions and the related verify sql for deployment and rollback.
+  - e.g. create-favorite-field-table.apply.sql and create-favorite-field-table.rollback.sql
+  - create-favorite-field-table.apply.verify.sql and create-favorite-field-table.rollback.verify.sql
 
-  o e.g. create-favorite-field-table.apply.sql and create-favorite-field-table.rollback.sql
-
-### 2. Database Deployment Execution
+### 4. Database Deployment Execution
 
 - Execute database scripts in the order specified in the configuration file.
 - Automatically detect and execute pending scripts, skipping already deployed ones.
@@ -32,7 +47,7 @@ mechanisms for deployment and rollback.
     - Mark the script as successful.
     - Store the associated rollback script for future use.
 
-### 3. Tagging and Rollback Execution
+### 5. Tagging and Rollback Execution
 
 - Support tagging current deployment state with specific tag (e.g., "v5.5.0", "20251027.1").
 - Support rolling back to a specific previous tagged state.
@@ -40,20 +55,111 @@ mechanisms for deployment and rollback.
     - Retrieve scripts applied after the target rollback state.
     - Retrieve and execute rollback scripts in reverse order.
 
-### 4. Additional Requirements
+### 6. Smart Deploy
+- **Intelligent Deployment Decision**: When provided with a target tag name and changelog path, automatically analyze the current database state to determine whether to deploy or rollback
+- **State Comparison**: Compare the target tag's scripts with the current database state to identify the optimal action:
+  - If target tag represents a newer state than current: execute deployment
+  - If target tag represents an older state than current: execute rollback
+  - If target tag matches current state: no action required
+- **Automatic Action Selection**: Eliminate the need for manual deploy/rollback decision by intelligently choosing the correct operation based on state analysis
+- **Changelog Validation**: Ensure the specified changelog path contains all necessary scripts to reach the target state
+- **Dependency Resolution**: Automatically identify and execute any intermediate scripts required to transition from current to target state
+- **Conflict Prevention**: Detect and prevent incompatible state transitions that could result in data corruption
+
+### 7. Comprehensive Status Checking
+
+- **Deployment Status Monitoring**: Check if any deployment operations are currently running:
+  - Query database_lock table for active deployment locks
+  - Display lock owner, acquisition time, and expiration details
+  - Show estimated remaining time if available
+  - Provide option to force release stale locks if necessary
+
+- **Complete Deployment History**: Provide comprehensive deployment audit trail:
+  - Chronological list of all deployment operations with timestamps
+  - Show deployment tags, script counts, success/failure status
+  - Display execution duration and performance metrics
+  - Include rollback operations with reasons and affected scripts
+  - Filter by date range, tag, or status for focused analysis
+
+- **Current State Analysis**: Detailed snapshot of database current state:
+  - Active deployment tag and its creation timestamp
+  - Count of scripts by status (SUCCESS, FAILED, ROLLED_BACK)
+  - Last successful deployment timestamp and tag
+  - Last failed deployment with error details
+  - Database schema version information
+
+- **Changelog and Script Status**: Track script execution and changelog state:
+  - Last applied changelog file path and checksum
+  - List of pending scripts (not yet executed)
+  - Scripts with execution failures and error messages
+  - Scripts that have been rolled back with rollback timestamps
+  - Verification script execution status and results
+
+- **Database Connection and Health**: System health and connectivity information:
+  - Database connection status and response time
+  - Connection pool statistics (active, idle, max connections)
+  - Database version and configuration details
+  - Available disk space and memory usage
+  - Audit tables integrity check
+
+- **Performance and Metrics**: Deployment performance analytics:
+  - Average script execution time by category
+  - Historical deployment success rate
+  - Longest running scripts and optimization suggestions
+  - Database lock contention statistics
+  - Resource utilization trends during deployments
+
+### 8. Safety and Prevention Mechanisms
+  - **Concurrent Deployment Prevention**: 
+    - Detect active deployment operations via database locks
+    - Automatically block new deploy attempts when deployment is running
+    - Return clear error message with lock owner and estimated wait time
+    - Provide option to queue deploy request or force-cancel stale locks
+  
+  - **Application Startup Protection**:
+    - Check deployment status before allowing application to start
+    - Prevent application startup when deployment is in progress
+    - Validate database state consistency before application initialization
+    - Provide safe mode bypass for emergency situations with proper warnings
+  
+  - **Failed Deployment Recovery**:
+    - Detect and prevent new deployments when last changelog execution failed
+    - Require explicit resolution of failed deployment before proceeding
+    - Provide detailed failure information and resolution guidance
+    - Support force-deploy with confirmation for emergency recovery scenarios
+  
+  - **Version Compatibility Validation**:
+    - Compare application version with last deployed changelog version
+    - Prevent application startup when app version < last changelog version
+    - Ensure forward compatibility between application code and database schema
+    - Provide version downgrade warnings and rollback recommendations
+  
+  - **Database State Integrity Checks**:
+    - Verify audit table consistency before allowing operations
+    - Check for orphaned records or inconsistent states
+    - Validate deployment tag integrity and activation status
+    - Prevent operations when database state is compromised
+  
+  - **Configuration Consistency Validation**:
+    - Ensure configuration files match expected deployment state
+    - Validate changelog file integrity and accessibility
+    - Check for missing or corrupted script files
+    - Prevent operations when configuration is invalid
+
+### 8. Additional Requirements
 
 - **Logging and Reporting**: Provide detailed logs and reports for deployment and rollback activities.
 - **Database Compatibility**: Ensure support for multiple database systems (e.g. PostgreSQL, Clickhouse).
 - **Conflict Prevention**: Align way of working to prevent conflicts when multiple developers work on database scripts
   simultaneously.
-- **Data Migration in custom Java Code**: Allow integration of custom Java code for complex data migrations that cannot
+- **Data Migration in custom Java Code??**: Allow integration of custom Java code for complex data migrations that cannot
   be handled by SQL scripts alone.
-- **Context and Labels Support**: Enable the use of contexts and labels to control script execution based on the
-  environment or specific conditions.
+
 
 ## Script Folder Organization
 
 To ensure consistency and maintainability, the following structure is used to organize database scripts:
+These db scripts would be put and maintained in the application repository's resources folder which will be pacakged into the app's jar.
 
 ### Current Implementation (Flat Structure)
 
@@ -62,7 +168,7 @@ project-root/
 --resources/
   --db/
     --db-changelog.yml # Configuration file listing all scripts in execution order
-    --scripts/
+    --scripts/  # All Sqls are put under the scripts folder
       --feature-12346-create-users-table.apply.sql # Apply script for creating users table
       --feature-12346-create-users-table.rollback.sql # Rollback script for creating users table
       --feature-12346-create-users-table.apply.verify.sql # Verification script for apply
@@ -74,24 +180,25 @@ project-root/
       --... # Additional scripts
 ```
 
-### Alternative Version-Based Structure (Also Supported)
+### Alternative sub folder Structure (Also Supported)
 
 ```
 project-root/
 --resources/
   --db/
     --db-changelog.yml # Configuration file listing all scripts in execution order
-    --v1.0.0/
-      --create-favorite-field-table.apply.sql
-      --create-favorite-field-table.rollback.sql
-      --create-favorite-field-table.apply.verify.sql
-      --create-favorite-field-table.rollback.verify.sql
-    --v1.0.1/
-      --update-favorite-field-table.apply.sql
-      --update-favorite-field-table.rollback.sql
-      --update-favorite-field-table.apply.verify.sql
-      --update-favorite-field-table.rollback.verify.sql
-    --... # Additional versions
+    --scripts/ 
+        --feature-12346/
+          --create-favorite-field-table.apply.sql
+          --create-favorite-field-table.rollback.sql
+          --create-favorite-field-table.apply.verify.sql
+          --create-favorite-field-table.rollback.verify.sql
+        --feature-12347/
+          --update-favorite-field-table.apply.sql
+          --update-favorite-field-table.rollback.sql
+          --update-favorite-field-table.apply.verify.sql
+          --update-favorite-field-table.rollback.verify.sql
+        --... # Additional versions
 ```
 
 **Script Naming Convention:**
@@ -110,6 +217,13 @@ scripts:
   - name: feature-12348-add-user-email-index
 ```
 
+```yaml
+# db-changelog.yml include subfolder
+scripts:
+  - name: feature-12346/create-favorite-field-table
+  - name: feature-12347/update-favorite-field-table
+```
+
 **Note**: The actual implementation uses a simplified structure where:
 
 - Only the script `name` is specified in the YAML
@@ -118,57 +232,11 @@ scripts:
     - Rollback script: `{name}.rollback.sql`
     - Apply verification script: `{name}.apply.verify.sql`
     - Rollback verification script: `{name}.rollback.verify.sql`
+    - 
 
 ## Database Configuration
 
-The tool uses YAML configuration files for database connections with support for connection pooling:
 
-### database-config.yml Structure
-
-```yaml
-url: jdbc:postgresql://localhost:5432/mydatabase
-username: dbuser
-password: dbpassword
-driver: org.postgresql.Driver
-maxPoolSize: 10
-connectionTimeout: 30000
-idleTimeout: 600000
-maxLifetime: 1800000
-```
-
-### Supported Database Types
-
-- **PostgreSQL**: Primary production database
-- **SQLite**: For testing and embedded scenarios (file-based)
-- **ClickHouse**: For analytical workloads
-
-### Connection Pooling
-
-The tool uses HikariCP for efficient connection management with configurable:
-
-- Maximum pool size
-- Connection timeout
-- Idle timeout
-- Maximum connection lifetime
-
-## Verification Scripts
-
-The tool supports optional verification scripts that can be used to validate the results of apply and rollback
-operations:
-
-### Verification Script Types
-
-- **Apply Verification**: `{script-name}.apply.verify.sql` - Validates the state after applying a script
-- **Rollback Verification**: `{script-name}.rollback.verify.sql` - Validates the state after rolling back a script
-- **Custom Verification**: Standalone verification scripts for comprehensive testing
-
-### Usage
-
-Verification scripts are not automatically executed during deployment but can be run manually using:
-
-- Batch files (e.g., `run-verify.bat`)
-- Java utilities (e.g., `RunVerify.java`)
-- Direct SQL execution
 
 ## Preventing Conflict During Development
 
@@ -235,16 +303,39 @@ adopted:
 ### Status Workflow
 
 1. Parse command-line arguments and load database configuration
-2. Initialize database connection
-3. Query deployment state from audit tables:
-    - Current active deployment tag
-    - Count of scripts by status (SUCCESS, FAILED, ROLLED_BACK)
-    - Recent deployment history
-4. Display formatted status report including:
-    - Database connection information
-    - Current deployment tag
-    - Script execution summary
-    - Last deployment timestamp
+2. Initialize database connection with both application and admin users
+3. **Safety Prevention Checks**:
+   - Check for active deployment locks and block conflicting operations
+   - Validate last deployment status and prevent operations on failed state
+   - Compare application version with database version for compatibility
+   - Verify database integrity and configuration consistency
+   - Generate prevention warnings with resolution guidance
+4. **Deployment Status Check**:
+   - Query database_lock table for active deployment operations
+   - Check lock validity and identify stale locks
+   - Display current deployment operation status if running
+5. **Current State Analysis**:
+   - Retrieve active deployment tag and metadata
+   - Count scripts by execution status (SUCCESS, FAILED, ROLLED_BACK)
+   - Identify last successful and failed deployments
+6. **Deployment History Retrieval**:
+   - Query complete deployment history from audit tables
+   - Calculate success rates and performance metrics
+   - Identify patterns and trends in deployment operations
+7. **Changelog and Script Status**:
+   - Load current changelog configuration
+   - Compare with executed scripts to identify pending items
+   - Verify script integrity and checksum consistency
+8. **System Health Assessment**:
+   - Test database connectivity and response times
+   - Check connection pool status and resource utilization
+   - Validate audit table integrity and performance
+9. **Generate Comprehensive Report**:
+   - Display deployment status with lock information
+   - Show current state with detailed metrics
+   - Present deployment history with analytics
+   - Include system health and security status
+   - Provide safety check results and recommendations
 
 ## How This Tool Is Built and Used
 
@@ -292,8 +383,26 @@ adopted:
   # Rollback to tag
   java -jar db-deploy-tool.jar -a rollback -t v1.0.0 -d database-config.yml
   
-  # Check status
+  # Smart deploy (automatically determines deploy or rollback)
+  java -jar db-deploy-tool.jar -a smart-deploy -c db-changelog.yml -t v1.0.0 -d database-config.yml
+  
+  # Basic status check
   java -jar db-deploy-tool.jar -a status -d database-config.yml
+  
+  # Comprehensive status with all details
+  java -jar db-deploy-tool.jar -a status -d database-config.yml --verbose --full-history
+  
+  # Status with specific focus areas
+  java -jar db-deploy-tool.jar -a status -d database-config.yml --check-deployment --check-health
+  
+  # Perform safety checks only
+  java -jar db-deploy-tool.jar -a safety-check -d database-config.yml
+  
+  # Force deploy despite safety warnings (emergency use only)
+  java -jar db-deploy-tool.jar -a deploy -c db-changelog.yml -t v1.0.0 -d database-config.yml --force
+  
+  # Check application startup safety
+  java -jar db-deploy-tool.jar -a startup-safety -d database-config.yml --app-version 1.2.3
   ```
 - **CI/CD integration**: Can be integrated into deployment pipelines for automated database migrations
 - **Container support**: Can be run in Docker containers for consistent deployment environments
