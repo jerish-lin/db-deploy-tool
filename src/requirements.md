@@ -68,93 +68,37 @@ mechanisms for deployment and rollback.
 
 ### 7. Comprehensive Status Checking
 
-- **Deployment Status Monitoring**: Check if any deployment operations are currently running:
-  - Query database_lock table for active deployment locks
-  - Display lock owner, acquisition time, and expiration details
-  - Show estimated remaining time if available
-  - Provide option to force release stale locks if necessary
-
-- **Complete Deployment History**: Provide comprehensive deployment audit trail:
-  - Chronological list of all deployment operations with timestamps
-  - Show deployment tags, script counts, success/failure status
-  - Display execution duration and performance metrics
-  - Include rollback operations with reasons and affected scripts
-  - Filter by date range, tag, or status for focused analysis
-
-- **Current State Analysis**: Detailed snapshot of database current state:
-  - Active deployment tag and its creation timestamp
-  - Count of scripts by status (SUCCESS, FAILED, ROLLED_BACK)
-  - Last successful deployment timestamp and tag
-  - Last failed deployment with error details
-  - Database schema version information
-
-- **Changelog and Script Status**: Track script execution and changelog state:
-  - Last applied changelog file path and checksum
-  - List of pending scripts (not yet executed)
-  - Scripts with execution failures and error messages
-  - Scripts that have been rolled back with rollback timestamps
-  - Verification script execution status and results
-
-- **Database Connection and Health**: System health and connectivity information:
-  - Database connection status and response time
-  - Connection pool statistics (active, idle, max connections)
-  - Database version and configuration details
-  - Available disk space and memory usage
-  - Audit tables integrity check
-
-- **Performance and Metrics**: Deployment performance analytics:
-  - Average script execution time by category
-  - Historical deployment success rate
-  - Longest running scripts and optimization suggestions
-  - Database lock contention statistics
-  - Resource utilization trends during deployments
+- **Deployment Status Monitoring**: Check if deployment is running via database locks, show lock details and owner
+- **Deployment History**: Show chronological deployment operations with tags, status, timestamps, and execution duration
+- **Current State Analysis**: Display active deployment tag, script counts by status, last deployment info, and database version
+- **Script Status**: Track last applied changelog, pending scripts, failed scripts, and rollback status
+- **Database Health**: Show connection status, pool statistics, database version, and audit table integrity
+- **Performance Metrics**: Display execution times, success rates, longest running scripts, and resource utilization
 
 ### 8. Safety and Prevention Mechanisms
-  - **Concurrent Deployment Prevention**: 
-    - Detect active deployment operations via database locks
-    - Automatically block new deploy attempts when deployment is running
-    - Return clear error message with lock owner and estimated wait time
-    - Provide option to queue deploy request or force-cancel stale locks
-  
-  - **Application Startup Protection**:
-    - Check deployment status before allowing application to start
-    - Prevent application startup when deployment is in progress
-    - Validate database state consistency before application initialization
-    - Provide safe mode bypass for emergency situations with proper warnings
-  
-  - **Failed Deployment Recovery**:
-    - Detect and prevent new deployments when last changelog execution failed
-    - Require explicit resolution of failed deployment before proceeding
-    - Provide detailed failure information and resolution guidance
-    - Support force-deploy with confirmation for emergency recovery scenarios
-  
-  - **Version Compatibility Validation**:
-    - Compare application version with last deployed changelog version
-    - Prevent application startup when app version < last changelog version
-    - Ensure forward compatibility between application code and database schema
-    - Provide version downgrade warnings and rollback recommendations
-  
-  - **Database State Integrity Checks**:
-    - Verify audit table consistency before allowing operations
-    - Check for orphaned records or inconsistent states
-    - Validate deployment tag integrity and activation status
-    - Prevent operations when database state is compromised
-  
-  - **Configuration Consistency Validation**:
-    - Ensure configuration files match expected deployment state
-    - Validate changelog file integrity and accessibility
-    - Check for missing or corrupted script files
-    - Prevent operations when configuration is invalid
+- **Concurrent Deployment Prevention**: Block new deployments when deployment is running, show lock owner and wait time
+- **Application Startup Protection**: Prevent app startup during deployment, validate database state, provide safe mode bypass
+- **Failed Deployment Recovery**: Block deployments after failures, require resolution, provide failure details and guidance
+- **Version Compatibility Validation**: Compare app vs database versions, prevent startup if incompatible, ensure forward compatibility
+- **Database State Integrity**: Verify audit table consistency, check for orphaned records, validate tag integrity
+- **Configuration Consistency**: Validate configuration files, changelog integrity, script file accessibility
 
-### 8. Additional Requirements
+### 9. Database Compatibility: 
+- Ensure support for multiple database systems 
+  - PostgreSQL
+  - Clickhouse
+  - Sqlite (for unit testing)
 
+### 10. Adhoc requirements for clickhouse
+- Adhoc requirements for ClickHouse cluster environments to support distributed SQL execution and data backfilling operations across multiple nodes.
+- This is possibly trigger the tool to be designed to support running same sql to multiple nodes in clickhouse.
+
+### 10. Additional Requirements
 - **Logging and Reporting**: Provide detailed logs and reports for deployment and rollback activities.
-- **Database Compatibility**: Ensure support for multiple database systems (e.g. PostgreSQL, Clickhouse).
 - **Conflict Prevention**: Align way of working to prevent conflicts when multiple developers work on database scripts
   simultaneously.
 - **Data Migration in custom Java Code??**: Allow integration of custom Java code for complex data migrations that cannot
   be handled by SQL scripts alone.
-
 
 ## Script Folder Organization
 
@@ -235,19 +179,6 @@ scripts:
     - 
 
 ## Database Configuration
-
-
-
-## Preventing Conflict During Development
-
-To prevent conflicts when multiple developers work on database scripts simultaneously, the following practices should be
-adopted:
-
-- When developer working on a new feature that requires DB changes, they should create their scripts in a separate
-  branch
-- Before merging, ensure that the main configuration file is updated to include the new scripts in the correct order
-- Conduct code reviews to verify that no conflicting changes exist in the database scripts
-- TBC...
 
 ## Deployment and Rollback Workflow
 
@@ -432,3 +363,138 @@ adopted:
 - **Verbose logging**: Detailed execution logs for troubleshooting and auditing
 - **Multi-database support**: PostgreSQL, SQLite, and ClickHouse with database-specific optimizations
 - **Connection pooling**: Efficient connection management with configurable pooling parameters
+
+## Preventing Conflict During Development
+
+To prevent conflicts when multiple developers work on database scripts simultaneously, the following practices should be
+adopted:
+
+- When developer working on a new feature that requires DB changes, they should create their scripts in a separate
+  branch
+- Before merging, ensure that the main configuration file is updated to include the new scripts in the correct order
+- Conduct code reviews to verify that no conflicting changes exist in the database scripts
+- TBC...
+
+---
+
+## ClickHouse Cluster Adhoc Requirements
+
+Adhoc requirements for ClickHouse cluster environments to support distributed SQL execution and data backfilling operations across multiple nodes.
+
+### Overview
+
+ClickHouse cluster environments require special handling for distributed operations, particularly for data backfilling scenarios where the same SQL needs to be executed across multiple nodes in the cluster.
+
+### Cluster Node Execution
+
+- **Multi-Node SQL Execution**: Support running the same SQL script across multiple ClickHouse cluster nodes
+- **Node Discovery**: Automatically discover available nodes in the ClickHouse cluster
+- **Parallel Execution**: Execute SQL on multiple nodes concurrently for improved performance
+- **Node Health Checking**: Verify node availability and connectivity before execution
+- **Execution Coordination**: Coordinate execution order and dependencies across nodes
+
+### Data Backfilling Support
+
+- **Backfill Script Execution**: Execute data backfilling scripts on specific cluster nodes
+- **Partition Awareness**: Understand and respect ClickHouse partitioning schemes during backfilling
+- **Data Consistency**: Ensure data consistency across cluster nodes during backfill operations
+- **Incremental Backfilling**: Support incremental data backfilling based on timestamps or other criteria
+- **Rollback Support**: Provide rollback capabilities for backfilling operations
+
+### Configuration for Cluster Operations
+
+```yaml
+db-deploy:
+  clickhouse:
+    cluster:
+      # Cluster configuration
+      name: "production_cluster"
+      nodes:
+        - host: "ch-node-1.example.com"
+          port: 8123
+          user: "admin"
+          password: "${CH_NODE1_PASSWORD}"
+        - host: "ch-node-2.example.com"
+          port: 8123
+          user: "admin"
+          password: "${CH_NODE2_PASSWORD}"
+        - host: "ch-node-3.example.com"
+          port: 8123
+          user: "admin"
+          password: "${CH_NODE3_PASSWORD}"
+      
+      # Execution settings
+      parallel-execution: true
+      max-concurrent-nodes: 3
+      timeout-per-node: 300000  # 5 minutes
+      
+      # Backfilling settings
+      backfill:
+        batch-size: 10000
+        chunk-size: 1000
+        retry-attempts: 3
+        verify-consistency: true
+```
+
+### Cluster-Aware Script Execution
+
+```yaml
+# db-changelog.yml for ClickHouse cluster
+scripts:
+  - name: cluster-wide-schema-change
+    target: "all_nodes"  # Execute on all cluster nodes
+    rollback-target: "all_nodes"
+  
+  - name: backfill-user-data
+    target: "node-1,node-2"  # Execute on specific nodes only
+    rollback-target: "node-1,node-2"
+    backfill:
+      table: "user_events"
+      date-range: "2024-01-01,2024-12-31"
+      partition-column: "event_date"
+```
+
+### Execution Patterns
+
+#### **Cluster-Wide Operations**
+```sql
+-- Schema changes that need to be applied to all nodes
+CREATE TABLE IF NOT EXISTS user_events (
+    user_id UInt64,
+    event_date Date,
+    event_type String,
+    event_data String
+) ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/user_events', '{replica}')
+PARTITION BY toYYYYMM(event_date)
+ORDER BY (user_id, event_date, event_type);
+```
+
+#### **Node-Specific Backfilling**
+```sql
+-- Data backfilling for specific nodes
+INSERT INTO user_events
+SELECT user_id, event_date, event_type, event_data
+FROM source_events
+WHERE event_date BETWEEN '2024-01-01' AND '2024-12-31'
+AND cluster_node() = 'node-1';
+```
+
+### Error Handling and Recovery
+
+- **Node Failure Handling**: Continue execution on remaining nodes if some nodes fail
+- **Partial Rollback**: Support rolling back changes on subset of nodes when needed
+- **Consistency Verification**: Verify data consistency across nodes after operations
+- **Retry Logic**: Automatic retry for failed node executions with exponential backoff
+- **Status Reporting**: Detailed reporting of execution status per node
+
+### Monitoring and Observability
+
+- **Per-Node Status**: Track execution status for each cluster node individually
+- **Cluster Health Monitoring**: Monitor cluster health during and after operations
+- **Performance Metrics**: Track execution time and resource usage per node
+- **Data Consistency Metrics**: Monitor data consistency across cluster nodes
+- **Alerting**: Alert on node failures, consistency issues, or performance problems
+
+### Implementation Notes
+
+**Note**: ClickHouse cluster operations require careful handling of distributed transactions and consistency. The deployment tool should provide cluster-aware execution capabilities while maintaining data integrity and operational safety. Specific implementation details should consider ClickHouse's distributed nature and the specific requirements of the target cluster topology.
