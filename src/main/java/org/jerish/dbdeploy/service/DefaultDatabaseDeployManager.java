@@ -4,9 +4,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jerish.dbdeploy.configloader.ConfigLoader;
 import org.jerish.dbdeploy.repository.AuditRepository;
+import org.jerish.dbdeploy.schema.SchemaInitializationManager;
 import org.jerish.dbdeploy.entity.ChangeLogConfig;
 import org.jerish.dbdeploy.entity.DatabaseStatus;
 import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
 
 /**
  * Implementation of DatabaseDeployManager that handles the core business logic
@@ -17,14 +20,14 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
     private final DatabaseDeployService deployService;
-    private final AuditRepository auditRepository;
+    private final SchemaInitializationManager schemaInitializationManager;
 
     @Override
     public void deploy(String changeLogConfigPath, String tagName, boolean dryRun) throws Exception {
         log.info("Starting deployment with tag: {} (dry-run: {})", tagName, dryRun);
 
         // Initialize schema
-        auditRepository.initializeSchema();
+        schemaInitializationManager.initializeSchemaIfNeeded();
 
         // Load changelog config
         ChangeLogConfig changeLogConfig = ConfigLoader.loadChangeLogConfig(changeLogConfigPath);
@@ -40,7 +43,7 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
         log.info("Starting rollback to tag: {} (dry-run: {})", targetTagName, dryRun);
 
         // Initialize schema
-        auditRepository.initializeSchema();
+        schemaInitializationManager.initializeSchemaIfNeeded();
 
         // Delegate to the deploy service
         deployService.rollback(targetTagName, dryRun);
@@ -54,7 +57,7 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
 
         try {
             // Initialize schema
-            auditRepository.initializeSchema();
+            schemaInitializationManager.initializeSchemaIfNeeded();
 
             // Check current deployment status to decide whether to deploy or rollback
             DatabaseStatus currentStatus = status();
@@ -95,11 +98,9 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
 
     @Override
     public DatabaseStatus status() {
-
-
         try {
             // Check if schema is initialized without initializing it
-            if (!auditRepository.isSchemaInitialized()) {
+            if (!schemaInitializationManager.isSchemaInitialized()) {
                 log.info("Database schema not initialized - returning empty status");
                 DatabaseStatus status = new DatabaseStatus();
                 status.setDatabaseConnected(true);
@@ -110,11 +111,11 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
                 status.setConfigurationMessage("Ready for initial deployment");
 
                 // Initialize lists to prevent null pointer exceptions
-                status.setExecutedScriptNames(new java.util.ArrayList<>());
-                status.setFailedScriptNames(new java.util.ArrayList<>());
-                status.setRolledBackScriptNames(new java.util.ArrayList<>());
-                status.setPendingScriptNames(new java.util.ArrayList<>());
-                status.setRecentDeployments(new java.util.ArrayList<>());
+                status.setExecutedScriptNames(new ArrayList<>());
+                status.setFailedScriptNames(new ArrayList<>());
+                status.setRolledBackScriptNames(new ArrayList<>());
+                status.setPendingScriptNames(new ArrayList<>());
+                status.setRecentDeployments(new ArrayList<>());
                 return status;
             }
 
@@ -127,106 +128,6 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
             status.setDatabaseHealthy(false);
             status.setDatabaseHealthMessage("Database connection failed: " + e.getMessage());
             return status;
-        }
-    }
-
-
-    // Helper methods - implemented using AuditDao methods
-    private String getCurrentDeploymentTag() {
-        try {
-            // Get the most recent active deployment tag
-            var tags = auditRepository.getDeploymentTags();
-            return tags.stream()
-                    .filter(tag -> tag.getIsActive())
-                    .findFirst()
-                    .map(tag -> tag.getTagName())
-                    .orElse("");
-        } catch (Exception e) {
-            log.debug("Failed to get current deployment tag", e);
-            return "";
-        }
-    }
-
-    private int getExecutedScriptCount() {
-        try {
-            // Count successful script executions
-            var tags = auditRepository.getDeploymentTags();
-            return tags.stream()
-                    .filter(tag -> tag.getIsActive())
-                    .mapToInt(tag -> {
-                        try {
-                            return auditRepository.getScriptsExecutedAfter("").size();
-                        } catch (Exception e) {
-                            return 0;
-                        }
-                    })
-                    .sum();
-        } catch (Exception e) {
-            log.debug("Failed to get executed script count", e);
-            return 0;
-        }
-    }
-
-    private int getFailedScriptCount() {
-        try {
-            // For simplicity, return 0 since failed scripts are rolled back
-            return 0;
-        } catch (Exception e) {
-            log.debug("Failed to get failed script count", e);
-            return 0;
-        }
-    }
-
-    private int getRolledBackScriptCount() {
-        try {
-            // This would require additional audit logic - simplified for now
-            return 0;
-        } catch (Exception e) {
-            log.debug("Failed to get rolled back script count", e);
-            return 0;
-        }
-    }
-
-    private java.time.LocalDateTime getLastDeploymentTime() {
-        try {
-            var tags = auditRepository.getDeploymentTags();
-            return tags.stream()
-                    .filter(tag -> tag.getIsActive())
-                    .findFirst()
-                    .map(tag -> tag.getDeploymentTime())
-                    .orElse(null);
-        } catch (Exception e) {
-            log.debug("Failed to get last deployment time", e);
-            return null;
-        }
-    }
-
-    private java.util.List<String> getExecutedScriptNames() {
-        try {
-            java.util.List<String> scriptNames = new java.util.ArrayList<>();
-            var tags = auditRepository.getDeploymentTags();
-            for (var tag : tags) {
-                if (tag.getIsActive()) {
-                    var scripts = auditRepository.getScriptsExecutedAfter("");
-                    scriptNames.addAll(scripts.stream()
-                            .map(script -> script.getScriptName())
-                            .toList());
-                }
-            }
-            return scriptNames;
-        } catch (Exception e) {
-            log.debug("Failed to get executed script names", e);
-            return java.util.Collections.emptyList();
-        }
-    }
-
-    private int getTotalScriptCount() {
-        try {
-            // This would require loading the changelog config - simplified for now
-            return 0;
-        } catch (Exception e) {
-            log.debug("Failed to get total script count", e);
-            return 0;
         }
     }
 }

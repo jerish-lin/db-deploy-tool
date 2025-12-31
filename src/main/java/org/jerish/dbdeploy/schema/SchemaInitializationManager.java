@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -125,7 +126,7 @@ public class SchemaInitializationManager {
      *
      * @return set of supported database types
      */
-    public java.util.Set<DatabaseType> getSupportedDatabaseTypes() {
+    public Set<DatabaseType> getSupportedDatabaseTypes() {
         return strategyMap.keySet();
     }
 }

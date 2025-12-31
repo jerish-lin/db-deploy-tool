@@ -16,6 +16,9 @@ import org.springframework.stereotype.Service;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -34,9 +37,7 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
         }
         // Get the parent directory of the changelog file and append "scripts"
         Path changelogFile = Paths.get(changelogPath);
-        Path scriptsDir = changelogFile.getParent() != null ?
-                changelogFile.getParent().resolve("scripts") :
-                Paths.get("scripts");
+        Path scriptsDir = changelogFile.getParent() != null ? changelogFile.getParent().resolve("scripts") : Paths.get("scripts");
         return scriptsDir.toString();
     }
 
@@ -240,8 +241,7 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
                 // Execute rollback verification if available
                 if (entry.getRollbackVerifyScriptContent() != null && !entry.getRollbackVerifyScriptContent().isEmpty()) {
                     try {
-                        ScriptExecutor.VerificationResult verificationResult = scriptExecutor.executeVerificationContent(
-                                entry.getRollbackVerifyScriptContent());
+                        ScriptExecutor.VerificationResult verificationResult = scriptExecutor.executeVerificationContent(entry.getRollbackVerifyScriptContent());
 
                         // Log verification results
                         log.info("\n=== ROLLBACK VERIFICATION RESULTS ===");
@@ -261,8 +261,7 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
                             log.warn("Rollback verification failed for script: {}", entry.getScriptName());
                         }
                     } catch (Exception e) {
-                        log.warn("Could not execute rollback verification for script {}: {}",
-                                entry.getScriptName(), e.getMessage());
+                        log.warn("Could not execute rollback verification for script {}: {}", entry.getScriptName(), e.getMessage());
                     }
                 }
 
@@ -341,108 +340,44 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
 
     private void populateDeploymentState(DatabaseStatus status) {
         try {
-            // Query current_deployment_state view
-            String sql = """
-                    SELECT tag_name, description, deployment_time, created_by,
-                           total_scripts, successful_scripts, failed_scripts, rolled_back_scripts
-                    FROM current_deployment_state
-                    LIMIT 1
-                    """;
-
             status.setDatabaseConnected(true);
-
-            try {
-                var results = auditRepository.getJdbcTemplate().queryForList(sql);
-                if (!results.isEmpty()) {
-                    var result = results.get(0);
-                    status.setCurrentTag((String) result.get("tag_name"));
-                    status.setCurrentTagDescription((String) result.get("description"));
-                    status.setLastDeploymentTime(parseDateTime((String) result.get("deployment_time")));
-                    status.setLastDeploymentUser((String) result.get("created_by"));
-                    status.setTotalScripts(((Number) result.get("total_scripts")).intValue());
-                    status.setExecutedScripts(((Number) result.get("successful_scripts")).intValue());
-                    status.setFailedScripts(((Number) result.get("failed_scripts")).intValue());
-                    status.setRolledBackScripts(((Number) result.get("rolled_back_scripts")).intValue());
-
-                    // Get total rolled back scripts count across all tags
-                    String totalRolledBackSql = """
-                            SELECT COUNT(*) as total_rolled_back
-                            FROM db_change_log
-                            WHERE execution_status = 'ROLLED_BACK'
-                            """;
-                    try {
-                        Integer totalRolledBack = auditRepository.getJdbcTemplate().queryForObject(totalRolledBackSql, Integer.class);
-                        status.setRolledBackScripts(totalRolledBack != null ? totalRolledBack : 0);
-                    } catch (Exception rbException) {
-                        log.debug("Error getting total rolled back count", rbException);
-                    }
-                } else {
-                    status.setCurrentTag("");
-                    status.setTotalScripts(0);
-                    status.setExecutedScripts(0);
-                    status.setFailedScripts(0);
-
-                    // Get total rolled back scripts count across all tags
-                                    String totalRolledBackSql = """
-                                            SELECT COUNT(*) as total_rolled_back
-                                            FROM db_change_log
-                                            WHERE execution_status = 'ROLLED_BACK'
-                                            """;
-                                    try {
-                                        Integer totalRolledBack = auditRepository.getJdbcTemplate().queryForObject(totalRolledBackSql, Integer.class);
-                                        status.setRolledBackScripts(totalRolledBack != null ? totalRolledBack : 0);
-                                    } catch (Exception rbException) {
-                                        log.debug("Error getting total rolled back count", rbException);
-                                    }                }
-            } catch (Exception e) {
-                log.debug("No current deployment state found", e);
+            DatabaseStatus.DeploymentStateInfo stateInfo = auditRepository.getCurrentDeploymentState();
+            if (stateInfo != null) {
+                status.setCurrentTag(stateInfo.getCurrentTag());
+                status.setCurrentTagDescription(stateInfo.getDescription());
+                status.setLastDeploymentTime(parseDateTime(stateInfo.getDeploymentTime()));
+                status.setLastDeploymentUser(stateInfo.getCreatedBy());
+                status.setTotalScripts(stateInfo.getTotalScripts());
+                status.setExecutedScripts(stateInfo.getSuccessfulScripts());
+                status.setFailedScripts(stateInfo.getFailedScripts());
+                status.setRolledBackScripts(stateInfo.getRolledBackScripts());
+            } else {
                 status.setCurrentTag("");
                 status.setTotalScripts(0);
                 status.setExecutedScripts(0);
                 status.setFailedScripts(0);
-
-                // Get total rolled back scripts count across all tags
-                String totalRolledBackSql = """
-                        SELECT COUNT(*) as total_rolled_back
-                        FROM db_change_log
-                        WHERE execution_status = 'ROLLED_BACK'
-                        """;
-                try {
-                    Integer totalRolledBack = auditRepository.getJdbcTemplate().queryForObject(totalRolledBackSql, Integer.class);
-                    status.setRolledBackScripts(totalRolledBack != null ? totalRolledBack : 0);
-                } catch (Exception rbException) {
-                    log.debug("Error getting total rolled back count", rbException);
-                }
             }
+            // Always get total rolled back scripts count across all tags
+            status.setRolledBackScripts(auditRepository.getTotalRolledBackScripts());
         } catch (Exception e) {
             log.error("Error populating deployment state", e);
         }
+
     }
 
     private void populateScriptStatus(DatabaseStatus status) {
         try {
-            // Query script execution history view for script names
-            String scriptHistorySql = """
-                    SELECT script_name, execution_status
-                    FROM script_execution_history
-                    ORDER BY execution_time DESC
-                    LIMIT 50
-                    """;
+            List<DatabaseStatus.ScriptExecutionInfo> scriptHistory = auditRepository.getScriptExecutionHistory();
 
-            var scriptResults = auditRepository.getJdbcTemplate().queryForList(scriptHistorySql);
+            List<String> executedScripts = new ArrayList<>();
+            List<String> failedScripts = new ArrayList<>();
+            List<String> rolledBackScripts = new ArrayList<>();
 
-            java.util.List<String> executedScripts = new java.util.ArrayList<>();
-            java.util.List<String> failedScripts = new java.util.ArrayList<>();
-            java.util.List<String> rolledBackScripts = new java.util.ArrayList<>();
-
-            for (var row : scriptResults) {
-                String scriptName = (String) row.get("script_name");
-                String execStatus = (String) row.get("execution_status");
-
-                switch (execStatus) {
-                    case "SUCCESS" -> executedScripts.add(scriptName);
-                    case "FAILED" -> failedScripts.add(scriptName);
-                    case "ROLLED_BACK" -> rolledBackScripts.add(scriptName);
+            for (var info : scriptHistory) {
+                switch (info.getExecutionStatus()) {
+                    case "SUCCESS" -> executedScripts.add(info.getScriptName());
+                    case "FAILED" -> failedScripts.add(info.getScriptName());
+                    case "ROLLED_BACK" -> rolledBackScripts.add(info.getScriptName());
                 }
             }
 
@@ -450,51 +385,30 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
             status.setFailedScriptNames(failedScripts);
             status.setRolledBackScriptNames(rolledBackScripts);
 
-            // Query failed scripts view for detailed failure information
+            // Get detailed failure information if needed
             if (!failedScripts.isEmpty()) {
-                String failedSql = """
-                        SELECT script_name, error_message, execution_time
-                        FROM failed_scripts
-                        ORDER BY execution_time DESC
-                        """;
-
-                var failedResults = auditRepository.getJdbcTemplate().queryForList(failedSql);
-                // Failed scripts are already populated above
+                List<DatabaseStatus.FailedScriptInfo> failedScriptDetails = auditRepository.getFailedScripts();
+                // Failed scripts are already populated above, details available if needed
             }
 
         } catch (Exception e) {
             log.error("Error populating script status", e);
-            status.setExecutedScriptNames(new java.util.ArrayList<>());
-            status.setFailedScriptNames(new java.util.ArrayList<>());
-            status.setRolledBackScriptNames(new java.util.ArrayList<>());
+            status.setExecutedScriptNames(new ArrayList<>());
+            status.setFailedScriptNames(new ArrayList<>());
+            status.setRolledBackScriptNames(new ArrayList<>());
         }
     }
 
     private void populateLockStatus(DatabaseStatus status) {
         try {
-            // Check database lock table
-            String lockSql = """
-                    SELECT lock_owner, lock_acquired_at, lock_expires_at, is_active
-                    FROM database_lock
-                    WHERE is_active = 1
-                    ORDER BY lock_acquired_at DESC
-                    LIMIT 1
-                    """;
+            DatabaseStatus.LockInfo lockInfo = auditRepository.getCurrentLockStatus();
 
-            try {
-                var lockResults = auditRepository.getJdbcTemplate().queryForList(lockSql);
-                if (!lockResults.isEmpty()) {
-                    var lockResult = lockResults.get(0);
-                    status.setDeploymentInProgress(true);
-                    status.setDeploymentLockOwner((String) lockResult.get("lock_owner"));
-                    status.setDeploymentLockAcquiredAt(parseDateTime((String) lockResult.get("lock_acquired_at")));
-                    status.setDeploymentLockExpiresAt(parseDateTime((String) lockResult.get("lock_expires_at")));
-                } else {
-                    status.setDeploymentInProgress(false);
-                    status.setDeploymentLockOwner("");
-                }
-            } catch (Exception e) {
-                log.debug("No active deployment lock found", e);
+            if (lockInfo != null && lockInfo.isActive()) {
+                status.setDeploymentInProgress(true);
+                status.setDeploymentLockOwner(lockInfo.getLockOwner());
+                status.setDeploymentLockAcquiredAt(parseDateTime(lockInfo.getLockAcquiredAt()));
+                status.setDeploymentLockExpiresAt(parseDateTime(lockInfo.getLockExpiresAt()));
+            } else {
                 status.setDeploymentInProgress(false);
                 status.setDeploymentLockOwner("");
             }
@@ -510,21 +424,12 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
             // Basic health check - query database version and response time
             long startTime = System.currentTimeMillis();
 
-            try {
-                String versionSql = auditRepository.getJdbcTemplate().queryForObject(
-                        "SELECT sqlite_version()", String.class);
-                status.setDatabaseVersion(versionSql);
-                status.setDatabaseHealthy(true);
-            } catch (Exception e) {
-                // For non-SQLite databases, try a generic query
-                try {
-                    auditRepository.getJdbcTemplate().queryForObject("SELECT 1", Integer.class);
-                    status.setDatabaseVersion("Unknown");
-                    status.setDatabaseHealthy(true);
-                } catch (Exception ex) {
-                    status.setDatabaseHealthy(false);
-                    status.setDatabaseHealthMessage("Database health check failed");
-                }
+            DatabaseStatus.DatabaseHealthInfo healthInfo = auditRepository.getDatabaseHealthInfo();
+
+            status.setDatabaseVersion(healthInfo.getVersion());
+            status.setDatabaseHealthy(healthInfo.isHealthy());
+            if (!healthInfo.isHealthy()) {
+                status.setDatabaseHealthMessage(healthInfo.getHealthMessage());
             }
 
             long responseTime = System.currentTimeMillis() - startTime;
@@ -539,29 +444,11 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
 
     private void populateConfigurationStatus(DatabaseStatus status) {
         try {
-            // Check if audit tables exist and are accessible
-            String tableCheckSql = """
-                    SELECT COUNT(*) as table_count
-                    FROM sqlite_master
-                    WHERE type='table' AND name IN ('db_change_log', 'deployment_tags', 'database_lock')
-                    """;
+            DatabaseStatus.ConfigurationInfo configInfo = auditRepository.getConfigurationInfo();
 
-            try {
-                Integer tableCount = auditRepository.getJdbcTemplate().queryForObject(tableCheckSql, Integer.class);
-                status.setConfigurationValid(tableCount != null && tableCount >= 3);
-                status.setConfigurationMessage(tableCount != null && tableCount >= 3 ?
-                        "Audit tables present" : "Missing audit tables");
-            } catch (Exception e) {
-                // For non-SQLite databases
-                try {
-                    auditRepository.getJdbcTemplate().queryForObject("SELECT COUNT(*) FROM db_change_log", Integer.class);
-                    status.setConfigurationValid(true);
-                    status.setConfigurationMessage("Audit tables accessible");
-                } catch (Exception ex) {
-                    status.setConfigurationValid(false);
-                    status.setConfigurationMessage("Audit tables not accessible");
-                }
-            }
+            status.setConfigurationValid(configInfo.isValid());
+            status.setConfigurationMessage(configInfo.getMessage());
+
         } catch (Exception e) {
             log.error("Error populating configuration status", e);
             status.setConfigurationValid(false);
@@ -571,57 +458,27 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
 
     private void populateDeploymentHistory(DatabaseStatus status) {
         try {
-            // Query recent deployment history from views
-            String historySql = """
-                    SELECT dt.tag_name, dt.description, dt.deployment_time, dt.created_by,
-                           COUNT(dcl.id) as script_count,
-                           CASE 
-                               WHEN COUNT(CASE WHEN dcl.execution_status = 'FAILED' THEN 1 END) > 0 THEN 'FAILED'
-                               WHEN COUNT(CASE WHEN dcl.execution_status = 'ROLLED_BACK' THEN 1 END) > 0 THEN 'ROLLED_BACK'
-                               ELSE 'SUCCESS'
-                           END as status
-                    FROM deployment_tags dt
-                    LEFT JOIN db_change_log dcl ON dt.tag_name = dcl.tag_name
-                    GROUP BY dt.id, dt.tag_name, dt.description, dt.deployment_time, dt.created_by
-                    ORDER BY dt.deployment_time DESC
-                    LIMIT 10
-                    """;
-
-            var historyResults = auditRepository.getJdbcTemplate().queryForList(historySql);
-            java.util.List<DatabaseStatus.DeploymentHistoryEntry> history = new java.util.ArrayList<>();
-
-            for (var row : historyResults) {
-                DatabaseStatus.DeploymentHistoryEntry entry = new DatabaseStatus.DeploymentHistoryEntry();
-                entry.setTagName((String) row.get("tag_name"));
-                entry.setDescription((String) row.get("description"));
-                entry.setDeploymentTime(parseDateTime((String) row.get("deployment_time")));
-                entry.setDeployedBy((String) row.get("created_by"));
-                entry.setScriptCount(((Number) row.get("script_count")).intValue());
-                entry.setStatus((String) row.get("status"));
-                history.add(entry);
-            }
-
+            List<DatabaseStatus.DeploymentHistoryEntry> history = auditRepository.getRecentDeploymentHistory();
             status.setRecentDeployments(history);
 
         } catch (Exception e) {
             log.error("Error populating deployment history", e);
-            status.setRecentDeployments(new java.util.ArrayList<>());
+            status.setRecentDeployments(new ArrayList<>());
         }
     }
 
-    private java.time.LocalDateTime parseDateTime(String dateTimeStr) {
+    private LocalDateTime parseDateTime(String dateTimeStr) {
         if (dateTimeStr == null || dateTimeStr.isEmpty()) {
             return null;
         }
         try {
             // Try standard ISO format first
-            return java.time.LocalDateTime.parse(dateTimeStr);
-        } catch (java.time.format.DateTimeParseException e1) {
+            return LocalDateTime.parse(dateTimeStr);
+        } catch (DateTimeParseException e1) {
             try {
                 // Try SQLite datetime format: "YYYY-MM-DD HH:MM:SS"
-                java.time.format.DateTimeFormatter sqliteFormatter =
-                        java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-                return java.time.LocalDateTime.parse(dateTimeStr, sqliteFormatter);
+                DateTimeFormatter sqliteFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                return LocalDateTime.parse(dateTimeStr, sqliteFormatter);
             } catch (Exception e2) {
                 log.debug("Failed to parse datetime: {}", dateTimeStr, e2);
                 return null;
@@ -630,13 +487,5 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
             log.debug("Failed to parse datetime: {}", dateTimeStr, e);
             return null;
         }
-    }
-
-    private DeploymentTag getCurrentDeploymentTag() throws Exception {
-        return null;
-    }
-
-    private List<ChangeLogEntry> getRecentExecutions(int limit) throws Exception {
-        return List.of();
     }
 }

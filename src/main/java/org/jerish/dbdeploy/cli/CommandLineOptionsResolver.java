@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -129,7 +130,7 @@ public class CommandLineOptionsResolver {
 
         try {
             // Try to get the directory as a resource
-            var resource = classLoader.getResource(classpathDir);
+            URL resource = classLoader.getResource(classpathDir);
             if (resource != null && resource.getProtocol().equals("file")) {
                 // If it's a file system resource, copy directly
                 Path sourceDir = Paths.get(resource.toURI());
