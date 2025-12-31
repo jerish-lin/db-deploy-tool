@@ -93,7 +93,18 @@ mechanisms for deployment and rollback.
 - Adhoc requirements for ClickHouse cluster environments to support distributed SQL execution and data backfilling operations across multiple nodes.
 - This is possibly trigger the tool to be designed to support running same sql to multiple nodes in clickhouse.
 
-### 10. Additional Requirements
+### 11. Existing Database Schema Integration
+
+- **Schema Discovery**: Automatically detect and analyze existing database schema when the tool is first introduced to an application
+- **Baseline Creation**: Create initial deployment tag representing the current state of the existing database schema
+- **Change Gap Analysis**: Identify differences between existing schema and expected schema based on current changelog files
+- **Migration Planning**: Provide recommendations for integrating existing schema with the tool's version management system
+- **Historical Reconstruction**: Generate synthetic deployment history to establish proper audit trail for existing schemas
+- **Compatibility Validation**: Ensure existing schema is compatible with the tool's audit tables and deployment mechanisms
+- **Rollback Capability**: Establish rollback scripts for existing schema components to enable future rollback operations
+- **Gradual Migration**: Support phased introduction of the tool while maintaining existing database functionality
+
+### 12. Additional Requirements
 - **Logging and Reporting**: Provide detailed logs and reports for deployment and rollback activities.
 - **Conflict Prevention**: Align way of working to prevent conflicts when multiple developers work on database scripts
   simultaneously.
