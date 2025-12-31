@@ -26,20 +26,20 @@ public class SQLiteStatusTest extends SQLiteDeployTestBase {
         // Verify status for fresh database
         assertNotNull(status, "Status should not be null");
         assertTrue(status.isDatabaseConnected(), "Database should be connected");
-        assertTrue(status.isDatabaseHealthy(), "Database should be healthy");
-        assertEquals("Database connected but schema not initialized", status.getDatabaseHealthMessage());
-        assertTrue(status.getCurrentTag() == null || status.getCurrentTag().isEmpty(),
+        assertTrue(status.getHealthInfo().isHealthy(), "Database should be healthy");
+        assertEquals("Database connected but schema not initialized", status.getHealthInfo().getHealthMessage());
+        assertTrue(status.getDeploymentState().getCurrentTag() == null || status.getDeploymentState().getCurrentTag().isEmpty(),
                 "Current tag should be null or empty on fresh database");
-        assertTrue(status.isConfigurationValid(), "Configuration should be valid");
-        assertEquals("Ready for initial deployment", status.getConfigurationMessage());
-        assertEquals(0, status.getExecutedScripts(),
+        assertTrue(status.getConfigurationInfo().isValid(), "Configuration should be valid");
+        assertEquals("Ready for initial deployment", status.getConfigurationInfo().getMessage());
+        assertEquals(0, status.getDeploymentState().getSuccessfulScripts(),
                 "No scripts should be executed on fresh database");
-        assertEquals(0, status.getFailedScripts(),
+        assertEquals(0, status.getDeploymentState().getFailedScripts(),
                 "No scripts should be failed on fresh database");
-        assertEquals(0, status.getRolledBackScripts(),
+        assertEquals(0, status.getDeploymentState().getRolledBackScripts(),
                 "No scripts should be rolled back on fresh database");
-        assertFalse(status.isDeploymentInProgress(), "No deployment should be in progress");
-        assertTrue(status.getExecutedScriptNames().isEmpty(),
+        assertFalse(status.getLockInfo().isActive(), "No deployment should be in progress");
+        assertTrue(status.getScriptStatus().getExecutedScriptNames().isEmpty(),
                 "Executed script names should be empty on fresh database");
         assertTrue(status.getRecentDeployments().isEmpty(), "Recent deployments should be empty");
     }
@@ -60,21 +60,21 @@ public class SQLiteStatusTest extends SQLiteDeployTestBase {
         // Verify status after deployment
         assertNotNull(status, "Status should not be null");
         assertTrue(status.isDatabaseConnected(), "Database should be connected");
-        assertTrue(status.isDatabaseHealthy(), "Database should be healthy");
-        assertEquals("Database operational", status.getDatabaseHealthMessage());
-        assertEquals("1.0.0.20231110.1", status.getCurrentTag(),
+        assertTrue(status.getHealthInfo().isHealthy(), "Database should be healthy");
+        assertEquals("Database health check passed", status.getHealthInfo().getHealthMessage());
+        assertEquals("1.0.0.20231110.1", status.getDeploymentState().getCurrentTag(),
                 "Current tag should match deployed tag");
-        assertTrue(status.getExecutedScripts() >= 4,
+        assertTrue(status.getDeploymentState().getSuccessfulScripts() >= 4,
                 "Should have at least 4 executed scripts (including initial)");
-        assertEquals(0, status.getFailedScripts(),
+        assertEquals(0, status.getDeploymentState().getFailedScripts(),
                 "No scripts should be failed after successful deployment");
-        assertEquals(0, status.getRolledBackScripts(),
+        assertEquals(0, status.getDeploymentState().getRolledBackScripts(),
                 "No scripts should be rolled back after successful deployment");
-        assertFalse(status.isDeploymentInProgress(), "No deployment should be in progress");
-        assertTrue(status.isConfigurationValid(), "Configuration should be valid");
-        assertFalse(status.getExecutedScriptNames().isEmpty(),
+        assertFalse(status.getLockInfo().isActive(), "No deployment should be in progress");
+        assertTrue(status.getConfigurationInfo().isValid(), "Configuration should be valid");
+        assertFalse(status.getScriptStatus().getExecutedScriptNames().isEmpty(),
                 "Executed script names should not be empty after deployment");
-        assertNotNull(status.getLastDeploymentTime(),
+        assertNotNull(status.getDeploymentState().getDeploymentTime(),
                 "Last deployment time should be set after deployment");
         assertTrue(status.getRecentDeployments().size() >= 1,
                 "Should have at least 1 recent deployment");
@@ -115,18 +115,18 @@ public class SQLiteStatusTest extends SQLiteDeployTestBase {
         // Verify status after rollback
         assertNotNull(status, "Status should not be null");
         assertTrue(status.isDatabaseConnected(), "Database should be connected");
-        assertTrue(status.isDatabaseHealthy(), "Database should be healthy");
-        assertEquals("1.0.0.20231110.1", status.getCurrentTag(),
+        assertTrue(status.getHealthInfo().isHealthy(), "Database should be healthy");
+        assertEquals("1.0.0.20231110.1", status.getDeploymentState().getCurrentTag(),
                 "Current tag should be the rollback target tag");
-        assertTrue(status.getExecutedScripts() >= 4,
+        assertTrue(status.getDeploymentState().getSuccessfulScripts() >= 4,
                 "Should have at least 4 successful scripts after rollback");
-        assertEquals(0, status.getFailedScripts(),
+        assertEquals(0, status.getDeploymentState().getFailedScripts(),
                 "No scripts should be failed after rollback");
-        assertTrue(status.getRolledBackScripts() >= 1,
+        assertTrue(status.getDeploymentState().getRolledBackScripts() >= 1,
                 "Should have at least 1 rolled back script");
-        assertFalse(status.isDeploymentInProgress(), "No deployment should be in progress");
-        assertTrue(status.isConfigurationValid(), "Configuration should be valid");
-        assertFalse(status.getExecutedScriptNames().isEmpty(),
+        assertFalse(status.getLockInfo().isActive(), "No deployment should be in progress");
+        assertTrue(status.getConfigurationInfo().isValid(), "Configuration should be valid");
+        assertFalse(status.getScriptStatus().getExecutedScriptNames().isEmpty(),
                 "Executed script names should not be empty after rollback");
 
         // Verify recent deployment entries show both deployment and rollback
@@ -134,7 +134,7 @@ public class SQLiteStatusTest extends SQLiteDeployTestBase {
                 "Should have at least 2 recent deployments (deploy and rollback)");
 
         // Check that we have rolled back scripts listed
-        assertFalse(status.getRolledBackScriptNames().isEmpty(),
+        assertFalse(status.getScriptStatus().getRolledBackScriptNames().isEmpty(),
                 "Rolled back script names should not be empty after rollback");
     }
 
@@ -160,24 +160,24 @@ public class SQLiteStatusTest extends SQLiteDeployTestBase {
         // Verify status after rollback to initial
         assertNotNull(status, "Status should not be null");
         assertTrue(status.isDatabaseConnected(), "Database should be connected");
-        assertTrue(status.isDatabaseHealthy(), "Database should be healthy");
-        assertEquals("initial", status.getCurrentTag(),
+        assertTrue(status.getHealthInfo().isHealthy(), "Database should be healthy");
+        assertEquals("initial", status.getDeploymentState().getCurrentTag(),
                 "Current tag should be 'initial' after rollback");
-        assertTrue(status.getRolledBackScripts() >= 4,
+        assertTrue(status.getDeploymentState().getRolledBackScripts() >= 4,
                 "Should have at least 4 rolled back scripts");
-        assertEquals(0, status.getFailedScripts(),
+        assertEquals(0, status.getDeploymentState().getFailedScripts(),
                 "No scripts should be failed after rollback to initial");
-        assertTrue(status.getExecutedScripts() >= 1,
+        assertTrue(status.getDeploymentState().getSuccessfulScripts() >= 1,
                 "Should have at least 1 executed script (initial)");
-        assertFalse(status.isDeploymentInProgress(), "No deployment should be in progress");
-        assertTrue(status.isConfigurationValid(), "Configuration should be valid");
+        assertFalse(status.getLockInfo().isActive(), "No deployment should be in progress");
+        assertTrue(status.getConfigurationInfo().isValid(), "Configuration should be valid");
 
         // Verify recent deployment entries
         assertTrue(status.getRecentDeployments().size() >= 1,
                 "Should have at least 1 recent deployment");
 
         // Check that rolled back scripts are properly listed
-        assertFalse(status.getRolledBackScriptNames().isEmpty(),
+        assertFalse(status.getScriptStatus().getRolledBackScriptNames().isEmpty(),
                 "Rolled back script names should not be empty after rollback to initial");
     }
 
@@ -211,14 +211,14 @@ public class SQLiteStatusTest extends SQLiteDeployTestBase {
         // Verify status with failed script
         assertNotNull(status, "Status should not be null");
         assertTrue(status.isDatabaseConnected(), "Database should be connected");
-        assertTrue(status.isDatabaseHealthy(), "Database should be healthy");
-        assertTrue(status.getExecutedScripts() >= 4,
+        assertTrue(status.getHealthInfo().isHealthy(), "Database should be healthy");
+        assertTrue(status.getDeploymentState().getSuccessfulScripts() >= 4,
                 "Should have at least 4 successful scripts");
-        assertTrue(status.getFailedScripts() >= 1,
+        assertTrue(status.getDeploymentState().getFailedScripts() >= 1,
                 "Should have at least 1 failed script");
-        assertEquals("1.0.0.20231110.1", status.getCurrentTag(),
+        assertEquals("1.0.0.20231110.1", status.getDeploymentState().getCurrentTag(),
                 "Current tag should still be the deployed tag despite failure");
-        assertFalse(status.getFailedScriptNames().isEmpty(),
+        assertFalse(status.getScriptStatus().getFailedScriptNames().isEmpty(),
                 "Failed script names should not be empty");
     }
 
@@ -248,15 +248,15 @@ public class SQLiteStatusTest extends SQLiteDeployTestBase {
         // Verify status with deployment lock
         assertNotNull(status, "Status should not be null");
         assertTrue(status.isDatabaseConnected(), "Database should be connected");
-        assertTrue(status.isDatabaseHealthy(), "Database should be healthy");
-        assertTrue(status.isDeploymentInProgress(), "Deployment should be in progress");
-        assertEquals("test-user", status.getDeploymentLockOwner(),
+        assertTrue(status.getHealthInfo().isHealthy(), "Database should be healthy");
+        assertTrue(status.getLockInfo().isActive(), "Deployment should be in progress");
+        assertEquals("test-user", status.getLockInfo().getLockOwner(),
                 "Lock owner should match");
-        assertNotNull(status.getDeploymentLockAcquiredAt(),
+        assertNotNull(status.getLockInfo().getLockAcquiredAt(),
                 "Lock acquired time should be set");
-        assertNotNull(status.getDeploymentLockExpiresAt(),
+        assertNotNull(status.getLockInfo().getLockExpiresAt(),
                 "Lock expires time should be set");
-        assertEquals("1.0.0.20231110.1", status.getCurrentTag(),
+        assertEquals("1.0.0.20231110.1", status.getDeploymentState().getCurrentTag(),
                 "Current tag should still be the deployed tag");
     }
 
@@ -276,20 +276,20 @@ public class SQLiteStatusTest extends SQLiteDeployTestBase {
         // Verify comprehensive status fields
         assertNotNull(status, "Status should not be null");
         assertTrue(status.isDatabaseConnected(), "Database should be connected");
-        assertTrue(status.isDatabaseHealthy(), "Database should be healthy");
-        assertNotNull(status.getDatabaseVersion(), "Database version should be set");
-        assertTrue(status.getConnectionResponseTime() >= 0, "Response time should be non-negative");
-        assertTrue(status.isConfigurationValid(), "Configuration should be valid");
-        assertNotNull(status.getConfigurationMessage(), "Configuration message should be set");
+        assertTrue(status.getHealthInfo().isHealthy(), "Database should be healthy");
+        assertNotNull(status.getHealthInfo().getVersion(), "Database version should be set");
+        assertTrue(status.getHealthInfo().getResponseTime() >= 0, "Response time should be non-negative");
+        assertTrue(status.getConfigurationInfo().isValid(), "Configuration should be valid");
+        assertNotNull(status.getConfigurationInfo().getMessage(), "Configuration message should be set");
 
         // Verify deployment state
-        assertEquals("1.0.0.20231110.1", status.getCurrentTag());
-        assertNotNull(status.getLastDeploymentTime(), "Last deployment time should be set");
-        assertTrue(status.getExecutedScripts() > 0, "Should have executed scripts");
+        assertEquals("1.0.0.20231110.1", status.getDeploymentState().getCurrentTag());
+        assertNotNull(status.getDeploymentState().getDeploymentTime(), "Last deployment time should be set");
+        assertTrue(status.getDeploymentState().getSuccessfulScripts() > 0, "Should have executed scripts");
 
         // Verify script details
-        assertFalse(status.getExecutedScriptNames().isEmpty(), "Executed script names should not be empty");
-        assertTrue(status.getFailedScriptNames().isEmpty(), "Failed script names should be empty");
+        assertFalse(status.getScriptStatus().getExecutedScriptNames().isEmpty(), "Executed script names should not be empty");
+        assertTrue(status.getScriptStatus().getFailedScriptNames().isEmpty(), "Failed script names should be empty");
 
         // Verify recent deployments
         assertFalse(status.getRecentDeployments().isEmpty(), "Recent deployments should not be empty");

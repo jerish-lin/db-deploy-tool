@@ -16,39 +16,20 @@ public class DatabaseStatus {
     private String databaseVersion;
     private String databaseUrl;
     
-    // Deployment state
-    private String currentTag;
-    private String currentTagDescription;
-    private LocalDateTime lastDeploymentTime;
-    private String lastDeploymentUser;
+    // Deployment state information
+    private DeploymentStateInfo deploymentState;
     
-    // Script counts
-    private int totalScripts;
-    private int executedScripts;
-    private int failedScripts;
-    private int rolledBackScripts;
-    private int pendingScripts;
+    // Script status information
+    private ScriptStatusInfo scriptStatus;
     
-    // Script details
-    private List<String> executedScriptNames;
-    private List<String> failedScriptNames;
-    private List<String> rolledBackScriptNames;
-    private List<String> pendingScriptNames;
+    // Deployment lock information
+    private LockInfo lockInfo;
     
-    // Deployment lock status
-    private boolean deploymentInProgress;
-    private String deploymentLockOwner;
-    private LocalDateTime deploymentLockAcquiredAt;
-    private LocalDateTime deploymentLockExpiresAt;
+    // Database health information
+    private DatabaseHealthInfo healthInfo;
     
-    // Database health
-    private boolean databaseHealthy;
-    private String databaseHealthMessage;
-    private long connectionResponseTime;
-    
-    // Configuration status
-    private boolean configurationValid;
-    private String configurationMessage;
+    // Configuration information
+    private ConfigurationInfo configurationInfo;
     
     // Recent deployment history (last 10 deployments)
     private List<DeploymentHistoryEntry> recentDeployments;
@@ -105,6 +86,21 @@ public class DatabaseStatus {
     }
     
     @Data
+    public static class ScriptStatusInfo {
+        private int totalScripts;
+        private int executedScripts;
+        private int failedScripts;
+        private int rolledBackScripts;
+        private int pendingScripts;
+        private List<String> executedScriptNames;
+        private List<String> failedScriptNames;
+        private List<String> rolledBackScriptNames;
+        private List<String> pendingScriptNames;
+        private List<ScriptExecutionInfo> scriptHistory;
+        private List<FailedScriptInfo> failedScriptDetails;
+    }
+    
+    @Data
     public static class FailedScriptInfo {
         private String scriptName;
         private String errorMessage;
@@ -124,6 +120,7 @@ public class DatabaseStatus {
         private String version;
         private boolean healthy;
         private String healthMessage;
+        private long responseTime;
     }
     
     @Data

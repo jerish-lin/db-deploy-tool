@@ -62,17 +62,20 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
             // Check current deployment status to decide whether to deploy or rollback
             DatabaseStatus currentStatus = status();
 
-            if (currentStatus.getCurrentTag() == null || currentStatus.getCurrentTag().isEmpty()) {
+            String currentTag = currentStatus.getDeploymentState() != null ? 
+                currentStatus.getDeploymentState().getCurrentTag() : null;
+
+            if (currentTag == null || currentTag.isEmpty()) {
                 // No current deployment, perform initial deployment
                 log.info("No current deployment found, performing initial deployment");
                 deploy(changeLogConfigPath, tagName, dryRun);
-            } else if (currentStatus.getCurrentTag().equals(tagName)) {
+            } else if (currentTag.equals(tagName)) {
                 // Already at target tag, no action needed
                 log.info("Database is already at target tag: {}", tagName);
             } else {
                 // Check if we need to deploy forward or rollback
                 // This is a simplified logic - you may want to implement version comparison
-                log.info("Current tag: {}, Target tag: {}", currentStatus.getCurrentTag(), tagName);
+                log.info("Current tag: {}, Target tag: {}", currentTag, tagName);
 
                 // For now, we'll assume if the target tag doesn't exist in deployment history, we deploy
                 // Otherwise, we rollback
@@ -104,17 +107,35 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
                 log.info("Database schema not initialized - returning empty status");
                 DatabaseStatus status = new DatabaseStatus();
                 status.setDatabaseConnected(true);
-                status.setDatabaseHealthy(true);
-                status.setDatabaseHealthMessage("Database connected but schema not initialized");
-                status.setCurrentTag("");
-                status.setConfigurationValid(true);
-                status.setConfigurationMessage("Ready for initial deployment");
-
-                // Initialize lists to prevent null pointer exceptions
-                status.setExecutedScriptNames(new ArrayList<>());
-                status.setFailedScriptNames(new ArrayList<>());
-                status.setRolledBackScriptNames(new ArrayList<>());
-                status.setPendingScriptNames(new ArrayList<>());
+                
+                // Create empty sub-objects
+                DatabaseStatus.DeploymentStateInfo deploymentState = new DatabaseStatus.DeploymentStateInfo();
+                deploymentState.setCurrentTag("");
+                status.setDeploymentState(deploymentState);
+                
+                DatabaseStatus.DatabaseHealthInfo healthInfo = new DatabaseStatus.DatabaseHealthInfo();
+                healthInfo.setHealthy(true);
+                healthInfo.setHealthMessage("Database connected but schema not initialized");
+                status.setHealthInfo(healthInfo);
+                
+                DatabaseStatus.ConfigurationInfo configInfo = new DatabaseStatus.ConfigurationInfo();
+                configInfo.setValid(true);
+                configInfo.setMessage("Ready for initial deployment");
+                status.setConfigurationInfo(configInfo);
+                
+                DatabaseStatus.ScriptStatusInfo scriptStatus = new DatabaseStatus.ScriptStatusInfo();
+                scriptStatus.setExecutedScriptNames(new ArrayList<>());
+                scriptStatus.setFailedScriptNames(new ArrayList<>());
+                scriptStatus.setRolledBackScriptNames(new ArrayList<>());
+                scriptStatus.setPendingScriptNames(new ArrayList<>());
+                scriptStatus.setScriptHistory(new ArrayList<>());
+                scriptStatus.setFailedScriptDetails(new ArrayList<>());
+                status.setScriptStatus(scriptStatus);
+                
+                DatabaseStatus.LockInfo lockInfo = new DatabaseStatus.LockInfo();
+                lockInfo.setActive(false);
+                status.setLockInfo(lockInfo);
+                
                 status.setRecentDeployments(new ArrayList<>());
                 return status;
             }
@@ -125,8 +146,12 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
             log.warn("Failed to get database status", e);
             DatabaseStatus status = new DatabaseStatus();
             status.setDatabaseConnected(false);
-            status.setDatabaseHealthy(false);
-            status.setDatabaseHealthMessage("Database connection failed: " + e.getMessage());
+            
+            DatabaseStatus.DatabaseHealthInfo errorHealthInfo = new DatabaseStatus.DatabaseHealthInfo();
+            errorHealthInfo.setHealthy(false);
+            errorHealthInfo.setHealthMessage("Database connection failed: " + e.getMessage());
+            status.setHealthInfo(errorHealthInfo);
+            
             return status;
         }
     }

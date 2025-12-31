@@ -16,17 +16,29 @@ public class DatabaseStatusPrinter {
 
         log.info("=== Database Deployment Status ===");
         log.info("Database Name: {}", status.getDatabaseName());
-        log.info("Current Tag: {}", status.getCurrentTag() != null ? status.getCurrentTag() : "None");
-        log.info("Total Scripts: {}", status.getTotalScripts());
-        log.info("Executed Scripts: {}", status.getExecutedScripts());
-        log.info("Failed Scripts: {}", status.getFailedScripts());
-        log.info("Rolled Back Scripts: {}", status.getRolledBackScripts());
-        log.info("Last Deployment Time: {}", status.getLastDeploymentTime() != null ? status.getLastDeploymentTime() : "Never");
-        log.info("Database Version: {}", status.getDatabaseVersion() != null ? status.getDatabaseVersion() : "Unknown");
+        
+        // Print deployment state
+        DatabaseStatus.DeploymentStateInfo deploymentState = status.getDeploymentState();
+        if (deploymentState != null) {
+            log.info("Current Tag: {}", deploymentState.getCurrentTag() != null ? deploymentState.getCurrentTag() : "None");
+            log.info("Total Scripts: {}", deploymentState.getTotalScripts());
+            log.info("Executed Scripts: {}", deploymentState.getSuccessfulScripts());
+            log.info("Failed Scripts: {}", deploymentState.getFailedScripts());
+            log.info("Rolled Back Scripts: {}", deploymentState.getRolledBackScripts());
+            log.info("Last Deployment Time: {}", deploymentState.getDeploymentTime() != null ? deploymentState.getDeploymentTime() : "Never");
+        }
+        
+        // Print database health
+        DatabaseStatus.DatabaseHealthInfo healthInfo = status.getHealthInfo();
+        if (healthInfo != null) {
+            log.info("Database Version: {}", healthInfo.getVersion() != null ? healthInfo.getVersion() : "Unknown");
+        }
 
-        if (!status.getExecutedScriptNames().isEmpty()) {
+        // Print script status
+        DatabaseStatus.ScriptStatusInfo scriptStatus = status.getScriptStatus();
+        if (scriptStatus != null && !scriptStatus.getExecutedScriptNames().isEmpty()) {
             log.info("Executed Scripts:");
-            status.getExecutedScriptNames().forEach(script -> log.info("  - {}", script));
+            scriptStatus.getExecutedScriptNames().forEach(script -> log.info("  - {}", script));
         }
 
         log.info("=== End Status ===");

@@ -468,6 +468,7 @@ public class AuditRepository {
                     "SELECT sqlite_version()", String.class);
             info.setVersion(versionSql);
             info.setHealthy(true);
+            info.setHealthMessage("Database health check passed");
         } catch (Exception e) {
             // For non-SQLite databases, try a generic query
             try {

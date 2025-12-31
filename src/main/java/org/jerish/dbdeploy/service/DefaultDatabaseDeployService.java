@@ -315,8 +315,6 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
         DatabaseStatus status = new DatabaseStatus();
         // Basic connection info
         status.setDatabaseConnected(true);
-        status.setDatabaseHealthy(true);
-        status.setDatabaseHealthMessage("Database operational");
 
         // Query deployment state using views
         populateDeploymentState(status);
@@ -339,31 +337,48 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
     }
 
     private void populateDeploymentState(DatabaseStatus status) {
-        try {
-            status.setDatabaseConnected(true);
-            DatabaseStatus.DeploymentStateInfo stateInfo = auditRepository.getCurrentDeploymentState();
-            if (stateInfo != null) {
-                status.setCurrentTag(stateInfo.getCurrentTag());
-                status.setCurrentTagDescription(stateInfo.getDescription());
-                status.setLastDeploymentTime(parseDateTime(stateInfo.getDeploymentTime()));
-                status.setLastDeploymentUser(stateInfo.getCreatedBy());
-                status.setTotalScripts(stateInfo.getTotalScripts());
-                status.setExecutedScripts(stateInfo.getSuccessfulScripts());
-                status.setFailedScripts(stateInfo.getFailedScripts());
-                status.setRolledBackScripts(stateInfo.getRolledBackScripts());
-            } else {
-                status.setCurrentTag("");
-                status.setTotalScripts(0);
-                status.setExecutedScripts(0);
-                status.setFailedScripts(0);
-            }
-            // Always get total rolled back scripts count across all tags
-            status.setRolledBackScripts(auditRepository.getTotalRolledBackScripts());
-        } catch (Exception e) {
-            log.error("Error populating deployment state", e);
-        }
 
-    }
+            try {
+
+                status.setDatabaseConnected(true);
+
+                DatabaseStatus.DeploymentStateInfo stateInfo = auditRepository.getCurrentDeploymentState();
+
+                if (stateInfo != null) {
+
+                    // Set total rolled back scripts count across all tags
+
+                    stateInfo.setRolledBackScripts(auditRepository.getTotalRolledBackScripts());
+
+                    status.setDeploymentState(stateInfo);
+
+                } else {
+
+                    // Create empty deployment state
+
+                    DatabaseStatus.DeploymentStateInfo emptyState = new DatabaseStatus.DeploymentStateInfo();
+
+                    emptyState.setCurrentTag("");
+
+                    emptyState.setTotalScripts(0);
+
+                    emptyState.setSuccessfulScripts(0);
+
+                    emptyState.setFailedScripts(0);
+
+                    emptyState.setRolledBackScripts(auditRepository.getTotalRolledBackScripts());
+
+                    status.setDeploymentState(emptyState);
+
+                }
+
+            } catch (Exception e) {
+
+                log.error("Error populating deployment state", e);
+
+            }
+
+        }
 
     private void populateScriptStatus(DatabaseStatus status) {
         try {
@@ -373,7 +388,7 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
             List<String> failedScripts = new ArrayList<>();
             List<String> rolledBackScripts = new ArrayList<>();
 
-            for (var info : scriptHistory) {
+            for (DatabaseStatus.ScriptExecutionInfo info : scriptHistory) {
                 switch (info.getExecutionStatus()) {
                     case "SUCCESS" -> executedScripts.add(info.getScriptName());
                     case "FAILED" -> failedScripts.add(info.getScriptName());
@@ -381,78 +396,97 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
                 }
             }
 
-            status.setExecutedScriptNames(executedScripts);
-            status.setFailedScriptNames(failedScripts);
-            status.setRolledBackScriptNames(rolledBackScripts);
-
+            // Create script status info
+            DatabaseStatus.ScriptStatusInfo scriptStatus = new DatabaseStatus.ScriptStatusInfo();
+            scriptStatus.setExecutedScriptNames(executedScripts);
+            scriptStatus.setFailedScriptNames(failedScripts);
+            scriptStatus.setRolledBackScriptNames(rolledBackScripts);
+            scriptStatus.setPendingScriptNames(new ArrayList<>());
+            scriptStatus.setScriptHistory(scriptHistory);
+            
             // Get detailed failure information if needed
             if (!failedScripts.isEmpty()) {
                 List<DatabaseStatus.FailedScriptInfo> failedScriptDetails = auditRepository.getFailedScripts();
-                // Failed scripts are already populated above, details available if needed
+                scriptStatus.setFailedScriptDetails(failedScriptDetails);
+            } else {
+                scriptStatus.setFailedScriptDetails(new ArrayList<>());
             }
+            
+            // Set script counts
+            scriptStatus.setExecutedScripts(executedScripts.size());
+            scriptStatus.setFailedScripts(failedScripts.size());
+            scriptStatus.setRolledBackScripts(rolledBackScripts.size());
+            scriptStatus.setPendingScripts(0);
+
+            status.setScriptStatus(scriptStatus);
 
         } catch (Exception e) {
             log.error("Error populating script status", e);
-            status.setExecutedScriptNames(new ArrayList<>());
-            status.setFailedScriptNames(new ArrayList<>());
-            status.setRolledBackScriptNames(new ArrayList<>());
+            DatabaseStatus.ScriptStatusInfo emptyScriptStatus = new DatabaseStatus.ScriptStatusInfo();
+            emptyScriptStatus.setExecutedScriptNames(new ArrayList<>());
+            emptyScriptStatus.setFailedScriptNames(new ArrayList<>());
+            emptyScriptStatus.setRolledBackScriptNames(new ArrayList<>());
+            emptyScriptStatus.setPendingScriptNames(new ArrayList<>());
+            emptyScriptStatus.setScriptHistory(new ArrayList<>());
+            emptyScriptStatus.setFailedScriptDetails(new ArrayList<>());
+            status.setScriptStatus(emptyScriptStatus);
         }
     }
 
     private void populateLockStatus(DatabaseStatus status) {
-        try {
-            DatabaseStatus.LockInfo lockInfo = auditRepository.getCurrentLockStatus();
-
-            if (lockInfo != null && lockInfo.isActive()) {
-                status.setDeploymentInProgress(true);
-                status.setDeploymentLockOwner(lockInfo.getLockOwner());
-                status.setDeploymentLockAcquiredAt(parseDateTime(lockInfo.getLockAcquiredAt()));
-                status.setDeploymentLockExpiresAt(parseDateTime(lockInfo.getLockExpiresAt()));
-            } else {
-                status.setDeploymentInProgress(false);
-                status.setDeploymentLockOwner("");
+            try {
+                DatabaseStatus.LockInfo lockInfo = auditRepository.getCurrentLockStatus();
+                
+                if (lockInfo != null && lockInfo.isActive()) {
+                    status.setLockInfo(lockInfo);
+                } else {
+                    // Create empty lock info
+                    DatabaseStatus.LockInfo emptyLockInfo = new DatabaseStatus.LockInfo();
+                    emptyLockInfo.setActive(false);
+                    emptyLockInfo.setLockOwner("");
+                    status.setLockInfo(emptyLockInfo);
+                }
+            } catch (Exception e) {
+                log.error("Error populating lock status", e);
+                DatabaseStatus.LockInfo emptyLockInfo = new DatabaseStatus.LockInfo();
+                emptyLockInfo.setActive(false);
+                emptyLockInfo.setLockOwner("");
+                status.setLockInfo(emptyLockInfo);
             }
-        } catch (Exception e) {
-            log.error("Error populating lock status", e);
-            status.setDeploymentInProgress(false);
-            status.setDeploymentLockOwner("");
         }
-    }
-
     private void populateDatabaseHealth(DatabaseStatus status) {
-        try {
-            // Basic health check - query database version and response time
-            long startTime = System.currentTimeMillis();
-
-            DatabaseStatus.DatabaseHealthInfo healthInfo = auditRepository.getDatabaseHealthInfo();
-
-            status.setDatabaseVersion(healthInfo.getVersion());
-            status.setDatabaseHealthy(healthInfo.isHealthy());
-            if (!healthInfo.isHealthy()) {
-                status.setDatabaseHealthMessage(healthInfo.getHealthMessage());
+            try {
+                // Basic health check - query database version and response time
+                long startTime = System.currentTimeMillis();
+    
+                DatabaseStatus.DatabaseHealthInfo healthInfo = auditRepository.getDatabaseHealthInfo();
+                
+                // Add response time to health info
+                long responseTime = System.currentTimeMillis() - startTime;
+                healthInfo.setResponseTime(responseTime);
+                
+                status.setHealthInfo(healthInfo);
+    
+            } catch (Exception e) {
+                log.error("Error populating database health", e);
+                DatabaseStatus.DatabaseHealthInfo errorHealthInfo = new DatabaseStatus.DatabaseHealthInfo();
+                errorHealthInfo.setHealthy(false);
+                errorHealthInfo.setHealthMessage("Health check error: " + e.getMessage());
+                errorHealthInfo.setResponseTime(-1);
+                status.setHealthInfo(errorHealthInfo);
             }
-
-            long responseTime = System.currentTimeMillis() - startTime;
-            status.setConnectionResponseTime(responseTime);
-
-        } catch (Exception e) {
-            log.error("Error populating database health", e);
-            status.setDatabaseHealthy(false);
-            status.setDatabaseHealthMessage("Health check error: " + e.getMessage());
         }
-    }
-
     private void populateConfigurationStatus(DatabaseStatus status) {
         try {
             DatabaseStatus.ConfigurationInfo configInfo = auditRepository.getConfigurationInfo();
-
-            status.setConfigurationValid(configInfo.isValid());
-            status.setConfigurationMessage(configInfo.getMessage());
+            status.setConfigurationInfo(configInfo);
 
         } catch (Exception e) {
             log.error("Error populating configuration status", e);
-            status.setConfigurationValid(false);
-            status.setConfigurationMessage("Configuration check failed");
+            DatabaseStatus.ConfigurationInfo errorConfigInfo = new DatabaseStatus.ConfigurationInfo();
+            errorConfigInfo.setValid(false);
+            errorConfigInfo.setMessage("Configuration check failed");
+            status.setConfigurationInfo(errorConfigInfo);
         }
     }
 
