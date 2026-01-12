@@ -2,6 +2,7 @@ package org.jerish.dbdeploy.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jerish.dbdeploy.config.DeploymentConfig;
 import org.jerish.dbdeploy.configloader.ConfigLoader;
 import org.jerish.dbdeploy.repository.AuditRepository;
 import org.jerish.dbdeploy.schema.SchemaInitializationManager;
@@ -25,6 +26,7 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
     private final DatabaseDeployService deployService;
     private final SchemaInitializationManager schemaInitializationManager;
     private final AuditRepository auditRepository;
+    private final DeploymentConfig deploymentConfig;
 
     @Override
     public void deploy(String changeLogConfigPath, boolean dryRun) throws Exception {
@@ -120,6 +122,9 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
                 log.info("Detected pending scripts, performing deployment");
                 deploy(changeLogConfigPath, dryRun);
             } else if (needRollback) {
+                if (!deploymentConfig.isEnableAutoRollback()) {
+                    throw new RuntimeException("Rollback is required but enableAutoRollback is not enabled. Please enable enableAutoRollback in the configuration or use explicit rollback command.");
+                }
                 log.info("Detected scripts to rollback, performing rollback");
                 rollback(changeLogConfigPath, dryRun);
             } else {
