@@ -5,6 +5,9 @@ import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @Command(name = "db-deploy-tool",
         mixinStandardHelpOptions = true,
         description = "Database version management and deployment tool",
@@ -29,6 +32,11 @@ public class CommandLineOptions {
     @Option(names = {"--dry-run"},
             description = "Show what would be executed without making changes")
     private boolean dryRun = false;
+
+    @Option(names = {"-p", "--param"},
+            description = "Parameter for SQL placeholder replacement in format: param_name=value. Can be specified multiple times.",
+            split = ",")
+    private Map<String, String> parameters = new HashMap<>();
 
     public enum Action {
         DEPLOY, ROLLBACK, STATUS, DEPLOY_OR_ROLLBACK;

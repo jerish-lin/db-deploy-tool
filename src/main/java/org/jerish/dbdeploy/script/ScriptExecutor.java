@@ -15,6 +15,9 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.ResultSet;
 import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -235,6 +238,20 @@ public class ScriptExecutor {
      */
     @Transactional
     public ScriptExecutionResult executeScriptWithVerificationInTransaction(String scriptPath, String scriptId) {
+        return executeScriptWithVerificationInTransaction(scriptPath, scriptId, null);
+    }
+
+    /**
+     * Execute script and verification in the same transaction with parameter replacement.
+     * If verification fails, the entire transaction is rolled back.
+     *
+     * @param scriptPath The path to the script file
+     * @param scriptId The script identifier
+     * @param parameters Map of parameter names to values for placeholder replacement
+     * @return ScriptExecutionResult with execution details
+     */
+    @Transactional
+    public ScriptExecutionResult executeScriptWithVerificationInTransaction(String scriptPath, String scriptId, Map<String, String> parameters) {
         long startTime = System.currentTimeMillis();
         ScriptExecutionResult result = new ScriptExecutionResult();
         result.setScriptId(scriptId);
@@ -243,6 +260,10 @@ public class ScriptExecutor {
 
         try {
             String scriptContent = readScriptContent(scriptPath);
+            // Replace placeholders if parameters are provided
+            if (parameters != null && !parameters.isEmpty()) {
+                scriptContent = replacePlaceholders(scriptContent, parameters);
+            }
             String checksum = calculateChecksum(scriptContent);
             result.setScriptChecksum(checksum);
 
@@ -252,6 +273,7 @@ public class ScriptExecutor {
             final boolean hasVerification = Files.exists(Paths.get(verificationPath));
             if (hasVerification) {
                 verificationContent = readScriptContent(verificationPath);
+                // Replace placeholders in verification content if parameters are provided
             } else {
                 verificationContent = null;
             }
@@ -271,7 +293,10 @@ public class ScriptExecutor {
             // Execute verification if it exists
             if (hasVerification && verificationContent != null) {
                 log.info("Running verification for script: {}", scriptId);
-                String[] verificationStatements = splitStatements(verificationContent);
+                String finalVerificationContent = (parameters != null && !parameters.isEmpty()) 
+                        ? replacePlaceholders(verificationContent, parameters)
+                        : verificationContent;
+                String[] verificationStatements = splitStatements(finalVerificationContent);
 
                 for (String sql : verificationStatements) {
                     if (!sql.trim().isEmpty()) {
@@ -326,5 +351,50 @@ public class ScriptExecutor {
         private LocalDateTime startTime;
         private LocalDateTime endTime;
         private long duration;
+    }
+
+    /**
+     * Replace placeholders in SQL content with actual parameter values.
+     * Placeholders are in the format ${param_name}.
+     *
+     * @param content   The SQL content with placeholders
+     * @param parameters The map of parameter names to values
+     * @return The SQL content with placeholders replaced
+     * @throws RuntimeException if a placeholder is found but no value is provided
+     */
+    private String replacePlaceholders(String content, Map<String, String> parameters) {
+        if (content == null) {
+            return null;
+        }
+
+        if (parameters == null || parameters.isEmpty()) {
+            // Check if there are any placeholders in the content
+            Pattern placeholderCheck = Pattern.compile("\\$\\{(\\w+)\\}");
+            Matcher checkMatcher = placeholderCheck.matcher(content);
+            if (checkMatcher.find()) {
+                throw new RuntimeException("SQL contains placeholders but no parameters were provided. Found placeholder: " + checkMatcher.group());
+            }
+            return content;
+        }
+
+        Pattern pattern = Pattern.compile("\\$\\{(\\w+)\\}");
+        Matcher matcher = pattern.matcher(content);
+        StringBuffer result = new StringBuffer();
+
+        while (matcher.find()) {
+            String placeholder = matcher.group(1); // Get the parameter name without ${}
+            String value = parameters.get(placeholder);
+
+            if (value != null) {
+                // Replace the placeholder with the actual value
+                matcher.appendReplacement(result, Matcher.quoteReplacement(value));
+            } else {
+                // Throw exception if no value is found for a placeholder
+                throw new RuntimeException("No value provided for placeholder: " + placeholder);
+            }
+        }
+
+        matcher.appendTail(result);
+        return result.toString();
     }
 }

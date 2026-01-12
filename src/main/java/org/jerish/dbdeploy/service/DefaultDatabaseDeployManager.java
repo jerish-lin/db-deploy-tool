@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Implementation of DatabaseDeployManager that handles the core business logic
@@ -27,6 +28,11 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
 
     @Override
     public void deploy(String changeLogConfigPath, boolean dryRun) throws Exception {
+        deploy(changeLogConfigPath, dryRun, null);
+    }
+
+    @Override
+    public void deploy(String changeLogConfigPath, boolean dryRun, Map<String, String> parameters) throws Exception {
         log.info("Starting deployment (dry-run: {})", dryRun);
 
         // Initialize schema
@@ -36,13 +42,18 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
         ChangeLogConfig changeLogConfig = ConfigLoader.loadChangeLogConfig(changeLogConfigPath);
 
         // Delegate to the deploy service
-        deployService.deploy(changeLogConfig, dryRun);
+        deployService.deploy(changeLogConfig, dryRun, parameters);
 
         log.info("Deployment completed successfully");
     }
 
     @Override
     public void rollback(String changeLogConfigPath, boolean dryRun) throws Exception {
+        rollback(changeLogConfigPath, dryRun, null);
+    }
+
+    @Override
+    public void rollback(String changeLogConfigPath, boolean dryRun, Map<String, String> parameters) throws Exception {
         log.info("Starting rollback (dry-run: {})", dryRun);
 
         // Initialize schema
@@ -52,7 +63,7 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
         ChangeLogConfig changeLogConfig = ConfigLoader.loadChangeLogConfig(changeLogConfigPath);
 
         // Delegate to the deploy service
-        deployService.rollback(changeLogConfig, dryRun);
+        deployService.rollback(changeLogConfig, dryRun, parameters);
 
         log.info("Rollback completed successfully");
     }

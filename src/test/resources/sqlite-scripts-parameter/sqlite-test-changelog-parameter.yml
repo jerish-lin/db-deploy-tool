@@ -1,0 +1,3 @@
+scripts:
+  - feature-20001-create-parameter-table
+  - feature-20002-insert-parameter-data

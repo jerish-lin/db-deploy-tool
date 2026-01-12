@@ -20,6 +20,9 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +46,11 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
 
     @Override
     public void deploy(ChangeLogConfig changeLogConfig, boolean dryRun) throws Exception {
+        deploy(changeLogConfig, dryRun, null);
+    }
+
+    @Override
+    public void deploy(ChangeLogConfig changeLogConfig, boolean dryRun, Map<String, String> parameters) throws Exception {
 
         log.info("Starting deployment");
 
@@ -74,7 +82,7 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
                 }
 
                 log.info("Executing script: {}", script.getName());
-                executeScriptWithAudit(script);
+                executeScriptWithAudit(script, parameters);
             }
 
             log.info("Deployment completed successfully");
@@ -86,7 +94,7 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
         }
     }
 
-    private void executeScriptWithAudit(ScriptFileManager.ScriptFile script) throws Exception {
+    private void executeScriptWithAudit(ScriptFileManager.ScriptFile script, Map<String, String> parameters) throws Exception {
         ChangeLogEntry entry = new ChangeLogEntry();
         // Use the full script name including folder structure
         String scriptNameForDb = script.getName();
@@ -104,7 +112,8 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
 
         try {
             // Execute script with verification in the same transaction
-            ScriptExecutor.ScriptExecutionResult result = scriptExecutor.executeScriptWithVerificationInTransaction(script.getApplyPath(), script.getName());
+            ScriptExecutor.ScriptExecutionResult result = scriptExecutor.executeScriptWithVerificationInTransaction(
+                    script.getApplyPath(), script.getName(), parameters);
 
             if (result.isSuccess()) {
                 entry.setExecutionDurationMs(result.getDuration());
@@ -123,6 +132,11 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
 
     @Override
     public void rollback(ChangeLogConfig changeLogConfig, boolean dryRun) throws Exception {
+        rollback(changeLogConfig, dryRun, null);
+    }
+
+    @Override
+    public void rollback(ChangeLogConfig changeLogConfig, boolean dryRun, Map<String, String> parameters) throws Exception {
         log.info("Starting rollback");
 
         String lockOwner = "rollback-" + System.currentTimeMillis();
@@ -162,7 +176,8 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
 
                 // Execute rollback script if available
                 if (entry.getRollbackScriptContent() != null && !entry.getRollbackScriptContent().isEmpty()) {
-                    scriptExecutor.executeScriptContent(entry.getRollbackScriptContent());
+                    String rollbackContent = replacePlaceholders(entry.getRollbackScriptContent(), parameters);
+                    scriptExecutor.executeScriptContent(rollbackContent);
                 } else {
                     log.warn("No rollback script available for: {}", entry.getScriptName());
                 }
@@ -170,7 +185,8 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
                 // Execute rollback verification if available
                 if (entry.getRollbackVerifyScriptContent() != null && !entry.getRollbackVerifyScriptContent().isEmpty()) {
                     try {
-                        ScriptExecutor.VerificationResult verificationResult = scriptExecutor.executeVerificationContent(entry.getRollbackVerifyScriptContent());
+                        String rollbackVerifyContent = replacePlaceholders(entry.getRollbackVerifyScriptContent(), parameters);
+                        ScriptExecutor.VerificationResult verificationResult = scriptExecutor.executeVerificationContent(rollbackVerifyContent);
 
                         // Log verification results
                         log.info("\n=== ROLLBACK VERIFICATION RESULTS ===");
@@ -437,5 +453,50 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
             log.debug("Failed to parse datetime: {}", dateTimeStr, e);
             return null;
         }
+    }
+
+    /**
+     * Replace placeholders in SQL content with actual parameter values.
+     * Placeholders are in the format ${param_name}.
+     *
+     * @param content   The SQL content with placeholders
+     * @param parameters The map of parameter names to values
+     * @return The SQL content with placeholders replaced
+     * @throws RuntimeException if a placeholder is found but no value is provided
+     */
+    private String replacePlaceholders(String content, Map<String, String> parameters) {
+        if (content == null) {
+            return null;
+        }
+
+        if (parameters == null || parameters.isEmpty()) {
+            // Check if there are any placeholders in the content
+            Pattern placeholderCheck = Pattern.compile("\\$\\{(\\w+)\\}");
+            Matcher checkMatcher = placeholderCheck.matcher(content);
+            if (checkMatcher.find()) {
+                throw new RuntimeException("SQL contains placeholders but no parameters were provided. Found placeholder: " + checkMatcher.group());
+            }
+            return content;
+        }
+
+        Pattern pattern = Pattern.compile("\\$\\{(\\w+)\\}");
+        Matcher matcher = pattern.matcher(content);
+        StringBuffer result = new StringBuffer();
+
+        while (matcher.find()) {
+            String placeholder = matcher.group(1); // Get the parameter name without ${}
+            String value = parameters.get(placeholder);
+
+            if (value != null) {
+                // Replace the placeholder with the actual value
+                matcher.appendReplacement(result, Matcher.quoteReplacement(value));
+            } else {
+                // Throw exception if no value is found for a placeholder
+                throw new RuntimeException("No value provided for placeholder: " + placeholder);
+            }
+        }
+
+        matcher.appendTail(result);
+        return result.toString();
     }
 }
