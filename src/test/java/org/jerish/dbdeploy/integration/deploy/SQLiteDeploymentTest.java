@@ -47,7 +47,7 @@ public class SQLiteDeploymentTest extends SQLiteDeployTestBase {
     }
 
     private void verifyTablesExist() {
-        String[] expectedTables = {"employees", "departments", "db_change_log", "database_lock"};
+        String[] expectedTables = {"employees", "departments", "db_deploy_tool_change_log", "db_deploy_tool_lock"};
 
         for (String tableName : expectedTables) {
             String sql = "SELECT count(name) FROM sqlite_master WHERE type='table' AND name=?";
@@ -139,7 +139,7 @@ public class SQLiteDeploymentTest extends SQLiteDeployTestBase {
     private void verifyAuditInformation() {
         // Verify all scripts were executed
         Integer successCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM db_change_log WHERE execution_status='SUCCESS'", Integer.class);
+                "SELECT COUNT(*) FROM db_deploy_tool_change_log WHERE execution_status='SUCCESS'", Integer.class);
         assertTrue(successCount != null && successCount == 4,
                 "All 4 scripts should be executed successfully");
 
@@ -153,7 +153,7 @@ public class SQLiteDeploymentTest extends SQLiteDeployTestBase {
 
         for (String scriptId : expectedScripts) {
             Integer scriptCount = dbDeployJdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM db_change_log WHERE script_name=? AND execution_status='SUCCESS'",
+                    "SELECT COUNT(*) FROM db_deploy_tool_change_log WHERE script_name=? AND execution_status='SUCCESS'",
                     Integer.class, scriptId);
             assertTrue(scriptCount != null && scriptCount == 1,
                     String.format("Script '%s' should be executed successfully", scriptId));

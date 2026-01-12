@@ -97,17 +97,17 @@ public class SQLiteRollbackTest extends SQLiteDeployTestBase {
     private void verifyBasicRollbackAuditState() {
         // Verify add-projects-table script is marked as ROLLED_BACK
         Integer rolledBackScriptCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM db_change_log WHERE script_name='feature-12350-add-projects-table' AND execution_status='ROLLED_BACK'",
+                "SELECT COUNT(*) FROM db_deploy_tool_change_log WHERE script_name='feature-12350-add-projects-table' AND execution_status='ROLLED_BACK'",
                 Integer.class);
         assertTrue(rolledBackScriptCount != null && rolledBackScriptCount == 1,
                 "feature-12350-add-projects-table script should be marked as ROLLED_BACK");
 
-        // Verify v1.0.0 scripts are still marked as SUCCESS
+        // Verify 1.0.0.20231110.1 scripts are still marked as SUCCESS
         Integer successScriptCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM db_change_log WHERE execution_status='SUCCESS'",
+                "SELECT COUNT(*) FROM db_deploy_tool_change_log WHERE execution_status='SUCCESS'",
                 Integer.class);
         assertTrue(successScriptCount != null && successScriptCount == 4,
-                "v1.0.0 scripts should still be marked as SUCCESS");
+                "1.0.0.20231110.1 scripts should still be marked as SUCCESS");
     }
 
     @Test
@@ -137,14 +137,14 @@ public class SQLiteRollbackTest extends SQLiteDeployTestBase {
 
         // Verify audit tables still exist
         Integer changelogTableCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='db_change_log'",
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='db_deploy_tool_change_log'",
                 Integer.class);
         assertTrue(changelogTableCount != null && changelogTableCount == 1,
-                "db_change_log table should still exist");
+                "db_deploy_tool_change_log table should still exist");
 
         // Verify all scripts are marked as ROLLED_BACK
         Integer rolledBackCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM db_change_log WHERE execution_status='ROLLED_BACK'",
+                "SELECT COUNT(*) FROM db_deploy_tool_change_log WHERE execution_status='ROLLED_BACK'",
                 Integer.class);
         assertTrue(rolledBackCount != null && rolledBackCount == 4,
                 "All 4 scripts should be marked as ROLLED_BACK");

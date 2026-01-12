@@ -12,7 +12,7 @@ public abstract class SQLiteFailureTestBase extends SQLiteDeployTestBase {
 
     protected void verifySuccessfulDeploymentV1_0_1() {
         // Verify all expected tables exist
-        String[] expectedTables = {"users", "orders", "db_change_log", "database_lock"};
+        String[] expectedTables = {"users", "orders", "db_deploy_tool_change_log", "db_deploy_tool_lock"};
 
         for (String tableName : expectedTables) {
             String sql = "SELECT count(name) FROM sqlite_master WHERE type='table' AND name=?";
@@ -30,7 +30,7 @@ public abstract class SQLiteFailureTestBase extends SQLiteDeployTestBase {
 
         for (String scriptId : v1_0_1_Scripts) {
             Integer scriptCount = dbDeployJdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM db_change_log WHERE script_name=? AND execution_status='SUCCESS'",
+                    "SELECT COUNT(*) FROM db_deploy_tool_change_log WHERE script_name=? AND execution_status='SUCCESS'",
                     Integer.class, scriptId);
             assertTrue(scriptCount != null && scriptCount == 1,
                     String.format("Script '%s' should be executed successfully", scriptId));
@@ -45,21 +45,21 @@ public abstract class SQLiteFailureTestBase extends SQLiteDeployTestBase {
     protected void verifyFailureState(String failedSql) {
         // Verify that the first script in v1.0.2 (add-user-email-index) was executed successfully
         Integer firstScriptCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM db_change_log WHERE script_name='feature-12349-add-user-email-index' AND execution_status='SUCCESS'",
+                "SELECT COUNT(*) FROM db_deploy_tool_change_log WHERE script_name='feature-12349-add-user-email-index' AND execution_status='SUCCESS'",
                 Integer.class);
         assertTrue(firstScriptCount != null && firstScriptCount == 1,
                 "First script in v1.0.2 should be executed successfully");
 
         // Verify that the failing script was marked as FAILED
         Integer failedScriptCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM db_change_log WHERE script_name=? AND execution_status='FAILED'",
+                "SELECT COUNT(*) FROM db_deploy_tool_change_log WHERE script_name=? AND execution_status='FAILED'",
                 Integer.class, failedSql);
         assertTrue(failedScriptCount != null && failedScriptCount == 1,
                 "Failing script should be marked as FAILED");
 
         // Verify that the third script in v1.0.2 (add-order-status-index) was NOT executed
         Integer thirdScriptCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM db_change_log WHERE script_name='feature-12351-add-order-status-index'",
+                "SELECT COUNT(*) FROM db_deploy_tool_change_log WHERE script_name='feature-12351-add-order-status-index'",
                 Integer.class);
         assertTrue(thirdScriptCount != null && thirdScriptCount == 0,
                 "Third script in v1.0.2 should not be executed after failure");
@@ -89,7 +89,7 @@ public abstract class SQLiteFailureTestBase extends SQLiteDeployTestBase {
 
         // Verify that the add-user-email-index script is marked as ROLLED_BACK
         Integer rolledBackCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM db_change_log WHERE script_name='feature-12349-add-user-email-index' AND execution_status='ROLLED_BACK'",
+                "SELECT COUNT(*) FROM db_deploy_tool_change_log WHERE script_name='feature-12349-add-user-email-index' AND execution_status='ROLLED_BACK'",
                 Integer.class);
         assertTrue(rolledBackCount != null && rolledBackCount == 1,
                 "feature-12349-add-user-email-index script should be marked as ROLLED_BACK");
@@ -103,7 +103,7 @@ public abstract class SQLiteFailureTestBase extends SQLiteDeployTestBase {
 
         for (String scriptId : v1_0_1_Scripts) {
             Integer scriptCount = dbDeployJdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM db_change_log WHERE script_name=? AND execution_status='SUCCESS'",
+                    "SELECT COUNT(*) FROM db_deploy_tool_change_log WHERE script_name=? AND execution_status='SUCCESS'",
                     Integer.class, scriptId);
             assertTrue(scriptCount != null && scriptCount == 1,
                     String.format("Script '%s' should still be marked as SUCCESS", scriptId));

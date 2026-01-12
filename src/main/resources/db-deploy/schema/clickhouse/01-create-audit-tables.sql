@@ -1,8 +1,8 @@
 -- ClickHouse Schema for Database Deployment Tool
--- Audit tables for tracking script execution
+-- Audit tables for tracking script execution and deployment tags
 
--- Create db_change_log table
-CREATE TABLE IF NOT EXISTS db_change_log (
+-- Create db_deploy_tool_change_log table
+CREATE TABLE IF NOT EXISTS db_deploy_tool_change_log (
     id UInt64,
     script_name String NOT NULL,
     script_checksum String NOT NULL,
@@ -18,8 +18,8 @@ CREATE TABLE IF NOT EXISTS db_change_log (
 PARTITION BY toYYYYMM(execution_time)
 ORDER BY (execution_time, id);
 
--- Create database_lock table
-CREATE TABLE IF NOT EXISTS database_lock (
+-- Create db_deploy_tool_lock table
+CREATE TABLE IF NOT EXISTS db_deploy_tool_lock (
     id UInt64,
     lock_key String NOT NULL,
     lock_owner Nullable(String),

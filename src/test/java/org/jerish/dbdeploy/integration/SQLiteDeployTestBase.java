@@ -10,19 +10,14 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestPropertySource;
 
 import java.io.File;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 
 @SpringBootTest(classes = TestApplication.class)
 @ActiveProfiles("test")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
-@TestPropertySource(properties = "test.db.file=testdb.sqlite")
 public class SQLiteDeployTestBase {
-    private static final AtomicLong counter = new AtomicLong(0);
-    private String dbFile;
+    private static final String DB_FILE = "testdb.sqlite";
 
     @Autowired
     protected DatabaseDeployManager deployManager;
@@ -35,48 +30,32 @@ public class SQLiteDeployTestBase {
 
     @BeforeEach
     void setUp() {
-        // Clean up database file before each test
-        try {
-            System.gc();
-            System.runFinalization();
-            Thread.sleep(100);
-
-            File dbFileObj = new File("testdb.sqlite");
-            if (dbFileObj.exists()) {
-                boolean deleted = dbFileObj.delete();
-                if (!deleted) {
-                    System.err.println("Warning: Could not delete database file before test: testdb.sqlite");
-                    // Try to write empty content to clear the file
-                    try (java.io.FileWriter writer = new java.io.FileWriter(dbFileObj, false)) {
-                        writer.write("");
-                    }
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("Warning: Could not clean up database file: " + e.getMessage());
-        }
+        resetDatabaseFile();
     }
 
     @AfterEach
     void tearDown() {
-        // Clean up database file after each test
+        resetDatabaseFile();
+    }
+
+    private void resetDatabaseFile() {
         try {
-            // Force garbage collection to close connections
+            // Force garbage collection to help release any lingering file handles
             System.gc();
             System.runFinalization();
+
+            // Wait a moment for cleanup
             Thread.sleep(100);
 
-            File dbFileObj = new File("testdb.sqlite");
-            if (dbFileObj.exists()) {
-                boolean deleted = dbFileObj.delete();
-                if (!deleted) {
-                    System.err.println("Warning: Could not delete database file: testdb.sqlite");
-                    // Try to delete on exit
-                    dbFileObj.deleteOnExit();
+            File dbFile = new File(DB_FILE);
+            if (dbFile.exists()) {
+                // Write empty string to override existing content
+                try (java.io.FileWriter writer = new java.io.FileWriter(dbFile, false)) {
+                    writer.write("");
                 }
             }
         } catch (Exception e) {
-            System.err.println("Warning: Could not delete database file: " + e.getMessage());
+            System.err.println("Warning: Could not reset database file: " + e.getMessage());
         }
     }
 }

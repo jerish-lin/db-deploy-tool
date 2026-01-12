@@ -101,7 +101,7 @@ public class AuditRepository {
     };
 
     public boolean isScriptExecuted(String scriptName) {
-        String sql = "SELECT COUNT(*) FROM db_change_log WHERE script_name = ? AND execution_status = 'SUCCESS'";
+        String sql = "SELECT COUNT(*) FROM db_deploy_tool_change_log WHERE script_name = ? AND execution_status = 'SUCCESS'";
 
         Integer count = dbDeployJdbcTemplate.queryForObject(sql, Integer.class, scriptName);
         return count != null && count > 0;
@@ -109,7 +109,7 @@ public class AuditRepository {
 
     public void recordScriptExecution(ChangeLogEntry entry) {
         String sql = """
-                INSERT INTO db_change_log (
+                INSERT INTO db_deploy_tool_change_log (
                     script_name, script_checksum, execution_status,
                     execution_time, execution_duration_ms, error_message,
                     rollback_script_content, rollback_verify_script_content, created_at, updated_at
@@ -160,7 +160,7 @@ public class AuditRepository {
 
     public void updateScriptExecutionStatus(Long id, ScriptExecutionStatus status, String errorMessage) {
         String sql = """
-                UPDATE db_change_log 
+                UPDATE db_deploy_tool_change_log 
                 SET execution_status = ?, error_message = ?, updated_at = ?
                 WHERE id = ?
                 """;
@@ -177,7 +177,7 @@ public class AuditRepository {
      */
     public List<ChangeLogEntry> getAllExecutedScripts() {
         String sql = """
-                SELECT * FROM db_change_log 
+                SELECT * FROM db_deploy_tool_change_log 
                 WHERE execution_status = 'SUCCESS'
                 ORDER BY execution_time ASC
                 """;
@@ -207,13 +207,13 @@ public class AuditRepository {
     public boolean acquireLock(String lockKey, String lockOwner, int timeoutMinutes) {
         if (isSQLiteDatabase()) {
             // SQLite doesn't support INTERVAL, use datetime function
-            String sql = "INSERT OR IGNORE INTO database_lock (lock_key, lock_owner, lock_expires_at, is_active) " +
+            String sql = "INSERT OR IGNORE INTO db_deploy_tool_lock (lock_key, lock_owner, lock_expires_at, is_active) " +
                     "VALUES (?, ?, datetime('now', '+' || ? || ' minutes'), 1)";
             return dbDeployJdbcTemplate.update(sql, lockKey, lockOwner, timeoutMinutes) > 0;
         } else {
             // PostgreSQL syntax
             String sql = String.format(
-                    "INSERT INTO database_lock (lock_key, lock_owner, lock_expires_at, is_active) " +
+                    "INSERT INTO db_deploy_tool_lock (lock_key, lock_owner, lock_expires_at, is_active) " +
                             "VALUES (?, ?, CURRENT_TIMESTAMP + INTERVAL '%d minutes', TRUE) " +
                             "ON CONFLICT (lock_key) DO NOTHING", timeoutMinutes);
             return dbDeployJdbcTemplate.update(sql, lockKey, lockOwner) > 0;
@@ -221,7 +221,7 @@ public class AuditRepository {
     }
 
     public void releaseLock(String lockKey, String lockOwner) {
-        String sql = "DELETE FROM database_lock WHERE lock_key = ? AND lock_owner = ?";
+        String sql = "DELETE FROM db_deploy_tool_lock WHERE lock_key = ? AND lock_owner = ?";
         dbDeployJdbcTemplate.update(sql, lockKey, lockOwner);
     }
 
@@ -238,10 +238,10 @@ public class AuditRepository {
         info.setCreatedBy("");
 
         // Count scripts by status
-        String totalSql = "SELECT COUNT(*) FROM db_change_log";
-        String successSql = "SELECT COUNT(*) FROM db_change_log WHERE execution_status = 'SUCCESS'";
-        String failedSql = "SELECT COUNT(*) FROM db_change_log WHERE execution_status = 'FAILED'";
-        String rolledBackSql = "SELECT COUNT(*) FROM db_change_log WHERE execution_status = 'ROLLED_BACK'";
+        String totalSql = "SELECT COUNT(*) FROM db_deploy_tool_change_log";
+        String successSql = "SELECT COUNT(*) FROM db_deploy_tool_change_log WHERE execution_status = 'SUCCESS'";
+        String failedSql = "SELECT COUNT(*) FROM db_deploy_tool_change_log WHERE execution_status = 'FAILED'";
+        String rolledBackSql = "SELECT COUNT(*) FROM db_deploy_tool_change_log WHERE execution_status = 'ROLLED_BACK'";
 
         try {
             info.setTotalScripts(dbDeployJdbcTemplate.queryForObject(totalSql, Integer.class, 0));
@@ -261,7 +261,7 @@ public class AuditRepository {
     public int getTotalRolledBackScripts() {
         String sql = """
                 SELECT COUNT(*) as total_rolled_back
-                FROM db_change_log
+                FROM db_deploy_tool_change_log
                 WHERE execution_status = 'ROLLED_BACK'
                 """;
         try {
@@ -335,7 +335,7 @@ public class AuditRepository {
     public DatabaseStatus.LockInfo getCurrentLockStatus() {
         String sql = """
                 SELECT lock_owner, lock_acquired_at, lock_expires_at, is_active
-                FROM database_lock
+                FROM db_deploy_tool_lock
                 WHERE is_active = 1
                 ORDER BY lock_acquired_at DESC
                 LIMIT 1
@@ -396,7 +396,7 @@ public class AuditRepository {
             String tableCheckSql = """
                     SELECT COUNT(*) as table_count
                     FROM sqlite_master
-                    WHERE type='table' AND name IN ('db_change_log', 'database_lock')
+                    WHERE type='table' AND name IN ('db_deploy_tool_change_log', 'db_deploy_tool_lock')
                     """;
 
             try {
@@ -407,7 +407,7 @@ public class AuditRepository {
             } catch (Exception e) {
                 // For non-SQLite databases
                 try {
-                    dbDeployJdbcTemplate.queryForObject("SELECT COUNT(*) FROM db_change_log", Integer.class);
+                    dbDeployJdbcTemplate.queryForObject("SELECT COUNT(*) FROM db_deploy_tool_change_log", Integer.class);
                     info.setValid(true);
                     info.setMessage("Audit tables accessible");
                 } catch (Exception ex) {
