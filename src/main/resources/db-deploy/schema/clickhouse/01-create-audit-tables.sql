@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS db_deploy_tool_change_log (
     error_message Nullable(String),
     rollback_script_content Nullable(String),
     rollback_verify_script_content Nullable(String),
+    parent_audit_id Nullable(UInt64),
     created_at DateTime NOT NULL DEFAULT now(),
     updated_at DateTime NOT NULL DEFAULT now()
 ) ENGINE = MergeTree()

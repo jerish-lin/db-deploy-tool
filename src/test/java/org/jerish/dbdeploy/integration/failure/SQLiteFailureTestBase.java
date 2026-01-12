@@ -87,14 +87,21 @@ public abstract class SQLiteFailureTestBase extends SQLiteDeployTestBase {
         assertTrue(emailIndexCount == null || emailIndexCount == 0,
                 "User email index should be dropped after rollback");
 
-        // Verify that the add-user-email-index script is marked as ROLLED_BACK
+        // Verify that the add-user-email-index script is marked as ROLLED_BACK (latest status)
         Integer rolledBackCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM db_deploy_tool_change_log WHERE script_name='feature-12349-add-user-email-index' AND execution_status='ROLLED_BACK'",
+                "SELECT COUNT(*) FROM db_deploy_tool_change_log t1 WHERE t1.script_name='feature-12349-add-user-email-index' AND t1.id = (SELECT MAX(t2.id) FROM db_deploy_tool_change_log t2 WHERE t2.script_name='feature-12349-add-user-email-index') AND t1.execution_status='ROLLED_BACK'",
                 Integer.class);
         assertTrue(rolledBackCount != null && rolledBackCount == 1,
-                "feature-12349-add-user-email-index script should be marked as ROLLED_BACK");
+                "feature-12349-add-user-email-index script should be marked as ROLLED_BACK (latest status)");
 
-        // Verify that v1.0.1 scripts are still marked as SUCCESS
+        // Verify that the failed script (create-user-orders-view) is also marked as ROLLED_BACK (latest status)
+        Integer failedScriptRolledBackCount = dbDeployJdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM db_deploy_tool_change_log t1 WHERE t1.script_name='feature-12350-create-user-orders-view' AND t1.id = (SELECT MAX(t2.id) FROM db_deploy_tool_change_log t2 WHERE t2.script_name='feature-12350-create-user-orders-view') AND t1.execution_status='ROLLED_BACK'",
+                Integer.class);
+        assertTrue(failedScriptRolledBackCount != null && failedScriptRolledBackCount == 1,
+                "feature-12350-create-user-orders-view script should be marked as ROLLED_BACK (latest status)");
+
+        // Verify that v1.0.1 scripts are still marked as SUCCESS (latest status)
         String[] v1_0_1_Scripts = {
                 "feature-12346/feature-12346-create-users-table",
                 "feature-12347-create-orders-table",
@@ -103,10 +110,10 @@ public abstract class SQLiteFailureTestBase extends SQLiteDeployTestBase {
 
         for (String scriptId : v1_0_1_Scripts) {
             Integer scriptCount = dbDeployJdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM db_deploy_tool_change_log WHERE script_name=? AND execution_status='SUCCESS'",
-                    Integer.class, scriptId);
+                    "SELECT COUNT(*) FROM db_deploy_tool_change_log t1 WHERE t1.script_name=? AND t1.id = (SELECT MAX(t2.id) FROM db_deploy_tool_change_log t2 WHERE t2.script_name=?) AND t1.execution_status='SUCCESS'",
+                    Integer.class, scriptId, scriptId);
             assertTrue(scriptCount != null && scriptCount == 1,
-                    String.format("Script '%s' should still be marked as SUCCESS", scriptId));
+                    String.format("Script '%s' should still be marked as SUCCESS (latest status)", scriptId));
         }
 
         // Verify data is still intact

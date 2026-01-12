@@ -72,6 +72,13 @@ public class AuditRepository {
         entry.setErrorMessage(rs.getString("error_message"));
         entry.setRollbackScriptContent(rs.getString("rollback_script_content"));
         entry.setRollbackVerifyScriptContent(rs.getString("rollback_verify_script_content"));
+        
+        // Handle parent_audit_id
+        try {
+            entry.setParentAuditId(rs.getObject("parent_audit_id", Long.class));
+        } catch (SQLException e) {
+            entry.setParentAuditId(null);
+        }
 
         // Handle created_at timestamp
         String createdAtStr = rs.getString("created_at");
@@ -101,9 +108,9 @@ public class AuditRepository {
     };
 
     public boolean isScriptExecuted(String scriptName) {
-        String sql = "SELECT COUNT(*) FROM db_deploy_tool_change_log WHERE script_name = ? AND execution_status = 'SUCCESS'";
+        String sql = "SELECT COUNT(*) FROM db_deploy_tool_change_log t1 WHERE t1.script_name = ? AND t1.id = (SELECT MAX(t2.id) FROM db_deploy_tool_change_log t2 WHERE t2.script_name = ?) AND t1.execution_status = 'SUCCESS'";
 
-        Integer count = dbDeployJdbcTemplate.queryForObject(sql, Integer.class, scriptName);
+        Integer count = dbDeployJdbcTemplate.queryForObject(sql, Integer.class, scriptName, scriptName);
         return count != null && count > 0;
     }
 
@@ -112,8 +119,8 @@ public class AuditRepository {
                 INSERT INTO db_deploy_tool_change_log (
                     script_name, script_checksum, execution_status,
                     execution_time, execution_duration_ms, error_message,
-                    rollback_script_content, rollback_verify_script_content, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    rollback_script_content, rollback_verify_script_content, parent_audit_id, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
@@ -129,8 +136,9 @@ public class AuditRepository {
                 ps.setString(6, entry.getErrorMessage());
                 ps.setString(7, entry.getRollbackScriptContent());
                 ps.setString(8, entry.getRollbackVerifyScriptContent());
-                ps.setString(9, entry.getCreatedAt().toString());
-                ps.setString(10, entry.getUpdatedAt().toString());
+                ps.setObject(9, entry.getParentAuditId());
+                ps.setString(10, entry.getCreatedAt().toString());
+                ps.setString(11, entry.getUpdatedAt().toString());
                 return ps;
             }, keyHolder);
         } else {
@@ -144,8 +152,9 @@ public class AuditRepository {
                 ps.setString(6, entry.getErrorMessage());
                 ps.setString(7, entry.getRollbackScriptContent());
                 ps.setString(8, entry.getRollbackVerifyScriptContent());
-                ps.setTimestamp(9, Timestamp.valueOf(entry.getCreatedAt()));
-                ps.setTimestamp(10, Timestamp.valueOf(entry.getUpdatedAt()));
+                ps.setObject(9, entry.getParentAuditId());
+                ps.setTimestamp(10, Timestamp.valueOf(entry.getCreatedAt()));
+                ps.setTimestamp(11, Timestamp.valueOf(entry.getUpdatedAt()));
                 return ps;
             }, keyHolder);
         }
@@ -158,30 +167,109 @@ public class AuditRepository {
         }
     }
 
-    public void updateScriptExecutionStatus(Long id, ScriptExecutionStatus status, String errorMessage) {
+    /**
+     * Record a rollback script execution as a new audit entry (instead of updating the existing one)
+     * This maintains a complete audit trail of all operations
+     */
+    public void recordRollbackScriptExecution(ChangeLogEntry entry, Long parentAuditId) {
         String sql = """
-                UPDATE db_deploy_tool_change_log 
-                SET execution_status = ?, error_message = ?, updated_at = ?
-                WHERE id = ?
+                INSERT INTO db_deploy_tool_change_log (
+                    script_name, script_checksum, execution_status,
+                    execution_time, execution_duration_ms, error_message,
+                    rollback_script_content, rollback_verify_script_content, parent_audit_id, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
 
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+
         if (isSQLiteDatabase()) {
-            dbDeployJdbcTemplate.update(sql, status.getValue(), errorMessage, LocalDateTime.now().toString(), id);
+            dbDeployJdbcTemplate.update(connection -> {
+                PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+                ps.setString(1, entry.getScriptName());
+                ps.setString(2, entry.getScriptChecksum());
+                ps.setString(3, entry.getExecutionStatus().getValue());
+                ps.setString(4, entry.getExecutionTime().toString());
+                ps.setObject(5, entry.getExecutionDurationMs());
+                ps.setString(6, entry.getErrorMessage());
+                ps.setString(7, entry.getRollbackScriptContent());
+                ps.setString(8, entry.getRollbackVerifyScriptContent());
+                ps.setObject(9, parentAuditId);
+                ps.setString(10, entry.getCreatedAt().toString());
+                ps.setString(11, entry.getUpdatedAt().toString());
+                return ps;
+            }, keyHolder);
         } else {
-            dbDeployJdbcTemplate.update(sql, status.getValue(), errorMessage, Timestamp.valueOf(LocalDateTime.now()), id);
+            dbDeployJdbcTemplate.update(connection -> {
+                PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+                ps.setString(1, entry.getScriptName());
+                ps.setString(2, entry.getScriptChecksum());
+                ps.setString(3, entry.getExecutionStatus().getValue());
+                ps.setTimestamp(4, Timestamp.valueOf(entry.getExecutionTime()));
+                ps.setObject(5, entry.getExecutionDurationMs());
+                ps.setString(6, entry.getErrorMessage());
+                ps.setString(7, entry.getRollbackScriptContent());
+                ps.setString(8, entry.getRollbackVerifyScriptContent());
+                ps.setObject(9, parentAuditId);
+                ps.setTimestamp(10, Timestamp.valueOf(entry.getCreatedAt()));
+                ps.setTimestamp(11, Timestamp.valueOf(entry.getUpdatedAt()));
+                return ps;
+            }, keyHolder);
+        }
+
+        Number generatedId = keyHolder.getKey();
+        if (generatedId != null) {
+            entry.setId(generatedId.longValue());
+        } else {
+            throw new RuntimeException("Creating rollback script execution record failed, no ID obtained.");
         }
     }
 
     /**
      * Get all successfully executed scripts from the database
      */
+    /**
+     * Get all executed scripts (latest status only)
+     * This returns only one entry per script_name - the most recent one
+     * Includes both SUCCESS and FAILED scripts (but not ROLLED_BACK)
+     */
     public List<ChangeLogEntry> getAllExecutedScripts() {
         String sql = """
-                SELECT * FROM db_deploy_tool_change_log 
-                WHERE execution_status = 'SUCCESS'
-                ORDER BY execution_time ASC
+                SELECT * FROM db_deploy_tool_change_log t1
+                WHERE t1.id = (
+                    SELECT MAX(t2.id)
+                    FROM db_deploy_tool_change_log t2
+                    WHERE t2.script_name = t1.script_name
+                )
+                AND t1.execution_status IN ('SUCCESS', 'FAILED')
+                ORDER BY t1.execution_time ASC
                 """;
         return dbDeployJdbcTemplate.query(sql, changeLogEntryRowMapper);
+    }
+
+    /**
+     * Get the full audit history for a specific script (all entries including rollbacks)
+     */
+    public List<ChangeLogEntry> getScriptAuditHistory(String scriptName) {
+        String sql = """
+                SELECT * FROM db_deploy_tool_change_log 
+                WHERE script_name = ?
+                ORDER BY execution_time DESC
+                """;
+        return dbDeployJdbcTemplate.query(sql, changeLogEntryRowMapper, scriptName);
+    }
+
+    /**
+     * Get the latest entry for a specific script
+     */
+    public ChangeLogEntry getLatestScriptEntry(String scriptName) {
+        String sql = """
+                SELECT * FROM db_deploy_tool_change_log 
+                WHERE script_name = ?
+                ORDER BY execution_time DESC
+                LIMIT 1
+                """;
+        List<ChangeLogEntry> results = dbDeployJdbcTemplate.query(sql, changeLogEntryRowMapper, scriptName);
+        return results.isEmpty() ? null : results.get(0);
     }
 
     /**

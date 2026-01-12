@@ -35,7 +35,7 @@ public class SQLiteDeployTestBase {
 
     @AfterEach
     void tearDown() {
-        resetDatabaseFile();
+//        resetDatabaseFile();
     }
 
     private void resetDatabaseFile() {

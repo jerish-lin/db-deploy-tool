@@ -95,19 +95,29 @@ public class SQLiteRollbackTest extends SQLiteDeployTestBase {
     }
 
     private void verifyBasicRollbackAuditState() {
-        // Verify add-projects-table script is marked as ROLLED_BACK
+        // Verify add-projects-table script is marked as ROLLED_BACK (latest status)
         Integer rolledBackScriptCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM db_deploy_tool_change_log WHERE script_name='feature-12350-add-projects-table' AND execution_status='ROLLED_BACK'",
+                "SELECT COUNT(*) FROM db_deploy_tool_change_log t1 WHERE t1.script_name='feature-12350-add-projects-table' AND t1.id = (SELECT MAX(t2.id) FROM db_deploy_tool_change_log t2 WHERE t2.script_name='feature-12350-add-projects-table') AND t1.execution_status='ROLLED_BACK'",
                 Integer.class);
         assertTrue(rolledBackScriptCount != null && rolledBackScriptCount == 1,
-                "feature-12350-add-projects-table script should be marked as ROLLED_BACK");
+                "feature-12350-add-projects-table script should be marked as ROLLED_BACK (latest status)");
 
-        // Verify 1.0.0.20231110.1 scripts are still marked as SUCCESS
-        Integer successScriptCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM db_deploy_tool_change_log WHERE execution_status='SUCCESS'",
-                Integer.class);
-        assertTrue(successScriptCount != null && successScriptCount == 4,
-                "1.0.0.20231110.1 scripts should still be marked as SUCCESS");
+        // Verify 1.0.0.0.20231110.1 scripts are still marked as SUCCESS (latest status)
+        // Count only the latest status for each script in the 1.0.0.0.20231110.1 set
+        String[] v1_0_0_Scripts = {
+                "feature-12346/feature-12346-create-employees-table",
+                "feature-12347-create-departments-table",
+                "feature-12348/feature-12348-insert-sample-data",
+                "feature-12349-add-employee-salary-index"
+        };
+
+        for (String scriptId : v1_0_0_Scripts) {
+            Integer scriptCount = dbDeployJdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM db_deploy_tool_change_log t1 WHERE t1.script_name=? AND t1.id = (SELECT MAX(t2.id) FROM db_deploy_tool_change_log t2 WHERE t2.script_name=?) AND t1.execution_status='SUCCESS'",
+                    Integer.class, scriptId, scriptId);
+            assertTrue(scriptCount != null && scriptCount == 1,
+                    String.format("Script '%s' should still be marked as SUCCESS (latest status)", scriptId));
+        }
     }
 
     @Test
@@ -168,5 +178,114 @@ public class SQLiteRollbackTest extends SQLiteDeployTestBase {
                 "SELECT COUNT(*) FROM departments", Integer.class);
         assertTrue(departmentCount != null && departmentCount == 5,
                 "Should have 5 departments");
+    }
+
+    @Test
+    @DisplayName("Test deploy, rollback, then deploy again with same changes")
+    void testDeployRollbackRedeploy() throws Exception {
+        // First deployment
+        String changelogPathV1 = "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml";
+
+        assertDoesNotThrow(() -> deployManager.deploy(changelogPathV1, false),
+                "First deployment should complete without errors");
+
+        // Verify first deployment
+        verifyFirstDeploymentState();
+
+        // Second deploy with 1.0.1.20231110.1 using sqlite-scripts
+        String changelogPathV2 = "src/test/resources/sqlite-scripts/sqlite-test-changelog-v2.yml";
+
+        assertDoesNotThrow(() -> deployManager.deploy(changelogPathV2, false),
+                "Second deployment should complete without errors");
+
+        // Verify second deployment
+        verifySecondDeploymentState();
+
+        // Rollback to 1.0.0.20231110.1 using the v1 changelog
+        assertDoesNotThrow(() -> deployManager.rollback(changelogPathV1, false),
+                "Rollback should complete without errors");
+
+        // Verify rollback state
+        verifyRollbackState();
+
+        // Deploy 1.0.1.20231110.1 again
+        String changelogPathRedeploy = "src/test/resources/sqlite-scripts/sqlite-test-changelog-v2.yml";
+
+        assertDoesNotThrow(() -> deployManager.deploy(changelogPathRedeploy, false),
+                "Redeployment should complete without errors");
+
+        // Verify redeployment state
+        verifyRedeploymentState();
+    }
+
+    private void verifyFirstDeploymentState() {
+        // Verify employees and departments tables exist
+        String[] expectedTables = {"employees", "departments"};
+        for (String tableName : expectedTables) {
+            Integer tableCount = dbDeployJdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?",
+                    Integer.class, tableName);
+            assertTrue(tableCount != null && tableCount == 1,
+                    String.format("Table '%s' should exist after first deployment", tableName));
+        }
+
+        // Verify data exists
+        Integer employeeCount = dbDeployJdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM employees", Integer.class);
+        assertTrue(employeeCount != null && employeeCount == 10,
+                "Should have 10 employees");
+    }
+
+    private void verifySecondDeploymentState() {
+        // Verify projects table exists
+        Integer projectTableCount = dbDeployJdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='projects'",
+                Integer.class);
+        assertTrue(projectTableCount != null && projectTableCount == 1,
+                "Projects table should exist after second deployment");
+
+        // Verify projects data
+        Integer projectCount = dbDeployJdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM projects", Integer.class);
+        assertTrue(projectCount != null && projectCount == 3,
+                "Should have 3 projects");
+    }
+
+    private void verifyRollbackState() {
+        // Verify projects table is gone
+        Integer projectTableCount = dbDeployJdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='projects'",
+                Integer.class);
+        assertTrue(projectTableCount != null && projectTableCount == 0,
+                "Projects table should be dropped after rollback");
+
+        // Verify add-projects-table script is marked as ROLLED_BACK (latest status)
+        Integer rolledBackScriptCount = dbDeployJdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM db_deploy_tool_change_log t1 WHERE t1.script_name='feature-12350-add-projects-table' AND t1.id = (SELECT MAX(t2.id) FROM db_deploy_tool_change_log t2 WHERE t2.script_name='feature-12350-add-projects-table') AND t1.execution_status='ROLLED_BACK'",
+                Integer.class);
+        assertTrue(rolledBackScriptCount != null && rolledBackScriptCount == 1,
+                "feature-12350-add-projects-table script should be marked as ROLLED_BACK (latest status)");
+    }
+
+    private void verifyRedeploymentState() {
+        // Verify projects table exists again
+        Integer projectTableCount = dbDeployJdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='projects'",
+                Integer.class);
+        assertTrue(projectTableCount != null && projectTableCount == 1,
+                "Projects table should exist after redeployment");
+
+        // Verify projects data exists again
+        Integer projectCount = dbDeployJdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM projects", Integer.class);
+        assertTrue(projectCount != null && projectCount == 3,
+                "Should have 3 projects after redeployment");
+
+        // Verify add-projects-table script is executed successfully again (latest status)
+        Integer successScriptCount = dbDeployJdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM db_deploy_tool_change_log t1 WHERE t1.script_name='feature-12350-add-projects-table' AND t1.id = (SELECT MAX(t2.id) FROM db_deploy_tool_change_log t2 WHERE t2.script_name='feature-12350-add-projects-table') AND t1.execution_status='SUCCESS'",
+                Integer.class);
+        assertTrue(successScriptCount != null && successScriptCount == 1,
+                "feature-12350-add-projects-table script should be executed successfully in redeployment (latest status)");
     }
 }

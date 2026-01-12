@@ -17,6 +17,7 @@ public class ChangeLogEntry {
     private String errorMessage;
     private String rollbackScriptContent;
     private String rollbackVerifyScriptContent;
+    private Long parentAuditId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -194,8 +194,20 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
                     }
                 }
 
-                // Update the execution status to ROLLED_BACK
-                auditRepository.updateScriptExecutionStatus(entry.getId(), ScriptExecutionStatus.ROLLED_BACK, null);
+                // Record the rollback as a new audit entry (instead of updating the existing one)
+                ChangeLogEntry rollbackEntry = new ChangeLogEntry();
+                rollbackEntry.setScriptName(entry.getScriptName());
+                rollbackEntry.setScriptChecksum(entry.getScriptChecksum());
+                rollbackEntry.setExecutionStatus(ScriptExecutionStatus.ROLLED_BACK);
+                rollbackEntry.setExecutionTime(LocalDateTime.now());
+                rollbackEntry.setExecutionDurationMs(0L); // Rollback duration is tracked separately
+                rollbackEntry.setRollbackScriptContent(entry.getRollbackScriptContent());
+                rollbackEntry.setRollbackVerifyScriptContent(entry.getRollbackVerifyScriptContent());
+                rollbackEntry.setParentAuditId(entry.getId());
+                rollbackEntry.setCreatedAt(LocalDateTime.now());
+                rollbackEntry.setUpdatedAt(LocalDateTime.now());
+
+                auditRepository.recordRollbackScriptExecution(rollbackEntry, entry.getId());
 
                 log.info("Script {} rolled back successfully", entry.getScriptName());
             }

@@ -12,8 +12,10 @@ CREATE TABLE IF NOT EXISTS db_deploy_tool_change_log (
     error_message TEXT,
     rollback_script_content TEXT,
     rollback_verify_script_content TEXT,
+    parent_audit_id INTEGER,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (parent_audit_id) REFERENCES db_deploy_tool_change_log(id)
 );
 
 -- Create db_deploy_tool_lock table
