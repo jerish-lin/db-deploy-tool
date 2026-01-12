@@ -20,9 +20,8 @@ public class SQLiteVerificationFailureTest extends SQLiteFailureTestBase {
     void testVerificationFailure() throws Exception {
         // First deploy working scripts up to feature-12348 (before the failing verification)
         String changelogPathInitial = "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog-first3.yml";
-        String tagNameInitial = "1.0.1.20231110.1";
 
-        assertDoesNotThrow(() -> deployManager.deploy(changelogPathInitial, tagNameInitial, false),
+        assertDoesNotThrow(() -> deployManager.deploy(changelogPathInitial, false),
                 "Initial deployment should complete without errors");
 
         // Verify initial deployment was successful
@@ -30,10 +29,9 @@ public class SQLiteVerificationFailureTest extends SQLiteFailureTestBase {
 
         // Now attempt to deploy including the script with failing verification (feature-12349)
         String changelogPathWithVerificationFailure = "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog-verify-failure.yml";
-        String tagNameWithVerificationFailure = "1.0.2.20231110.1";
 
         // This should fail due to the intentional SQL error in create-user-orders-view
-        assertThrows(Exception.class, () -> deployManager.deploy(changelogPathWithVerificationFailure, tagNameWithVerificationFailure, false),
+        assertThrows(Exception.class, () -> deployManager.deploy(changelogPathWithVerificationFailure, false),
                 "Deployment should fail due to intentional SQL error");
 
         // Verify failure state

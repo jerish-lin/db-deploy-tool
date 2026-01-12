@@ -17,7 +17,6 @@ public class ChangeLogEntry {
     private String errorMessage;
     private String rollbackScriptContent;
     private String rollbackVerifyScriptContent;
-    private String tagName;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

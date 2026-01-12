@@ -19,12 +19,8 @@ public class CommandLineOptions {
     private Action action = Action.DEPLOY_OR_ROLLBACK;
 
     @Option(names = {"-c", "--changelog"},
-            description = "Path to the db-changelog.yml file (required for deploy, optional for status, not used for rollback)")
+            description = "Path to the db-changelog.yml file (required for deploy and rollback)")
     private String changelogPath;
-
-    @Option(names = {"-t", "--tag"},
-            description = "For deploy: tag name to assign after deployment; For rollback: target tag name to rollback to")
-    private String tagName;
 
     @Option(names = {"-v", "--verbose"},
             description = "Enable verbose logging")
@@ -36,10 +32,6 @@ public class CommandLineOptions {
 
     public enum Action {
         DEPLOY, ROLLBACK, STATUS, DEPLOY_OR_ROLLBACK;
-
-        public boolean tagRequired() {
-            return this == DEPLOY || this == DEPLOY_OR_ROLLBACK;
-        }
     }
 
 

@@ -12,7 +12,7 @@ public abstract class SQLiteFailureTestBase extends SQLiteDeployTestBase {
 
     protected void verifySuccessfulDeploymentV1_0_1() {
         // Verify all expected tables exist
-        String[] expectedTables = {"users", "orders", "db_change_log", "deployment_tags", "database_lock"};
+        String[] expectedTables = {"users", "orders", "db_change_log", "database_lock"};
 
         for (String tableName : expectedTables) {
             String sql = "SELECT count(name) FROM sqlite_master WHERE type='table' AND name=?";
@@ -30,7 +30,7 @@ public abstract class SQLiteFailureTestBase extends SQLiteDeployTestBase {
 
         for (String scriptId : v1_0_1_Scripts) {
             Integer scriptCount = dbDeployJdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM db_change_log WHERE script_name=? AND execution_status='SUCCESS'", 
+                    "SELECT COUNT(*) FROM db_change_log WHERE script_name=? AND execution_status='SUCCESS'",
                     Integer.class, scriptId);
             assertTrue(scriptCount != null && scriptCount == 1,
                     String.format("Script '%s' should be executed successfully", scriptId));
@@ -40,54 +40,40 @@ public abstract class SQLiteFailureTestBase extends SQLiteDeployTestBase {
         Integer userCount = dbDeployJdbcTemplate.queryForObject("SELECT COUNT(*) FROM users", Integer.class);
         assertTrue(userCount != null && userCount == 5,
                 "Should have 5 users after v1.0.1 deployment");
-
-        // Verify deployment tag was created
-        Integer tagCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='1.0.1.20231110.1' AND is_active=1", 
-                Integer.class);
-        assertTrue(tagCount != null && tagCount == 1,
-                "Deployment tag 1.0.1.20231110.1 should be active");
     }
 
     protected void verifyFailureState(String failedSql) {
         // Verify that the first script in v1.0.2 (add-user-email-index) was executed successfully
         Integer firstScriptCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM db_change_log WHERE script_name='feature-12349-add-user-email-index' AND execution_status='SUCCESS'", 
+                "SELECT COUNT(*) FROM db_change_log WHERE script_name='feature-12349-add-user-email-index' AND execution_status='SUCCESS'",
                 Integer.class);
         assertTrue(firstScriptCount != null && firstScriptCount == 1,
                 "First script in v1.0.2 should be executed successfully");
 
         // Verify that the failing script was marked as FAILED
         Integer failedScriptCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM db_change_log WHERE script_name=? AND execution_status='FAILED'", 
+                "SELECT COUNT(*) FROM db_change_log WHERE script_name=? AND execution_status='FAILED'",
                 Integer.class, failedSql);
         assertTrue(failedScriptCount != null && failedScriptCount == 1,
                 "Failing script should be marked as FAILED");
 
         // Verify that the third script in v1.0.2 (add-order-status-index) was NOT executed
         Integer thirdScriptCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM db_change_log WHERE script_name='feature-12351-add-order-status-index'", 
+                "SELECT COUNT(*) FROM db_change_log WHERE script_name='feature-12351-add-order-status-index'",
                 Integer.class);
         assertTrue(thirdScriptCount != null && thirdScriptCount == 0,
                 "Third script in v1.0.2 should not be executed after failure");
 
-        // Verify that the deployment tag for v1.0.2 was NOT created
-        Integer failedTagCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='1.0.2.20231110.1'", 
-                Integer.class);
-        assertTrue(failedTagCount != null && failedTagCount == 0,
-                "Deployment tag for failed version should not be created");
-
         // Verify that the user email index was created (first script succeeded)
         Integer emailIndexCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT count(name) FROM sqlite_master WHERE type='index' AND name='idx_users_email'", 
+                "SELECT count(name) FROM sqlite_master WHERE type='index' AND name='idx_users_email'",
                 Integer.class);
         assertTrue(emailIndexCount != null && emailIndexCount > 0,
                 "User email index should exist (first script succeeded)");
 
         // Verify that the order status index was NOT created (third script didn't execute)
         Integer statusIndexCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT count(name) FROM sqlite_master WHERE type='index' AND name='idx_orders_status'", 
+                "SELECT count(name) FROM sqlite_master WHERE type='index' AND name='idx_orders_status'",
                 Integer.class);
         assertTrue(statusIndexCount == null || statusIndexCount == 0,
                 "Order status index should not exist (third script didn't execute)");
@@ -96,14 +82,14 @@ public abstract class SQLiteFailureTestBase extends SQLiteDeployTestBase {
     protected void verifyRollbackAfterFailure() {
         // Verify that the user email index was dropped (rollback of successful v1.0.2 script)
         Integer emailIndexCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT count(name) FROM sqlite_master WHERE type='index' AND name='idx_users_email'", 
+                "SELECT count(name) FROM sqlite_master WHERE type='index' AND name='idx_users_email'",
                 Integer.class);
         assertTrue(emailIndexCount == null || emailIndexCount == 0,
                 "User email index should be dropped after rollback");
 
         // Verify that the add-user-email-index script is marked as ROLLED_BACK
         Integer rolledBackCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM db_change_log WHERE script_name='feature-12349-add-user-email-index' AND execution_status='ROLLED_BACK'", 
+                "SELECT COUNT(*) FROM db_change_log WHERE script_name='feature-12349-add-user-email-index' AND execution_status='ROLLED_BACK'",
                 Integer.class);
         assertTrue(rolledBackCount != null && rolledBackCount == 1,
                 "feature-12349-add-user-email-index script should be marked as ROLLED_BACK");
@@ -117,18 +103,11 @@ public abstract class SQLiteFailureTestBase extends SQLiteDeployTestBase {
 
         for (String scriptId : v1_0_1_Scripts) {
             Integer scriptCount = dbDeployJdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM db_change_log WHERE script_name=? AND execution_status='SUCCESS'", 
+                    "SELECT COUNT(*) FROM db_change_log WHERE script_name=? AND execution_status='SUCCESS'",
                     Integer.class, scriptId);
             assertTrue(scriptCount != null && scriptCount == 1,
                     String.format("Script '%s' should still be marked as SUCCESS", scriptId));
         }
-
-        // Verify that v1.0.1 tag is still active
-        Integer activeTagCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM deployment_tags WHERE tag_name='1.0.1.20231110.1' AND is_active=1", 
-                Integer.class);
-        assertTrue(activeTagCount != null && activeTagCount == 1,
-                "1.0.1.20231110.1 tag should still be active after rollback");
 
         // Verify data is still intact
         Integer userCount = dbDeployJdbcTemplate.queryForObject("SELECT COUNT(*) FROM users", Integer.class);

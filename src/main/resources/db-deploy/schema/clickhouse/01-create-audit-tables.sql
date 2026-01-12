@@ -1,5 +1,5 @@
 -- ClickHouse Schema for Database Deployment Tool
--- Audit tables for tracking script execution and deployment tags
+-- Audit tables for tracking script execution
 
 -- Create db_change_log table
 CREATE TABLE IF NOT EXISTS db_change_log (
@@ -12,23 +12,11 @@ CREATE TABLE IF NOT EXISTS db_change_log (
     error_message Nullable(String),
     rollback_script_content Nullable(String),
     rollback_verify_script_content Nullable(String),
-    tag_name Nullable(String),
     created_at DateTime NOT NULL DEFAULT now(),
     updated_at DateTime NOT NULL DEFAULT now()
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMM(execution_time)
 ORDER BY (execution_time, id);
-
--- Create deployment_tags table
-CREATE TABLE IF NOT EXISTS deployment_tags (
-    id UInt64,
-    tag_name String NOT NULL,
-    description Nullable(String),
-    deployment_time DateTime NOT NULL DEFAULT now(),
-    created_by Nullable(String),
-    is_active UInt8 DEFAULT 1
-) ENGINE = MergeTree()
-ORDER BY id;
 
 -- Create database_lock table
 CREATE TABLE IF NOT EXISTS database_lock (

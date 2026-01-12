@@ -3,7 +3,6 @@ package org.jerish.dbdeploy.repository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jerish.dbdeploy.model.ChangeLogEntry;
-import org.jerish.dbdeploy.model.DeploymentTag;
 import org.jerish.dbdeploy.model.ScriptExecutionStatus;
 import org.jerish.dbdeploy.entity.DatabaseStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -73,7 +72,6 @@ public class AuditRepository {
         entry.setErrorMessage(rs.getString("error_message"));
         entry.setRollbackScriptContent(rs.getString("rollback_script_content"));
         entry.setRollbackVerifyScriptContent(rs.getString("rollback_verify_script_content"));
-        entry.setTagName(rs.getString("tag_name"));
 
         // Handle created_at timestamp
         String createdAtStr = rs.getString("created_at");
@@ -102,32 +100,6 @@ public class AuditRepository {
         return entry;
     };
 
-    /**
-     * RowMapper for DeploymentTag
-     */
-    private final RowMapper<DeploymentTag> deploymentTagRowMapper = (ResultSet rs, int rowNum) -> {
-        DeploymentTag tag = new DeploymentTag();
-        tag.setId(rs.getLong("id"));
-        tag.setTagName(rs.getString("tag_name"));
-        tag.setDescription(rs.getString("description"));
-
-        // Handle SQLite timestamp parsing
-        String deploymentTimeStr = rs.getString("deployment_time");
-        if (deploymentTimeStr != null) {
-            try {
-                tag.setDeploymentTime(LocalDateTime.parse(deploymentTimeStr));
-            } catch (Exception e) {
-                tag.setDeploymentTime(LocalDateTime.now());
-            }
-        } else {
-            tag.setDeploymentTime(LocalDateTime.now());
-        }
-
-        tag.setCreatedBy(rs.getString("created_by"));
-        tag.setIsActive(rs.getBoolean("is_active"));
-        return tag;
-    };
-
     public boolean isScriptExecuted(String scriptName) {
         String sql = "SELECT COUNT(*) FROM db_change_log WHERE script_name = ? AND execution_status = 'SUCCESS'";
 
@@ -140,8 +112,8 @@ public class AuditRepository {
                 INSERT INTO db_change_log (
                     script_name, script_checksum, execution_status,
                     execution_time, execution_duration_ms, error_message,
-                    rollback_script_content, rollback_verify_script_content, tag_name, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    rollback_script_content, rollback_verify_script_content, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
@@ -157,9 +129,8 @@ public class AuditRepository {
                 ps.setString(6, entry.getErrorMessage());
                 ps.setString(7, entry.getRollbackScriptContent());
                 ps.setString(8, entry.getRollbackVerifyScriptContent());
-                ps.setString(9, entry.getTagName());
-                ps.setString(10, entry.getCreatedAt().toString());
-                ps.setString(11, entry.getUpdatedAt().toString());
+                ps.setString(9, entry.getCreatedAt().toString());
+                ps.setString(10, entry.getUpdatedAt().toString());
                 return ps;
             }, keyHolder);
         } else {
@@ -173,9 +144,8 @@ public class AuditRepository {
                 ps.setString(6, entry.getErrorMessage());
                 ps.setString(7, entry.getRollbackScriptContent());
                 ps.setString(8, entry.getRollbackVerifyScriptContent());
-                ps.setString(9, entry.getTagName());
-                ps.setTimestamp(10, Timestamp.valueOf(entry.getCreatedAt()));
-                ps.setTimestamp(11, Timestamp.valueOf(entry.getUpdatedAt()));
+                ps.setTimestamp(9, Timestamp.valueOf(entry.getCreatedAt()));
+                ps.setTimestamp(10, Timestamp.valueOf(entry.getUpdatedAt()));
                 return ps;
             }, keyHolder);
         }
@@ -202,82 +172,36 @@ public class AuditRepository {
         }
     }
 
-    public List<ChangeLogEntry> getScriptsExecutedAfter(String tagName) {
-        // Special case: empty tagName means rollback to initial state - return all changelogs
-        if (tagName == null || tagName.isEmpty()) {
-            String sql = """
-                    SELECT * FROM db_change_log 
-                    WHERE tag_name IS NOT NULL
-                    ORDER BY execution_time DESC
-                    """;
-            return dbDeployJdbcTemplate.query(sql, changeLogEntryRowMapper);
-        }
-
-        // Normal case: get scripts after specific tag
-        DeploymentTag targetTag = getDeploymentTag(tagName);
-        if (targetTag == null) {
-            throw new RuntimeException("Deployment tag not found: " + tagName);
-        }
-
+    /**
+     * Get all successfully executed scripts from the database
+     */
+    public List<ChangeLogEntry> getAllExecutedScripts() {
         String sql = """
                 SELECT * FROM db_change_log 
-                WHERE tag_name IS NOT NULL 
-                AND tag_name NOT IN (
-                    SELECT tag_name FROM deployment_tags 
-                    WHERE id <= ?
-                )
-                ORDER BY execution_time DESC
+                WHERE execution_status = 'SUCCESS'
+                ORDER BY execution_time ASC
                 """;
-
-        return dbDeployJdbcTemplate.query(sql, changeLogEntryRowMapper, targetTag.getId());
+        return dbDeployJdbcTemplate.query(sql, changeLogEntryRowMapper);
     }
 
-    public void createDeploymentTag(DeploymentTag tag) {
-        String sql = """
-                INSERT INTO deployment_tags (tag_name, description, deployment_time, created_by, is_active)
-                VALUES (?, ?, ?, ?, ?)
-                """;
+    /**
+     * Get scripts that need to be rolled back based on the target changelog
+     * Returns scripts that are in the database but NOT in the target changelog
+     */
+    public List<ChangeLogEntry> getScriptsToRollback(List<String> targetScriptNames) {
+        List<ChangeLogEntry> allExecuted = getAllExecutedScripts();
+        List<ChangeLogEntry> scriptsToRollback = new ArrayList<>();
 
-        KeyHolder keyHolder = new GeneratedKeyHolder();
-
-        if (isSQLiteDatabase()) {
-            dbDeployJdbcTemplate.update(connection -> {
-                PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-                ps.setString(1, tag.getTagName());
-                ps.setString(2, tag.getDescription());
-                ps.setString(3, tag.getDeploymentTime().toString());
-                ps.setString(4, tag.getCreatedBy());
-                ps.setInt(5, tag.getIsActive() ? 1 : 0);
-                return ps;
-            }, keyHolder);
-        } else {
-            dbDeployJdbcTemplate.update(connection -> {
-                PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-                ps.setString(1, tag.getTagName());
-                ps.setString(2, tag.getDescription());
-                ps.setTimestamp(3, Timestamp.valueOf(tag.getDeploymentTime()));
-                ps.setString(4, tag.getCreatedBy());
-                ps.setBoolean(5, tag.getIsActive());
-                return ps;
-            }, keyHolder);
+        for (ChangeLogEntry entry : allExecuted) {
+            if (!targetScriptNames.contains(entry.getScriptName())) {
+                scriptsToRollback.add(entry);
+            }
         }
 
-        Number generatedId = keyHolder.getKey();
-        if (generatedId != null) {
-            tag.setId(generatedId.longValue());
-        } else {
-            throw new RuntimeException("Creating deployment tag failed, no ID obtained.");
-        }
-    }
-
-    public DeploymentTag getDeploymentTag(String tagName) {
-        String sql = "SELECT * FROM deployment_tags WHERE tag_name = ? AND is_active = TRUE";
-
-        try {
-            return dbDeployJdbcTemplate.queryForObject(sql, deploymentTagRowMapper, tagName);
-        } catch (Exception e) {
-            return null;
-        }
+        // Return in reverse order (most recent first)
+        List<ChangeLogEntry> reversed = new ArrayList<>(scriptsToRollback);
+        java.util.Collections.reverse(reversed);
+        return reversed;
     }
 
     public boolean acquireLock(String lockKey, String lockOwner, int timeoutMinutes) {
@@ -301,56 +225,34 @@ public class AuditRepository {
         dbDeployJdbcTemplate.update(sql, lockKey, lockOwner);
     }
 
-    public List<DeploymentTag> getDeploymentTags() {
-        String sql = "SELECT * FROM deployment_tags ORDER BY deployment_time DESC";
-        return dbDeployJdbcTemplate.query(sql, deploymentTagRowMapper);
-    }
-
-
-    public void deactivateDeploymentTag(String tagName) {
-        String sql = "UPDATE deployment_tags SET is_active = FALSE WHERE tag_name = ?";
-
-        int rowsUpdated = dbDeployJdbcTemplate.update(sql, tagName);
-
-        if (rowsUpdated > 0) {
-            log.info("Deactivated deployment tag: {}", tagName);
-        } else {
-            log.warn("No deployment tag found to deactivate: {}", tagName);
-        }
-    }
-
     // Status-related methods moved from DefaultDatabaseDeployService
 
     /**
      * Get current deployment state from database
      */
     public DatabaseStatus.DeploymentStateInfo getCurrentDeploymentState() {
-        String sql = """
-                SELECT tag_name, description, deployment_time, created_by,
-                       total_scripts, successful_scripts, failed_scripts, rolled_back_scripts
-                FROM current_deployment_state
-                LIMIT 1
-                """;
+        DatabaseStatus.DeploymentStateInfo info = new DatabaseStatus.DeploymentStateInfo();
+        info.setCurrentTag("");
+        info.setDescription("");
+        info.setDeploymentTime("");
+        info.setCreatedBy("");
+
+        // Count scripts by status
+        String totalSql = "SELECT COUNT(*) FROM db_change_log";
+        String successSql = "SELECT COUNT(*) FROM db_change_log WHERE execution_status = 'SUCCESS'";
+        String failedSql = "SELECT COUNT(*) FROM db_change_log WHERE execution_status = 'FAILED'";
+        String rolledBackSql = "SELECT COUNT(*) FROM db_change_log WHERE execution_status = 'ROLLED_BACK'";
 
         try {
-            List<Map<String, Object>> results = dbDeployJdbcTemplate.queryForList(sql);
-            if (!results.isEmpty()) {
-                Map<String, Object> result = results.get(0);
-                DatabaseStatus.DeploymentStateInfo info = new DatabaseStatus.DeploymentStateInfo();
-                info.setCurrentTag((String) result.get("tag_name"));
-                info.setDescription((String) result.get("description"));
-                info.setDeploymentTime((String) result.get("deployment_time"));
-                info.setCreatedBy((String) result.get("created_by"));
-                info.setTotalScripts(((Number) result.get("total_scripts")).intValue());
-                info.setSuccessfulScripts(((Number) result.get("successful_scripts")).intValue());
-                info.setFailedScripts(((Number) result.get("failed_scripts")).intValue());
-                info.setRolledBackScripts(((Number) result.get("rolled_back_scripts")).intValue());
-                return info;
-            }
+            info.setTotalScripts(dbDeployJdbcTemplate.queryForObject(totalSql, Integer.class, 0));
+            info.setSuccessfulScripts(dbDeployJdbcTemplate.queryForObject(successSql, Integer.class, 0));
+            info.setFailedScripts(dbDeployJdbcTemplate.queryForObject(failedSql, Integer.class, 0));
+            info.setRolledBackScripts(dbDeployJdbcTemplate.queryForObject(rolledBackSql, Integer.class, 0));
         } catch (Exception e) {
-            log.debug("No current deployment state found", e);
+            log.debug("Error getting deployment state", e);
         }
-        return null;
+
+        return info;
     }
 
     /**
@@ -494,13 +396,13 @@ public class AuditRepository {
             String tableCheckSql = """
                     SELECT COUNT(*) as table_count
                     FROM sqlite_master
-                    WHERE type='table' AND name IN ('db_change_log', 'deployment_tags', 'database_lock')
+                    WHERE type='table' AND name IN ('db_change_log', 'database_lock')
                     """;
 
             try {
                 Integer tableCount = dbDeployJdbcTemplate.queryForObject(tableCheckSql, Integer.class);
-                info.setValid(tableCount != null && tableCount >= 3);
-                info.setMessage(tableCount != null && tableCount >= 3 ?
+                info.setValid(tableCount != null && tableCount >= 2);
+                info.setMessage(tableCount != null && tableCount >= 2 ?
                         "Audit tables present" : "Missing audit tables");
             } catch (Exception e) {
                 // For non-SQLite databases
@@ -524,39 +426,7 @@ public class AuditRepository {
      * Get recent deployment history
      */
     public List<DatabaseStatus.DeploymentHistoryEntry> getRecentDeploymentHistory() {
-        String sql = """
-                SELECT dt.tag_name, dt.description, dt.deployment_time, dt.created_by,
-                       COUNT(dcl.id) as script_count,
-                       CASE 
-                           WHEN COUNT(CASE WHEN dcl.execution_status = 'FAILED' THEN 1 END) > 0 THEN 'FAILED'
-                           WHEN COUNT(CASE WHEN dcl.execution_status = 'ROLLED_BACK' THEN 1 END) > 0 THEN 'ROLLED_BACK'
-                           ELSE 'SUCCESS'
-                       END as status
-                FROM deployment_tags dt
-                LEFT JOIN db_change_log dcl ON dt.tag_name = dcl.tag_name
-                GROUP BY dt.id, dt.tag_name, dt.description, dt.deployment_time, dt.created_by
-                ORDER BY dt.deployment_time DESC
-                LIMIT 10
-                """;
-
-        try {
-            List<Map<String, Object>> historyResults = dbDeployJdbcTemplate.queryForList(sql);
-            List<DatabaseStatus.DeploymentHistoryEntry> history = new ArrayList<>();
-
-            for (Map<String, Object> row : historyResults) {
-                DatabaseStatus.DeploymentHistoryEntry entry = new DatabaseStatus.DeploymentHistoryEntry();
-                entry.setTagName((String) row.get("tag_name"));
-                entry.setDescription((String) row.get("description"));
-                entry.setDeploymentTime((String) row.get("deployment_time"));
-                entry.setDeployedBy((String) row.get("created_by"));
-                entry.setScriptCount(((Number) row.get("script_count")).intValue());
-                entry.setStatus((String) row.get("status"));
-                history.add(entry);
-            }
-            return history;
-        } catch (Exception e) {
-            log.error("Error getting deployment history", e);
-            return new ArrayList<>();
-        }
+        // Return empty list since we no longer have deployment tags
+        return new ArrayList<>();
     }
 }

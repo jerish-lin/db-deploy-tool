@@ -4,11 +4,11 @@ package org.jerish.dbdeploy.service;
 import org.jerish.dbdeploy.entity.DatabaseStatus;
 
 public interface DatabaseDeployManager {
-    void deploy(String changeLogConfigPath, String tagName, boolean dryRun) throws Exception;
+    void deploy(String changeLogConfigPath, boolean dryRun) throws Exception;
 
-    void rollback(String targetTagName, boolean dryRun) throws Exception;
+    void rollback(String changeLogConfigPath, boolean dryRun) throws Exception;
 
-    void deployOrRollback(String changeLogConfigPath, String tagName, boolean dryRun);
+    void deployOrRollback(String changeLogConfigPath, boolean dryRun);
 
     DatabaseStatus status();
 }

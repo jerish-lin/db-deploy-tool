@@ -29,16 +29,9 @@ public class CommandLineOptionsResolver {
 
     public CommandLineOptions resolve(String[] args) {
         CommandLineOptions options = CommandLineOptions.parseArgs(args);
-        validateTagNameRequired(options);
         options.setChangelogPath(resolveChangelogPath(options.getChangelogPath()));
 
         return options;
-    }
-
-    private void validateTagNameRequired(CommandLineOptions options) {
-        if (options.getAction().tagRequired() && options.getTagName() == null) {
-            throw new IllegalArgumentException("Tag name is required for deploy / rollback / deployOrRollback action");
-        }
     }
 
     public String resolveChangelogPath(String commandLinePath) {

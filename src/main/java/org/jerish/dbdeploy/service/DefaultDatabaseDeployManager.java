@@ -7,9 +7,11 @@ import org.jerish.dbdeploy.repository.AuditRepository;
 import org.jerish.dbdeploy.schema.SchemaInitializationManager;
 import org.jerish.dbdeploy.entity.ChangeLogConfig;
 import org.jerish.dbdeploy.entity.DatabaseStatus;
+import org.jerish.dbdeploy.model.ChangeLogEntry;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Implementation of DatabaseDeployManager that handles the core business logic
@@ -21,10 +23,11 @@ import java.util.ArrayList;
 public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
     private final DatabaseDeployService deployService;
     private final SchemaInitializationManager schemaInitializationManager;
+    private final AuditRepository auditRepository;
 
     @Override
-    public void deploy(String changeLogConfigPath, String tagName, boolean dryRun) throws Exception {
-        log.info("Starting deployment with tag: {} (dry-run: {})", tagName, dryRun);
+    public void deploy(String changeLogConfigPath, boolean dryRun) throws Exception {
+        log.info("Starting deployment (dry-run: {})", dryRun);
 
         // Initialize schema
         schemaInitializationManager.initializeSchemaIfNeeded();
@@ -33,70 +36,91 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
         ChangeLogConfig changeLogConfig = ConfigLoader.loadChangeLogConfig(changeLogConfigPath);
 
         // Delegate to the deploy service
-        deployService.deploy(changeLogConfig, tagName, dryRun);
+        deployService.deploy(changeLogConfig, dryRun);
 
-        log.info("Deployment completed successfully for tag: {}", tagName);
+        log.info("Deployment completed successfully");
     }
 
     @Override
-    public void rollback(String targetTagName, boolean dryRun) throws Exception {
-        log.info("Starting rollback to tag: {} (dry-run: {})", targetTagName, dryRun);
+    public void rollback(String changeLogConfigPath, boolean dryRun) throws Exception {
+        log.info("Starting rollback (dry-run: {})", dryRun);
 
         // Initialize schema
         schemaInitializationManager.initializeSchemaIfNeeded();
 
-        // Delegate to the deploy service
-        deployService.rollback(targetTagName, dryRun);
+        // Load changelog config
+        ChangeLogConfig changeLogConfig = ConfigLoader.loadChangeLogConfig(changeLogConfigPath);
 
-        log.info("Rollback completed successfully to tag: {}", targetTagName);
+        // Delegate to the deploy service
+        deployService.rollback(changeLogConfig, dryRun);
+
+        log.info("Rollback completed successfully");
     }
 
     @Override
-    public void deployOrRollback(String changeLogConfigPath, String tagName, boolean dryRun) {
-        log.info("Starting deployOrRollback with tag: {} (dry-run: {})", tagName, dryRun);
+    public void deployOrRollback(String changeLogConfigPath, boolean dryRun) {
+        log.info("Starting deployOrRollback (dry-run: {})", dryRun);
 
         try {
             // Initialize schema
             schemaInitializationManager.initializeSchemaIfNeeded();
 
-            // Check current deployment status to decide whether to deploy or rollback
-            DatabaseStatus currentStatus = status();
+            // Load changelog config
+            ChangeLogConfig changeLogConfig = ConfigLoader.loadChangeLogConfig(changeLogConfigPath);
 
-            String currentTag = currentStatus.getDeploymentState() != null ? 
-                currentStatus.getDeploymentState().getCurrentTag() : null;
+            // Get all successfully executed scripts from database
+            List<ChangeLogEntry> executedScripts = auditRepository.getAllExecutedScripts();
 
-            if (currentTag == null || currentTag.isEmpty()) {
-                // No current deployment, perform initial deployment
-                log.info("No current deployment found, performing initial deployment");
-                deploy(changeLogConfigPath, tagName, dryRun);
-            } else if (currentTag.equals(tagName)) {
-                // Already at target tag, no action needed
-                log.info("Database is already at target tag: {}", tagName);
-            } else {
-                // Check if we need to deploy forward or rollback
-                // This is a simplified logic - you may want to implement version comparison
-                log.info("Current tag: {}, Target tag: {}", currentTag, tagName);
+            // Get script names from changelog
+            List<String> changelogScriptNames = new ArrayList<>();
+            for (org.jerish.dbdeploy.entity.ScriptConfig scriptConfig : changeLogConfig.getScripts()) {
+                changelogScriptNames.add(scriptConfig.getName());
+            }
 
-                // For now, we'll assume if the target tag doesn't exist in deployment history, we deploy
-                // Otherwise, we rollback
-                try {
-                    deploy(changeLogConfigPath, tagName, dryRun);
-                } catch (Exception e) {
-                    log.info("Deployment failed, attempting rollback to tag: {}", tagName);
-                    try {
-                        rollback(tagName, dryRun);
-                    } catch (Exception rollbackException) {
-                        log.error("Both deployment and rollback failed", rollbackException);
-                        throw new RuntimeException("Neither deployment nor rollback succeeded", rollbackException);
-                    }
+            // Get executed script names
+            List<String> executedScriptNames = new ArrayList<>();
+            for (ChangeLogEntry entry : executedScripts) {
+                executedScriptNames.add(entry.getScriptName());
+            }
+
+            // Determine if we need to deploy or rollback
+            // If there are scripts in changelog that are not executed, we need to deploy
+            // If there are scripts executed that are not in changelog, we need to rollback
+            boolean needDeploy = false;
+            boolean needRollback = false;
+
+            for (String scriptName : changelogScriptNames) {
+                if (!executedScriptNames.contains(scriptName)) {
+                    needDeploy = true;
+                    break;
                 }
             }
+
+            for (String scriptName : executedScriptNames) {
+                if (!changelogScriptNames.contains(scriptName)) {
+                    needRollback = true;
+                    break;
+                }
+            }
+
+            if (needDeploy && needRollback) {
+                throw new RuntimeException("Cannot determine whether to deploy or rollback. Both deployment and rollback are needed. Please use explicit deploy or rollback command.");
+            } else if (needDeploy) {
+                log.info("Detected pending scripts, performing deployment");
+                deploy(changeLogConfigPath, dryRun);
+            } else if (needRollback) {
+                log.info("Detected scripts to rollback, performing rollback");
+                rollback(changeLogConfigPath, dryRun);
+            } else {
+                log.info("Database is already at the target state. No action needed.");
+            }
+
         } catch (Exception e) {
             log.error("deployOrRollback operation failed", e);
             throw new RuntimeException("deployOrRollback operation failed", e);
         }
 
-        log.info("deployOrRollback completed successfully for tag: {}", tagName);
+        log.info("deployOrRollback completed successfully");
     }
 
     @Override

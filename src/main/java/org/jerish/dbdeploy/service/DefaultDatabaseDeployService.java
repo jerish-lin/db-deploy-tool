@@ -42,9 +42,9 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
     }
 
     @Override
-    public void deploy(ChangeLogConfig changeLogConfig, String tagName, boolean dryRun) throws Exception {
+    public void deploy(ChangeLogConfig changeLogConfig, boolean dryRun) throws Exception {
 
-        log.info("Starting deployment with tag: {}", tagName);
+        log.info("Starting deployment");
 
         String lockOwner = "deploy-" + System.currentTimeMillis();
 
@@ -56,29 +56,6 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
         }
 
         try {
-            // Check if this is the first deployment (no tags exist)
-            boolean isFirstDeployment = false;
-            if (!dryRun) {
-                // Debug: Check database URL
-                try {
-                    String dbUrl = jdbcTemplate.getDataSource().getConnection().getMetaData().getURL();
-                    log.info("Database URL: {}", dbUrl);
-                } catch (Exception e) {
-                    log.debug("Could not retrieve database URL", e);
-                }
-
-                List<DeploymentTag> existingTags = auditRepository.getDeploymentTags();
-                log.info("Found {} existing tags", existingTags.size());
-                for (DeploymentTag tag : existingTags) {
-                    log.info("Existing tag: {}", tag.getTagName());
-                }
-                if (existingTags.isEmpty()) {
-                    isFirstDeployment = true;
-                    log.info("First deployment detected, creating initial tag");
-                    createInitialTag();
-                }
-            }
-
             // Load all scripts from changelog
             String scriptBasePath = deriveScriptBasePath(changeLogConfig.getChangelogFilePath());
             List<ScriptFileManager.ScriptFile> scripts = scriptFileManager.loadScripts(scriptBasePath, changeLogConfig.getScripts());
@@ -97,15 +74,10 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
                 }
 
                 log.info("Executing script: {}", script.getName());
-                executeScriptWithAudit(script, tagName);
+                executeScriptWithAudit(script);
             }
 
-            // Create deployment tag
-            if (!dryRun) {
-                createDeploymentTag(tagName);
-            }
-
-            log.info("Deployment completed successfully with tag: {}", tagName);
+            log.info("Deployment completed successfully");
 
         } finally {
             if (!dryRun) {
@@ -114,14 +86,13 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
         }
     }
 
-    private void executeScriptWithAudit(ScriptFileManager.ScriptFile script, String tagName) throws Exception {
+    private void executeScriptWithAudit(ScriptFileManager.ScriptFile script) throws Exception {
         ChangeLogEntry entry = new ChangeLogEntry();
         // Use the full script name including folder structure
         String scriptNameForDb = script.getName();
         entry.setScriptName(scriptNameForDb);
         entry.setRollbackScriptContent(script.getRollbackContent());
         entry.setRollbackVerifyScriptContent(script.getRollbackVerifyContent());
-        entry.setTagName(tagName);
         entry.setExecutionStatus(ScriptExecutionStatus.SUCCESS);
         entry.setExecutionTime(LocalDateTime.now());
         entry.setCreatedAt(LocalDateTime.now());
@@ -150,49 +121,9 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
         }
     }
 
-    private void createDeploymentTag(String tagName) throws Exception {
-        DeploymentTag tag = new DeploymentTag();
-        tag.setTagName(tagName);
-        tag.setDescription("Deployment tag created by db-deploy-tool");
-        tag.setDeploymentTime(LocalDateTime.now());
-        tag.setCreatedBy("db-deploy-tool");
-        tag.setIsActive(true);
-
-        auditRepository.createDeploymentTag(tag);
-    }
-
-    private void createInitialTag() throws Exception {
-        DeploymentTag tag = new DeploymentTag();
-        tag.setTagName("initial");
-        tag.setDescription("Initial state - before any changesets applied");
-
-
-        tag.setDeploymentTime(LocalDateTime.now());
-        tag.setCreatedBy("db-deploy-tool");
-        tag.setIsActive(true);
-
-        auditRepository.createDeploymentTag(tag);
-
-        // Create a fake changelog entry for the initial state
-        ChangeLogEntry initialEntry = new ChangeLogEntry();
-        initialEntry.setScriptName("Initial Database State");
-        initialEntry.setScriptChecksum("initial");
-        initialEntry.setExecutionStatus(ScriptExecutionStatus.SUCCESS);
-        initialEntry.setExecutionTime(LocalDateTime.now());
-        initialEntry.setExecutionDurationMs(0L);
-        initialEntry.setRollbackScriptContent("-- Initial state - no rollback needed");
-        initialEntry.setTagName("initial");
-        initialEntry.setCreatedAt(LocalDateTime.now());
-        initialEntry.setUpdatedAt(LocalDateTime.now());
-
-        auditRepository.recordScriptExecution(initialEntry);
-
-        log.info("Created initial tag and changelog entry for rollback capability");
-    }
-
     @Override
-    public void rollback(String targetTagName, boolean dryRun) throws Exception {
-        log.info("Starting rollback to tag: {}", targetTagName);
+    public void rollback(ChangeLogConfig changeLogConfig, boolean dryRun) throws Exception {
+        log.info("Starting rollback");
 
         String lockOwner = "rollback-" + System.currentTimeMillis();
 
@@ -204,26 +135,24 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
         }
 
         try {
-            // Get the target deployment tag
-            DeploymentTag targetTag = auditRepository.getDeploymentTag(targetTagName);
-            if (targetTag == null) {
-                throw new RuntimeException("Target tag '" + targetTagName + "' not found");
+            // Extract script names from the target changelog
+            List<String> targetScriptNames = new ArrayList<>();
+            for (org.jerish.dbdeploy.entity.ScriptConfig scriptConfig : changeLogConfig.getScripts()) {
+                targetScriptNames.add(scriptConfig.getName());
             }
 
-            // Get all scripts executed after the target tag
-            List<ChangeLogEntry> scriptsToRollback = auditRepository.getScriptsExecutedAfter(targetTagName);
+            // Get scripts that need to be rolled back (scripts in DB but not in target changelog)
+            List<ChangeLogEntry> scriptsToRollback = auditRepository.getScriptsToRollback(targetScriptNames);
 
             if (scriptsToRollback.isEmpty()) {
-                log.info("No scripts to rollback. Database is already at tag: {}", targetTagName);
+                log.info("No scripts to rollback. Database is already at the target state");
                 return;
             }
 
             log.info("Found {} scripts to rollback", scriptsToRollback.size());
 
             // Execute rollback scripts in reverse order
-            for (int i = 0; i < scriptsToRollback.size(); i++) {
-                ChangeLogEntry entry = scriptsToRollback.get(i);
-
+            for (ChangeLogEntry entry : scriptsToRollback) {
                 if (dryRun) {
                     log.info("[DRY RUN] Would rollback script: {}", entry.getScriptName());
                     continue;
@@ -271,32 +200,7 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
                 log.info("Script {} rolled back successfully", entry.getScriptName());
             }
 
-            // Deactivate all deployment tags that were rolled back
-            if (!dryRun) {
-                // Get all tags and deactivate those that were rolled back
-                List<DeploymentTag> allTags = auditRepository.getDeploymentTags();
-
-                // Since tags are ordered by deployment_time DESC (newest first),
-                // we need to find tags that were deployed after the target tag
-                boolean foundTargetTag = false;
-
-                for (DeploymentTag tag : allTags) {
-                    if (tag.getTagName().equals(targetTagName)) {
-                        foundTargetTag = true;
-                        // Continue to next iteration - don't deactivate the target tag
-                        continue;
-                    }
-
-                    // If we haven't found the target tag yet, we're still looking at tags
-                    // that were deployed after the target tag (because of DESC order)
-                    if (!foundTargetTag && tag.getIsActive()) {
-                        auditRepository.deactivateDeploymentTag(tag.getTagName());
-                        log.info("Deactivated deployment tag: {}", tag.getTagName());
-                    }
-                }
-            }
-
-            log.info("Rollback to tag '{}' completed successfully", targetTagName);
+            log.info("Rollback completed successfully");
 
         } finally {
             if (!dryRun) {

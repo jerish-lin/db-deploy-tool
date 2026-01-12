@@ -1,5 +1,5 @@
 -- PostgreSQL Schema for Database Deployment Tool
--- Audit tables for tracking script execution and deployment tags
+-- Audit tables for tracking script execution
 
 -- Create db_change_log table
 CREATE TABLE IF NOT EXISTS db_change_log (
@@ -12,19 +12,8 @@ CREATE TABLE IF NOT EXISTS db_change_log (
     error_message TEXT,
     rollback_script_content TEXT,
     rollback_verify_script_content TEXT,
-    tag_name VARCHAR(100),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
--- Create deployment_tags table
-CREATE TABLE IF NOT EXISTS deployment_tags (
-    id BIGSERIAL PRIMARY KEY,
-    tag_name VARCHAR(100) NOT NULL UNIQUE,
-    description TEXT,
-    deployment_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_by VARCHAR(100),
-    is_active BOOLEAN DEFAULT TRUE
 );
 
 -- Create database_lock table

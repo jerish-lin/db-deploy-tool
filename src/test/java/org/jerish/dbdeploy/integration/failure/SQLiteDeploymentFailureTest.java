@@ -20,9 +20,8 @@ public class SQLiteDeploymentFailureTest extends SQLiteFailureTestBase {
     void testDeploymentFailure() throws Exception {
         // First deploy up to v1.0.1 (working scripts)
         String changelogPathV1_0_1 = "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog-first3.yml";
-        String tagNameV1_0_1 = "1.0.1.20231110.1";
 
-        assertDoesNotThrow(() -> deployManager.deploy(changelogPathV1_0_1, tagNameV1_0_1, false),
+        assertDoesNotThrow(() -> deployManager.deploy(changelogPathV1_0_1, false),
                 "Initial deployment up to v1.0.1 should complete without errors");
 
         // Verify v1.0.1 deployment was successful
@@ -30,10 +29,9 @@ public class SQLiteDeploymentFailureTest extends SQLiteFailureTestBase {
 
         // Now attempt to deploy v1.0.2 which contains a failing script
         String changelogPathV1_0_2 = "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog.yml";
-        String tagNameV1_0_2 = "1.0.2.20231110.1";
 
         // This should fail due to the intentional SQL error in create-user-orders-view
-        assertThrows(Exception.class, () -> deployManager.deploy(changelogPathV1_0_2, tagNameV1_0_2, false),
+        assertThrows(Exception.class, () -> deployManager.deploy(changelogPathV1_0_2, false),
                 "Deployment should fail due to intentional SQL error");
 
         // Verify failure state
