@@ -50,14 +50,33 @@ public class ConfigLoader {
                 List<Object> scriptsList = (List<Object>) scriptsObj;
                 for (Object scriptItem : scriptsList) {
                     if (scriptItem instanceof String) {
-                        // New format: direct string
-                        scriptConfigs.add(new ScriptConfig((String) scriptItem));
+                        // New format: direct string (single-node, backward compatible)
+                        scriptConfigs.add(new ScriptConfig((String) scriptItem, null));
                     } else if (scriptItem instanceof Map) {
-                        // Old format: object with name field
+                        // Object format: with name and optional nodes field
                         Map<String, Object> scriptMap = (Map<String, Object>) scriptItem;
                         Object nameObj = scriptMap.get("name");
+                        Object nodesObj = scriptMap.get("nodes");
+
                         if (nameObj instanceof String) {
-                            scriptConfigs.add(new ScriptConfig((String) nameObj));
+                            String name = (String) nameObj;
+                            List<String> nodes = null;
+
+                            // Extract nodes if present
+                            if (nodesObj instanceof List) {
+                                nodes = new ArrayList<>();
+                                for (Object nodeItem : (List<?>) nodesObj) {
+                                    if (nodeItem instanceof String) {
+                                        nodes.add((String) nodeItem);
+                                    }
+                                }
+                            } else if (nodesObj instanceof String) {
+                                // Handle single string value like "ALL"
+                                nodes = new ArrayList<>();
+                                nodes.add((String) nodesObj);
+                            }
+
+                            scriptConfigs.add(new ScriptConfig(name, nodes));
                         }
                     }
                 }

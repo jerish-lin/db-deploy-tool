@@ -1,0 +1,8 @@
+scripts:
+  - name: create-users-table-multinode
+    nodes: ALL
+  - name: create-products-table-node1
+    nodes: [node1]
+  - name: create-orders-table-node2
+    nodes: [node2]
+  - name: single-node-script

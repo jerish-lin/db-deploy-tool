@@ -72,13 +72,28 @@ public class AuditRepository {
         entry.setErrorMessage(rs.getString("error_message"));
         entry.setRollbackScriptContent(rs.getString("rollback_script_content"));
         entry.setRollbackVerifyScriptContent(rs.getString("rollback_verify_script_content"));
-        
+
         // Handle parent_audit_id
         try {
             entry.setParentAuditId(rs.getObject("parent_audit_id", Long.class));
         } catch (SQLException e) {
             entry.setParentAuditId(null);
         }
+
+        // Handle multi-node fields
+        try {
+            String targetNodesStr = rs.getString("target_nodes");
+            if (targetNodesStr != null && !targetNodesStr.isEmpty()) {
+                // SQLite stores as comma-separated string
+                entry.setTargetNodes(List.of(targetNodesStr.split(",")));
+            } else {
+                entry.setTargetNodes(null);
+            }
+        } catch (SQLException e) {
+            entry.setTargetNodes(null);
+        }
+
+        entry.setNodeExecutionDetails(rs.getString("node_execution_details"));
 
         // Handle created_at timestamp
         String createdAtStr = rs.getString("created_at");
@@ -119,8 +134,9 @@ public class AuditRepository {
                 INSERT INTO db_deploy_tool_change_log (
                     script_name, script_checksum, execution_status,
                     execution_time, execution_duration_ms, error_message,
-                    rollback_script_content, rollback_verify_script_content, parent_audit_id, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    rollback_script_content, rollback_verify_script_content, parent_audit_id,
+                    target_nodes, node_execution_details, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
@@ -137,8 +153,10 @@ public class AuditRepository {
                 ps.setString(7, entry.getRollbackScriptContent());
                 ps.setString(8, entry.getRollbackVerifyScriptContent());
                 ps.setObject(9, entry.getParentAuditId());
-                ps.setString(10, entry.getCreatedAt().toString());
-                ps.setString(11, entry.getUpdatedAt().toString());
+                ps.setString(10, entry.getTargetNodes() != null ? String.join(",", entry.getTargetNodes()) : null);
+                ps.setString(11, entry.getNodeExecutionDetails());
+                ps.setString(12, entry.getCreatedAt().toString());
+                ps.setString(13, entry.getUpdatedAt().toString());
                 return ps;
             }, keyHolder);
         } else {
@@ -153,8 +171,10 @@ public class AuditRepository {
                 ps.setString(7, entry.getRollbackScriptContent());
                 ps.setString(8, entry.getRollbackVerifyScriptContent());
                 ps.setObject(9, entry.getParentAuditId());
-                ps.setTimestamp(10, Timestamp.valueOf(entry.getCreatedAt()));
-                ps.setTimestamp(11, Timestamp.valueOf(entry.getUpdatedAt()));
+                ps.setArray(10, connection.createArrayOf("TEXT", entry.getTargetNodes() != null ? entry.getTargetNodes().toArray() : null));
+                ps.setString(11, entry.getNodeExecutionDetails());
+                ps.setTimestamp(12, Timestamp.valueOf(entry.getCreatedAt()));
+                ps.setTimestamp(13, Timestamp.valueOf(entry.getUpdatedAt()));
                 return ps;
             }, keyHolder);
         }

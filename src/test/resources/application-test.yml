@@ -8,3 +8,31 @@ db-deploy:
     connection-timeout: 5000
     idle-timeout: 600000
     max-lifetime: 1800000
+  nodes:
+    - name: node1
+      url: "jdbc:sqlite:node1.sqlite"
+      username:
+      password:
+      driver: org.sqlite.JDBC
+      max-pool-size: 5
+      connection-timeout: 5000
+      idle-timeout: 300000
+      max-lifetime: 600000
+    - name: node2
+      url: "jdbc:sqlite:node2.sqlite"
+      username:
+      password:
+      driver: org.sqlite.JDBC
+      max-pool-size: 5
+      connection-timeout: 5000
+      idle-timeout: 300000
+      max-lifetime: 600000
+    - name: node3
+      url: "jdbc:sqlite:node3.sqlite"
+      username:
+      password:
+      driver: org.sqlite.JDBC
+      max-pool-size: 5
+      connection-timeout: 5000
+      idle-timeout: 300000
+      max-lifetime: 600000

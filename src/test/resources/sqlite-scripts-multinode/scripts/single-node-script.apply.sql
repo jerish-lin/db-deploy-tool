@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS sample_table (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    action TEXT NOT NULL,
+    description TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);

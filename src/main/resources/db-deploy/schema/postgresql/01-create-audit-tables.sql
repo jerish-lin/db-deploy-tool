@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS db_deploy_tool_change_log (
     rollback_script_content TEXT,
     rollback_verify_script_content TEXT,
     parent_audit_id BIGINT,
+    target_nodes TEXT[],
+    node_execution_details TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_parent_audit FOREIGN KEY (parent_audit_id) REFERENCES db_deploy_tool_change_log(id)

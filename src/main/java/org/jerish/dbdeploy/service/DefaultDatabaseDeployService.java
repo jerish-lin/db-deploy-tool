@@ -4,12 +4,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jerish.dbdeploy.entity.ChangeLogConfig;
 import org.jerish.dbdeploy.entity.DatabaseStatus;
+import org.jerish.dbdeploy.entity.ScriptConfig;
 import org.jerish.dbdeploy.model.ChangeLogEntry;
 import org.jerish.dbdeploy.model.DeploymentTag;
 import org.jerish.dbdeploy.model.ScriptExecutionStatus;
 import org.jerish.dbdeploy.repository.AuditRepository;
+import org.jerish.dbdeploy.script.MultiNodeScriptExecutor;
 import org.jerish.dbdeploy.script.ScriptExecutor;
 import org.jerish.dbdeploy.script.ScriptFileManager;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -23,9 +26,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class DefaultDatabaseDeployService implements DatabaseDeployService {
 
@@ -33,6 +36,22 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
     private final AuditRepository auditRepository;
     private final ScriptExecutor scriptExecutor;
     private final ScriptFileManager scriptFileManager;
+    private final MultiNodeScriptExecutor multiNodeScriptExecutor;
+    private final Map<String, JdbcTemplate> nodeJdbcTemplateMap;
+
+    public DefaultDatabaseDeployService(JdbcTemplate jdbcTemplate,
+                                         AuditRepository auditRepository,
+                                         ScriptExecutor scriptExecutor,
+                                         ScriptFileManager scriptFileManager,
+                                         MultiNodeScriptExecutor multiNodeScriptExecutor,
+                                         @Qualifier("nodeJdbcTemplateMap") Map<String, JdbcTemplate> nodeJdbcTemplateMap) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.auditRepository = auditRepository;
+        this.scriptExecutor = scriptExecutor;
+        this.scriptFileManager = scriptFileManager;
+        this.multiNodeScriptExecutor = multiNodeScriptExecutor;
+        this.nodeJdbcTemplateMap = nodeJdbcTemplateMap;
+    }
 
     private String deriveScriptBasePath(String changelogPath) {
         if (changelogPath == null) {
@@ -68,6 +87,10 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
             String scriptBasePath = deriveScriptBasePath(changeLogConfig.getChangelogFilePath());
             List<ScriptFileManager.ScriptFile> scripts = scriptFileManager.loadScripts(scriptBasePath, changeLogConfig.getScripts());
 
+            // Create a map of script name to ScriptConfig for easy lookup
+            Map<String, ScriptConfig> scriptConfigMap = changeLogConfig.getScripts().stream()
+                    .collect(Collectors.toMap(ScriptConfig::getName, config -> config));
+
             for (ScriptFileManager.ScriptFile script : scripts) {
                 if (dryRun) {
                     log.info("[DRY RUN] Would execute script: {}", script.getName());
@@ -82,7 +105,8 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
                 }
 
                 log.info("Executing script: {}", script.getName());
-                executeScriptWithAudit(script, parameters);
+                ScriptConfig scriptConfig = scriptConfigMap.get(script.getName());
+                executeScriptWithAudit(script, parameters, scriptConfig);
             }
 
             log.info("Deployment completed successfully");
@@ -94,7 +118,7 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
         }
     }
 
-    private void executeScriptWithAudit(ScriptFileManager.ScriptFile script, Map<String, String> parameters) throws Exception {
+    private void executeScriptWithAudit(ScriptFileManager.ScriptFile script, Map<String, String> parameters, ScriptConfig scriptConfig) throws Exception {
         ChangeLogEntry entry = new ChangeLogEntry();
         // Use the full script name including folder structure
         String scriptNameForDb = script.getName();
@@ -110,23 +134,79 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
         String checksum = scriptExecutor.calculateChecksum(script.getApplyContent());
         entry.setScriptChecksum(checksum);
 
-        try {
-            // Execute script with verification in the same transaction
-            ScriptExecutor.ScriptExecutionResult result = scriptExecutor.executeScriptWithVerificationInTransaction(
-                    script.getApplyPath(), script.getName(), parameters);
+        // Check if this is a multi-node script
+        if (scriptConfig != null && scriptConfig.isMultiNode()) {
+            // Store the original target nodes from the script config (e.g., ["ALL"] or ["node1"])
+            entry.setTargetNodes(scriptConfig.getNodes());
 
-            if (result.isSuccess()) {
-                entry.setExecutionDurationMs(result.getDuration());
+            try {
+                // Resolve target nodes for execution (e.g., "ALL" -> ["node1", "node2", "node3"])
+                List<String> executionTargetNodes = determineTargetNodes(scriptConfig);
+
+                // Execute on multiple nodes in parallel
+                String scriptContent = script.getApplyContent();
+                if (parameters != null && !parameters.isEmpty()) {
+                    scriptContent = replacePlaceholders(scriptContent, parameters);
+                }
+
+                MultiNodeScriptExecutor.MultiNodeExecutionResult multiNodeResult =
+                        multiNodeScriptExecutor.executeOnMultipleNodes(scriptContent, executionTargetNodes, script.getName());
+
+                if (multiNodeResult.isSuccess()) {
+                    entry.setExecutionDurationMs(multiNodeResult.getDuration());
+                    entry.setNodeExecutionDetails(
+                            multiNodeScriptExecutor.nodeResultsToJson(multiNodeResult.getNodeResults()));
+                    auditRepository.recordScriptExecution(entry);
+                    log.info("Multi-node script {} executed successfully on {} nodes",
+                            script.getName(), executionTargetNodes.size());
+                } else {
+                    entry.setExecutionStatus(ScriptExecutionStatus.FAILED);
+                    entry.setErrorMessage(multiNodeResult.getErrorMessage());
+                    entry.setNodeExecutionDetails(
+                            multiNodeScriptExecutor.nodeResultsToJson(multiNodeResult.getNodeResults()));
+                    auditRepository.recordScriptExecution(entry);
+                    throw new RuntimeException("Multi-node script execution failed: " + multiNodeResult.getErrorMessage());
+                }
+            } catch (Exception e) {
+                entry.setExecutionStatus(ScriptExecutionStatus.FAILED);
+                entry.setErrorMessage(e.getMessage());
                 auditRepository.recordScriptExecution(entry);
-                log.info("Script {} executed and verified successfully", script.getName());
-            } else {
-                throw new RuntimeException(result.getErrorMessage());
+                throw e;
             }
-        } catch (Exception e) {
-            entry.setExecutionStatus(ScriptExecutionStatus.FAILED);
-            entry.setErrorMessage(e.getMessage());
-            auditRepository.recordScriptExecution(entry);
-            throw e;
+        } else {
+            // Single-node execution (existing behavior)
+
+            try {
+                // Execute script with verification in the same transaction
+                ScriptExecutor.ScriptExecutionResult result = scriptExecutor.executeScriptWithVerificationInTransaction(
+                        script.getApplyPath(), script.getName(), parameters);
+
+                if (result.isSuccess()) {
+                    entry.setExecutionDurationMs(result.getDuration());
+                    auditRepository.recordScriptExecution(entry);
+                    log.info("Script {} executed and verified successfully", script.getName());
+                } else {
+                    throw new RuntimeException(result.getErrorMessage());
+                }
+            } catch (Exception e) {
+                entry.setExecutionStatus(ScriptExecutionStatus.FAILED);
+                entry.setErrorMessage(e.getMessage());
+                auditRepository.recordScriptExecution(entry);
+                throw e;
+            }
+        }
+    }
+
+    /**
+     * Determine the target nodes for a script based on its configuration
+     */
+    private List<String> determineTargetNodes(ScriptConfig scriptConfig) {
+        if (scriptConfig.isAllNodes()) {
+            // Return all configured nodes
+            return new ArrayList<>(nodeJdbcTemplateMap.keySet());
+        } else {
+            // Return specific nodes
+            return scriptConfig.getNodes();
         }
     }
 
@@ -177,7 +257,27 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
                 // Execute rollback script if available
                 if (entry.getRollbackScriptContent() != null && !entry.getRollbackScriptContent().isEmpty()) {
                     String rollbackContent = replacePlaceholders(entry.getRollbackScriptContent(), parameters);
-                    scriptExecutor.executeScriptContent(rollbackContent);
+
+                    // Check if this was a multi-node script (targetNodes is not null)
+                    if (entry.getTargetNodes() != null && !entry.getTargetNodes().isEmpty()) {
+                        // Execute rollback on all target nodes
+                        List<String> targetNodes = entry.getTargetNodes();
+                        if (targetNodes.contains("ALL")) {
+                            // Execute on all configured nodes
+                            targetNodes = new ArrayList<>(nodeJdbcTemplateMap.keySet());
+                        }
+
+                        log.info("Executing multi-node rollback on {} nodes: {}", targetNodes.size(), targetNodes);
+                        MultiNodeScriptExecutor.MultiNodeExecutionResult rollbackResult =
+                                multiNodeScriptExecutor.executeOnMultipleNodes(rollbackContent, targetNodes, entry.getScriptName());
+
+                        if (!rollbackResult.isSuccess()) {
+                            throw new RuntimeException("Multi-node rollback failed: " + rollbackResult.getErrorMessage());
+                        }
+                    } else {
+                        // Single-node rollback (existing behavior)
+                        scriptExecutor.executeScriptContent(rollbackContent);
+                    }
                 } else {
                     log.warn("No rollback script available for: {}", entry.getScriptName());
                 }
@@ -222,6 +322,11 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
                 rollbackEntry.setParentAuditId(entry.getId());
                 rollbackEntry.setCreatedAt(LocalDateTime.now());
                 rollbackEntry.setUpdatedAt(LocalDateTime.now());
+
+                // Copy multi-node fields if applicable
+                rollbackEntry.setTargetNodes(entry.getTargetNodes());
+                // For rollback, we could track node execution details, but for now we'll leave it null
+                // to avoid complexity. The main audit entry already has the execution details.
 
                 auditRepository.recordRollbackScriptExecution(rollbackEntry, entry.getId());
 

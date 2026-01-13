@@ -5,12 +5,22 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode
 public class ScriptConfig {
     private String name;
+
+    /**
+     * Optional list of target nodes for multi-node execution.
+     * If null or empty, script executes on the default connection (single-node mode).
+     * If contains "ALL", script executes on all configured nodes.
+     * Otherwise, script executes only on the specified node names.
+     */
+    private List<String> nodes;
 
     public String getApplyScriptPath() {
         return name + ".apply.sql";
@@ -59,6 +69,22 @@ public class ScriptConfig {
      */
     public boolean hasFolderPath() {
         return name.contains("/");
+    }
+
+    /**
+     * Check if this script should be executed on multiple nodes
+     * @return true if nodes field is non-null and non-empty
+     */
+    public boolean isMultiNode() {
+        return nodes != null && !nodes.isEmpty();
+    }
+
+    /**
+     * Check if this script should be executed on all configured nodes
+     * @return true if nodes list contains "ALL"
+     */
+    public boolean isAllNodes() {
+        return isMultiNode() && nodes.contains("ALL");
     }
 
     @Override
