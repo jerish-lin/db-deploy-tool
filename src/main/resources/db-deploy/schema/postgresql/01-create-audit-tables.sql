@@ -1,8 +1,8 @@
--- PostgreSQL Schema for Database Deployment Tool
+-- PostgreSQL Schema for SchemaFlow
 -- Audit tables for tracking script execution and deployment tags
 
--- Create db_deploy_tool_change_log table
-CREATE TABLE IF NOT EXISTS db_deploy_tool_change_log (
+-- Create schemaflow_change_log table
+CREATE TABLE IF NOT EXISTS schemaflow_change_log (
     id BIGSERIAL PRIMARY KEY,
     script_name VARCHAR(500) NOT NULL,
     script_checksum VARCHAR(64) NOT NULL,
@@ -17,13 +17,13 @@ CREATE TABLE IF NOT EXISTS db_deploy_tool_change_log (
     node_execution_details TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_parent_audit FOREIGN KEY (parent_audit_id) REFERENCES db_deploy_tool_change_log(id)
+    CONSTRAINT fk_parent_audit FOREIGN KEY (parent_audit_id) REFERENCES schemaflow_change_log(id)
 );
 
--- Create db_deploy_tool_lock table
-CREATE TABLE IF NOT EXISTS db_deploy_tool_lock (
+-- Create schemaflow_deploy_lock table
+CREATE TABLE IF NOT EXISTS schemaflow_deploy_lock (
     id BIGSERIAL PRIMARY KEY,
-    lock_key VARCHAR(100) NOT NULL UNIQUE,
+    lock_key VARCHAR(255) NOT NULL UNIQUE,
     lock_owner VARCHAR(255),
     lock_acquired_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     lock_expires_at TIMESTAMP,

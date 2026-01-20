@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.util.ArrayList;
 
@@ -18,6 +20,7 @@ import static org.mockito.Mockito.*;
  * Unit tests for DatabaseStatusService.
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("DatabaseStatusService Tests")
 public class DatabaseStatusServiceTest {
 
@@ -67,6 +70,13 @@ public class DatabaseStatusServiceTest {
     @DisplayName("Test getComprehensiveStatus handles audit repository exceptions")
     void testGetComprehensiveStatusHandlesExceptions() {
         when(auditRepository.getCurrentDeploymentState()).thenThrow(new RuntimeException("Database error"));
+        // Mock other methods to return empty objects
+        when(auditRepository.getScriptExecutionHistory()).thenReturn(new ArrayList<>());
+        when(auditRepository.getCurrentLockStatus()).thenReturn(new DatabaseStatus.LockInfo());
+        when(auditRepository.getDatabaseHealthInfo()).thenReturn(new DatabaseStatus.DatabaseHealthInfo());
+        when(auditRepository.getConfigurationInfo()).thenReturn(new DatabaseStatus.ConfigurationInfo());
+        when(auditRepository.getRecentDeploymentHistory()).thenReturn(new ArrayList<>());
+        when(auditRepository.getTotalRolledBackScripts()).thenReturn(0);
 
         DatabaseStatus status = service.getComprehensiveStatus();
 

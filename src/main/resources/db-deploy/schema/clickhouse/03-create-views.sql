@@ -1,4 +1,4 @@
--- ClickHouse Views for Database Deployment Tool
+-- ClickHouse Views for SchemaFlow
 -- Supporting views for deployment state and script execution history
 
 -- Script Execution History View
@@ -12,7 +12,7 @@ SELECT
     dcl.error_message,
     dcl.created_at,
     dcl.updated_at
-FROM db_deploy_tool_change_log dcl
+FROM schemaflow_change_log dcl
 ORDER BY dcl.execution_time DESC;
 
 -- Failed Scripts View
@@ -23,7 +23,7 @@ SELECT
     dcl.execution_time,
     dcl.error_message,
     dcl.created_at
-FROM db_deploy_tool_change_log dcl
+FROM schemaflow_change_log dcl
 WHERE dcl.execution_status = 'FAILED'
 ORDER BY dcl.execution_time DESC;
 
@@ -36,6 +36,6 @@ SELECT
     dcl.rollback_script_content,
     dcl.rollback_verify_script_content,
     dcl.created_at
-FROM db_deploy_tool_change_log dcl
+FROM schemaflow_change_log dcl
 WHERE dcl.execution_status = 'ROLLED_BACK'
 ORDER BY dcl.execution_time DESC;

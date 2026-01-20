@@ -1,8 +1,8 @@
--- SQLite Schema for Database Deployment Tool
+-- SQLite Schema for SchemaFlow
 -- Audit tables for tracking script execution and deployment tags
 
--- Create db_deploy_tool_change_log table
-CREATE TABLE IF NOT EXISTS db_deploy_tool_change_log (
+-- Create schemaflow_change_log table
+CREATE TABLE IF NOT EXISTS schemaflow_change_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     script_name TEXT NOT NULL,
     script_checksum TEXT NOT NULL,
@@ -17,11 +17,11 @@ CREATE TABLE IF NOT EXISTS db_deploy_tool_change_log (
     node_execution_details TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (parent_audit_id) REFERENCES db_deploy_tool_change_log(id)
+    FOREIGN KEY (parent_audit_id) REFERENCES schemaflow_change_log(id)
 );
 
--- Create db_deploy_tool_lock table
-CREATE TABLE IF NOT EXISTS db_deploy_tool_lock (
+-- Create schemaflow_deploy_lock table
+CREATE TABLE IF NOT EXISTS schemaflow_deploy_lock (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     lock_key TEXT NOT NULL UNIQUE,
     lock_owner TEXT,

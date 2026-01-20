@@ -231,8 +231,8 @@ public class ClickHouseSchemaInitializationStrategyTest {
         strategy.initializeSchema(jdbcTemplate);
 
         // Verify that tables are created (checking for table names in SQL)
-        verify(jdbcTemplate, atLeastOnce()).execute(contains("db_deploy_tool_change_log"));
-        verify(jdbcTemplate, atLeastOnce()).execute(contains("db_deploy_tool_lock"));
+        verify(jdbcTemplate, atLeastOnce()).execute(contains("schemaflow_change_log"));
+        verify(jdbcTemplate, atLeastOnce()).execute(contains("schemaflow_deploy_lock"));
     }
 
     @Test

@@ -55,7 +55,7 @@ public class AuditRepositoryTest {
 
         assertTrue(result);
         verify(jdbcTemplate).queryForObject(
-                contains("SELECT COUNT(*) FROM db_deploy_tool_change_log"),
+                contains("SELECT COUNT(*) FROM schemaflow_change_log"),
                 eq(Integer.class),
                 eq("test-script"),
                 eq("test-script")
@@ -129,7 +129,7 @@ public class AuditRepositoryTest {
         List<ChangeLogEntry> result = auditRepository.getAllExecutedScripts();
 
         assertNotNull(result);
-        verify(jdbcTemplate).query(contains("SELECT * FROM db_deploy_tool_change_log"), any(RowMapper.class));
+        verify(jdbcTemplate).query(contains("SELECT * FROM schemaflow_change_log"), any(RowMapper.class));
     }
 
     @Test
@@ -195,7 +195,7 @@ public class AuditRepositoryTest {
         when(jdbcTemplate.queryForObject("SELECT sqlite_version()", String.class))
                 .thenReturn("3.45.1");
         
-        when(jdbcTemplate.update(contains("INSERT OR IGNORE INTO db_deploy_tool_lock"), 
+        when(jdbcTemplate.update(contains("INSERT OR IGNORE INTO schemaflow_deploy_lock"), 
                 eq("test-lock"), eq("owner1"), eq(30)))
                 .thenReturn(1);
 
@@ -211,7 +211,7 @@ public class AuditRepositoryTest {
         when(jdbcTemplate.queryForObject("SELECT sqlite_version()", String.class))
                 .thenReturn("3.45.1");
         
-        when(jdbcTemplate.update(contains("INSERT OR IGNORE INTO db_deploy_tool_lock"), 
+        when(jdbcTemplate.update(contains("INSERT OR IGNORE INTO schemaflow_deploy_lock"), 
                 eq("test-lock"), eq("owner1"), eq(30)))
                 .thenReturn(0);
 
@@ -228,7 +228,7 @@ public class AuditRepositoryTest {
 
         assertDoesNotThrow(() -> auditRepository.releaseLock("test-lock", "owner1"));
 
-        verify(jdbcTemplate).update(contains("DELETE FROM db_deploy_tool_lock"), eq("test-lock"), eq("owner1"));
+        verify(jdbcTemplate).update(contains("DELETE FROM schemaflow_deploy_lock"), eq("test-lock"), eq("owner1"));
     }
 
     @Test

@@ -97,7 +97,7 @@ public class SQLiteMultiNodeTest {
 
         // Verify audit log
         List<ChangeLogEntry> auditEntries = dbDeployJdbcTemplate.query(
-                "SELECT * FROM db_deploy_tool_change_log ORDER BY execution_time ASC",
+                "SELECT * FROM schemaflow_change_log ORDER BY execution_time ASC",
                 (rs, rowNum) -> {
                     ChangeLogEntry entry = new ChangeLogEntry();
                     entry.setId(rs.getLong("id"));
@@ -214,7 +214,7 @@ public class SQLiteMultiNodeTest {
 
         // Verify rollback entries in audit log
         Integer rollbackCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM db_deploy_tool_change_log WHERE execution_status = 'ROLLED_BACK'",
+                "SELECT COUNT(*) FROM schemaflow_change_log WHERE execution_status = 'ROLLED_BACK'",
                 Integer.class);
         assertTrue(rollbackCount > 0, "Should have rollback entries in audit log");
     }
@@ -227,7 +227,7 @@ public class SQLiteMultiNodeTest {
 
         // Get the multi-node script entry
         ChangeLogEntry multiNodeEntry = dbDeployJdbcTemplate.queryForObject(
-                "SELECT * FROM db_deploy_tool_change_log WHERE script_name = 'create-users-table-multinode'",
+                "SELECT * FROM schemaflow_change_log WHERE script_name = 'create-users-table-multinode'",
                 (rs, rowNum) -> {
                     ChangeLogEntry entry = new ChangeLogEntry();
                     entry.setScriptName(rs.getString("script_name"));
@@ -249,3 +249,4 @@ public class SQLiteMultiNodeTest {
         assertTrue(nodeDetails.contains("\"success\":true"), "Should indicate success for all nodes");
     }
 }
+

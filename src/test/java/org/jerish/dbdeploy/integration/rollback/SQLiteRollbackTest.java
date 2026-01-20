@@ -97,7 +97,7 @@ public class SQLiteRollbackTest extends SQLiteDeployTestBase {
     private void verifyBasicRollbackAuditState() {
         // Verify add-projects-table script is marked as ROLLED_BACK (latest status)
         Integer rolledBackScriptCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM db_deploy_tool_change_log t1 WHERE t1.script_name='feature-12350-add-projects-table' AND t1.id = (SELECT MAX(t2.id) FROM db_deploy_tool_change_log t2 WHERE t2.script_name='feature-12350-add-projects-table') AND t1.execution_status='ROLLED_BACK'",
+                "SELECT COUNT(*) FROM schemaflow_change_log t1 WHERE t1.script_name='feature-12350-add-projects-table' AND t1.id = (SELECT MAX(t2.id) FROM schemaflow_change_log t2 WHERE t2.script_name='feature-12350-add-projects-table') AND t1.execution_status='ROLLED_BACK'",
                 Integer.class);
         assertTrue(rolledBackScriptCount != null && rolledBackScriptCount == 1,
                 "feature-12350-add-projects-table script should be marked as ROLLED_BACK (latest status)");
@@ -113,7 +113,7 @@ public class SQLiteRollbackTest extends SQLiteDeployTestBase {
 
         for (String scriptId : v1_0_0_Scripts) {
             Integer scriptCount = dbDeployJdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM db_deploy_tool_change_log t1 WHERE t1.script_name=? AND t1.id = (SELECT MAX(t2.id) FROM db_deploy_tool_change_log t2 WHERE t2.script_name=?) AND t1.execution_status='SUCCESS'",
+                    "SELECT COUNT(*) FROM schemaflow_change_log t1 WHERE t1.script_name=? AND t1.id = (SELECT MAX(t2.id) FROM schemaflow_change_log t2 WHERE t2.script_name=?) AND t1.execution_status='SUCCESS'",
                     Integer.class, scriptId, scriptId);
             assertTrue(scriptCount != null && scriptCount == 1,
                     String.format("Script '%s' should still be marked as SUCCESS (latest status)", scriptId));
@@ -147,14 +147,14 @@ public class SQLiteRollbackTest extends SQLiteDeployTestBase {
 
         // Verify audit tables still exist
         Integer changelogTableCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='db_deploy_tool_change_log'",
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schemaflow_change_log'",
                 Integer.class);
         assertTrue(changelogTableCount != null && changelogTableCount == 1,
-                "db_deploy_tool_change_log table should still exist");
+                "schemaflow_change_log table should still exist");
 
         // Verify all scripts are marked as ROLLED_BACK
         Integer rolledBackCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM db_deploy_tool_change_log WHERE execution_status='ROLLED_BACK'",
+                "SELECT COUNT(*) FROM schemaflow_change_log WHERE execution_status='ROLLED_BACK'",
                 Integer.class);
         assertTrue(rolledBackCount != null && rolledBackCount == 4,
                 "All 4 scripts should be marked as ROLLED_BACK");
@@ -261,7 +261,7 @@ public class SQLiteRollbackTest extends SQLiteDeployTestBase {
 
         // Verify add-projects-table script is marked as ROLLED_BACK (latest status)
         Integer rolledBackScriptCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM db_deploy_tool_change_log t1 WHERE t1.script_name='feature-12350-add-projects-table' AND t1.id = (SELECT MAX(t2.id) FROM db_deploy_tool_change_log t2 WHERE t2.script_name='feature-12350-add-projects-table') AND t1.execution_status='ROLLED_BACK'",
+                "SELECT COUNT(*) FROM schemaflow_change_log t1 WHERE t1.script_name='feature-12350-add-projects-table' AND t1.id = (SELECT MAX(t2.id) FROM schemaflow_change_log t2 WHERE t2.script_name='feature-12350-add-projects-table') AND t1.execution_status='ROLLED_BACK'",
                 Integer.class);
         assertTrue(rolledBackScriptCount != null && rolledBackScriptCount == 1,
                 "feature-12350-add-projects-table script should be marked as ROLLED_BACK (latest status)");
@@ -283,7 +283,7 @@ public class SQLiteRollbackTest extends SQLiteDeployTestBase {
 
         // Verify add-projects-table script is executed successfully again (latest status)
         Integer successScriptCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM db_deploy_tool_change_log t1 WHERE t1.script_name='feature-12350-add-projects-table' AND t1.id = (SELECT MAX(t2.id) FROM db_deploy_tool_change_log t2 WHERE t2.script_name='feature-12350-add-projects-table') AND t1.execution_status='SUCCESS'",
+                "SELECT COUNT(*) FROM schemaflow_change_log t1 WHERE t1.script_name='feature-12350-add-projects-table' AND t1.id = (SELECT MAX(t2.id) FROM schemaflow_change_log t2 WHERE t2.script_name='feature-12350-add-projects-table') AND t1.execution_status='SUCCESS'",
                 Integer.class);
         assertTrue(successScriptCount != null && successScriptCount == 1,
                 "feature-12350-add-projects-table script should be executed successfully in redeployment (latest status)");

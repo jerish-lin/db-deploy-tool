@@ -159,9 +159,11 @@ public class DatabaseStatusService {
 
             DatabaseStatus.DatabaseHealthInfo healthInfo = auditRepository.getDatabaseHealthInfo();
             
-            // Add response time to health info
-            long responseTime = System.currentTimeMillis() - startTime;
-            healthInfo.setResponseTime(responseTime);
+            // Add response time to health info (only if healthInfo is not null)
+            if (healthInfo != null) {
+                long responseTime = System.currentTimeMillis() - startTime;
+                healthInfo.setResponseTime(responseTime);
+            }
             
             status.setHealthInfo(healthInfo);
 
