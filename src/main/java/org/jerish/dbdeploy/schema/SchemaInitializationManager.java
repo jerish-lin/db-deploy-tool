@@ -2,7 +2,7 @@ package org.jerish.dbdeploy.schema;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jerish.dbdeploy.database.DatabaseType;
+import org.jerish.dbdeploy.entity.DatabaseType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;

@@ -20,13 +20,13 @@ public class SQLiteRollbackAfterFailureTest extends SQLiteFailureTestBase {
     @DisplayName("Test rollback after failure")
     void testRollbackAfterFailure() throws Exception {
         // First deploy up to v1.0.1
-        String changelogPathV1_0_1 = "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog-first3.yml";
+        String changelogPathV1_0_1 = "classpath:sqlite-scripts-failure/sqlite-test-changelog-first3.yml";
 
         assertDoesNotThrow(() -> deployManager.deploy(changelogPathV1_0_1, false),
                 "Initial deployment up to v1.0.1 should complete without errors");
 
         // Attempt to deploy v1.0.2 which will fail
-        String changelogPathV1_0_2 = "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog.yml";
+        String changelogPathV1_0_2 = "classpath:sqlite-scripts-failure/sqlite-test-changelog.yml";
 
         assertThrows(Exception.class, () -> deployManager.deploy(changelogPathV1_0_2, false),
                 "Deployment should fail due to intentional SQL error");

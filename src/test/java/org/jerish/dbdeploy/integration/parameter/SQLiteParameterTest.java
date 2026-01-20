@@ -27,7 +27,7 @@ public class SQLiteParameterTest extends SQLiteDeployTestBase {
         parameters.put("item_name", "Test Product");
         parameters.put("item_status", "active");
 
-        String changelogPath = "src/test/resources/sqlite-scripts-parameter/sqlite-test-changelog-parameter.yml";
+        String changelogPath = "classpath:sqlite-scripts-parameter/sqlite-test-changelog-parameter.yml";
 
         // Deploy with parameters
         assertDoesNotThrow(() -> deployManager.deploy(changelogPath, false, parameters),
@@ -64,7 +64,7 @@ public class SQLiteParameterTest extends SQLiteDeployTestBase {
         deployParameters.put("item_name", "Test Order");
         deployParameters.put("item_status", "pending");
 
-        String changelogPath = "src/test/resources/sqlite-scripts-parameter/sqlite-test-changelog-parameter.yml";
+        String changelogPath = "classpath:sqlite-scripts-parameter/sqlite-test-changelog-parameter.yml";
 
         // Deploy with parameters
         assertDoesNotThrow(() -> deployManager.deploy(changelogPath, false, deployParameters),
@@ -91,7 +91,7 @@ public class SQLiteParameterTest extends SQLiteDeployTestBase {
         rollbackParameters.put("item_status", "pending");
 
         // Rollback with parameters
-        String emptyChangelogPath = "src/test/resources/sqlite-scripts/sqlite-test-changelog-empty.yml";
+        String emptyChangelogPath = "classpath:sqlite-scripts/sqlite-test-changelog-empty.yml";
         assertDoesNotThrow(() -> deployManager.rollback(emptyChangelogPath, false, rollbackParameters),
                 "Rollback with parameters should complete without errors");
 
@@ -113,7 +113,7 @@ public class SQLiteParameterTest extends SQLiteDeployTestBase {
     @Test
     @DisplayName("Test deployment without parameters")
     void testDeployWithoutParameters() throws Exception {
-        String changelogPath = "src/test/resources/sqlite-scripts-parameter/sqlite-test-changelog-parameter.yml";
+        String changelogPath = "classpath:sqlite-scripts-parameter/sqlite-test-changelog-parameter.yml";
 
         // Deploy without parameters - should fail
         Exception exception = assertThrows(Exception.class, () -> {

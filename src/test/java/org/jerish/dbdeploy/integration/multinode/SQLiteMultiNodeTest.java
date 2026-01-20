@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class SQLiteMultiNodeTest {
 
     private static final String[] DB_FILES = {"testdb.sqlite", "node1.sqlite", "node2.sqlite", "node3.sqlite"};
-    private static final String CHANGELOG_PATH = "src/test/resources/sqlite-scripts-multinode/sqlite-test-changelog-multinode.yml";
+    private static final String CHANGELOG_PATH = "classpath:sqlite-scripts-multinode/sqlite-test-changelog-multinode.yml";
 
     @Autowired
     private DatabaseDeployManager deployManager;
@@ -196,7 +196,7 @@ public class SQLiteMultiNodeTest {
 
         // Rollback to initial state (empty changelog)
         ChangeLogConfig emptyConfig = new ChangeLogConfig();
-        emptyConfig.setBasePath("src/test/resources/multinode"); emptyConfig.setFileName("changelog.yml");
+        emptyConfig.setBasePath("classpath:multinode"); emptyConfig.setFileName("changelog.yml");
         emptyConfig.setScripts(List.of());
 
         deployService.rollback(emptyConfig, false);

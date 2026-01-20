@@ -1,6 +1,6 @@
 package org.jerish.dbdeploy.schema;
 
-import org.jerish.dbdeploy.database.DatabaseType;
+import org.jerish.dbdeploy.entity.DatabaseType;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**

@@ -19,12 +19,12 @@ public abstract class AbstractSchemaInitializationStrategy implements SchemaInit
             // Check if the main audit table exists
             String sql = """
                 SELECT COUNT(*) FROM information_schema.tables 
-                WHERE table_name = 'db_change_log'
+                WHERE table_name = 'schemaflow_change_log'
                 """;
             
             // For SQLite, use different query
             if (getSupportedDatabaseType().name().toLowerCase().contains("sqlite")) {
-                sql = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='db_change_log'";
+                sql = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schemaflow_change_log'";
             }
             
             Integer count = jdbcTemplate.queryForObject(sql, Integer.class);

@@ -23,7 +23,7 @@ public class SQLiteDeploymentTest extends SQLiteDeployTestBase {
     @DisplayName("Test complete database deployment with SQLite")
     void testCompleteDeployment() throws Exception {
         // Define deployment parameters
-        String changelogPath = "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml";
+        String changelogPath = "classpath:sqlite-scripts/sqlite-test-changelog.yml";
         boolean dryRun = false;
 
         // Run the deployment using DatabaseDeployManager

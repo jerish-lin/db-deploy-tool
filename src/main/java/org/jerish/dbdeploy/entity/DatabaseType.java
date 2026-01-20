@@ -1,4 +1,4 @@
-package org.jerish.dbdeploy.database;
+package org.jerish.dbdeploy.entity;
 
 public enum DatabaseType {
     POSTGRESQL("postgresql", "org.postgresql.Driver"),

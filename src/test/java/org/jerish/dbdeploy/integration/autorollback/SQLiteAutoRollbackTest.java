@@ -42,7 +42,7 @@ public class SQLiteAutoRollbackTest extends SQLiteDeployTestBase {
         deploymentConfig.setEnableAutoRollback(true);
 
         // First deploy with v1.0.1
-        String changelogPathV2 = "src/test/resources/sqlite-scripts/sqlite-test-changelog-v2.yml";
+        String changelogPathV2 = "classpath:sqlite-scripts/sqlite-test-changelog-v2.yml";
         assertDoesNotThrow(() -> deployManager.deploy(changelogPathV2, false),
                 "First deployment should complete without errors");
 
@@ -55,7 +55,7 @@ public class SQLiteAutoRollbackTest extends SQLiteDeployTestBase {
 
         // Now use deployOrRollback with v1.0.0
         // This should rollback the projects table
-        String changelogPathV1 = "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml";
+        String changelogPathV1 = "classpath:sqlite-scripts/sqlite-test-changelog.yml";
 
         // This should succeed because enableAutoRollback is enabled
         assertDoesNotThrow(() -> deployManager.deployOrRollback(changelogPathV1, false),
@@ -76,7 +76,7 @@ public class SQLiteAutoRollbackTest extends SQLiteDeployTestBase {
         deploymentConfig.setEnableAutoRollback(false);
 
         // First deploy with v1.0.1
-        String changelogPathV2 = "src/test/resources/sqlite-scripts/sqlite-test-changelog-v2.yml";
+        String changelogPathV2 = "classpath:sqlite-scripts/sqlite-test-changelog-v2.yml";
         assertDoesNotThrow(() -> deployManager.deploy(changelogPathV2, false),
                 "First deployment should complete without errors");
 
@@ -89,7 +89,7 @@ public class SQLiteAutoRollbackTest extends SQLiteDeployTestBase {
 
         // Now try to use deployOrRollback with v1.0.0
         // This should rollback the projects table
-        String changelogPathV1 = "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml";
+        String changelogPathV1 = "classpath:sqlite-scripts/sqlite-test-changelog.yml";
 
         // This should fail because enableAutoRollback is disabled and rollback is needed
         Exception exception = assertThrows(RuntimeException.class, () -> {
@@ -115,7 +115,7 @@ public class SQLiteAutoRollbackTest extends SQLiteDeployTestBase {
         deploymentConfig.setEnableAutoRollback(false);
 
         // First deploy with v1.0.0
-        String changelogPathV1 = "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml";
+        String changelogPathV1 = "classpath:sqlite-scripts/sqlite-test-changelog.yml";
         assertDoesNotThrow(() -> deployManager.deploy(changelogPathV1, false),
                 "First deployment should complete without errors");
 
@@ -127,7 +127,7 @@ public class SQLiteAutoRollbackTest extends SQLiteDeployTestBase {
                 "Should have employees and departments tables");
 
         // Rollback to initial state
-        String emptyChangelogPath = "src/test/resources/sqlite-scripts/sqlite-test-changelog-empty.yml";
+        String emptyChangelogPath = "classpath:sqlite-scripts/sqlite-test-changelog-empty.yml";
         assertDoesNotThrow(() -> deployManager.rollback(emptyChangelogPath, false),
                 "Rollback should complete without errors");
 
@@ -151,7 +151,7 @@ public class SQLiteAutoRollbackTest extends SQLiteDeployTestBase {
         deploymentConfig.setEnableAutoRollback(false);
 
         // First deploy with v1.0.0
-        String changelogPathV1 = "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml";
+        String changelogPathV1 = "classpath:sqlite-scripts/sqlite-test-changelog.yml";
         assertDoesNotThrow(() -> deployManager.deploy(changelogPathV1, false),
                 "First deployment should complete without errors");
 

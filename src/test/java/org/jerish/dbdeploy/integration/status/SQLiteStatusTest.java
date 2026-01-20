@@ -46,7 +46,7 @@ public class SQLiteStatusTest extends SQLiteDeployTestBase {
     @DisplayName("Test status after deployment")
     void testShowStatusAfterDeployment() throws Exception {
         // Deploy scripts first
-        String changelogPath = "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml";
+        String changelogPath = "classpath:sqlite-scripts/sqlite-test-changelog.yml";
 
         assertDoesNotThrow(() -> deployManager.deploy(changelogPath, false),
                 "Deployment should complete without errors");
@@ -69,13 +69,13 @@ public class SQLiteStatusTest extends SQLiteDeployTestBase {
     @DisplayName("Test status after rollback")
     void testShowStatusAfterRollback() throws Exception {
         // Deploy scripts first
-        String changelogPathV1 = "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml";
+        String changelogPathV1 = "classpath:sqlite-scripts/sqlite-test-changelog.yml";
 
         assertDoesNotThrow(() -> deployManager.deploy(changelogPathV1, false),
                 "First deployment should complete without errors");
 
         // Deploy 1.0.1.20231110.1
-        String changelogPathV2 = "src/test/resources/sqlite-scripts/sqlite-test-changelog-v2.yml";
+        String changelogPathV2 = "classpath:sqlite-scripts/sqlite-test-changelog-v2.yml";
 
         assertDoesNotThrow(() -> deployManager.deploy(changelogPathV2, false),
                 "Second deployment should complete without errors");
@@ -100,13 +100,13 @@ public class SQLiteStatusTest extends SQLiteDeployTestBase {
     @DisplayName("Test status with multiple operations")
     void testShowStatusWithMultipleOperations() throws Exception {
         // Deploy v1.0.0.20231110.1
-        String changelogPathV1 = "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml";
+        String changelogPathV1 = "classpath:sqlite-scripts/sqlite-test-changelog.yml";
 
         assertDoesNotThrow(() -> deployManager.deploy(changelogPathV1, false),
                 "First deployment should complete without errors");
 
         // Deploy v1.0.1.20231110.1
-        String changelogPathV2 = "src/test/resources/sqlite-scripts/sqlite-test-changelog-v2.yml";
+        String changelogPathV2 = "classpath:sqlite-scripts/sqlite-test-changelog-v2.yml";
 
         assertDoesNotThrow(() -> deployManager.deploy(changelogPathV2, false),
                 "Second deployment should complete without errors");
@@ -130,13 +130,13 @@ public class SQLiteStatusTest extends SQLiteDeployTestBase {
     @DisplayName("Test status after failed deployment")
     void testShowStatusAfterFailedDeployment() throws Exception {
         // Deploy working scripts first
-        String changelogPathV1 = "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog-first3.yml";
+        String changelogPathV1 = "classpath:sqlite-scripts-failure/sqlite-test-changelog-first3.yml";
 
         assertDoesNotThrow(() -> deployManager.deploy(changelogPathV1, false),
                 "Initial deployment should complete without errors");
 
         // Attempt to deploy with a failing script
-        String changelogPathV2 = "src/test/resources/sqlite-scripts-failure/sqlite-test-changelog.yml";
+        String changelogPathV2 = "classpath:sqlite-scripts-failure/sqlite-test-changelog.yml";
 
         assertThrows(Exception.class, () -> deployManager.deploy(changelogPathV2, false),
                 "Deployment should fail due to intentional SQL error");

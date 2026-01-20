@@ -20,7 +20,7 @@ public class SQLiteRollbackTest extends SQLiteDeployTestBase {
     @DisplayName("Test basic rollback functionality")
     void testBasicRollback() throws Exception {
         // Deploy v1.0.0
-        String changelogPathV1 = "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml";
+        String changelogPathV1 = "classpath:sqlite-scripts/sqlite-test-changelog.yml";
 
         assertDoesNotThrow(() -> deployManager.deploy(changelogPathV1, false),
                 "Deployment v1.0.0 should complete without errors");
@@ -40,7 +40,7 @@ public class SQLiteRollbackTest extends SQLiteDeployTestBase {
                 "Should have 10 employees");
 
         // Deploy v1.0.1
-        String changelogPathV2 = "src/test/resources/sqlite-scripts/sqlite-test-changelog-v2.yml";
+        String changelogPathV2 = "classpath:sqlite-scripts/sqlite-test-changelog-v2.yml";
 
         assertDoesNotThrow(() -> deployManager.deploy(changelogPathV2, false),
                 "Deployment v1.0.1 should complete without errors");
@@ -124,7 +124,7 @@ public class SQLiteRollbackTest extends SQLiteDeployTestBase {
     @DisplayName("Test deploy then rollback to empty state")
     void testDeployThenRollbackToEmpty() throws Exception {
         // Deploy v1.0.0
-        String changelogPath = "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml";
+        String changelogPath = "classpath:sqlite-scripts/sqlite-test-changelog.yml";
 
         assertDoesNotThrow(() -> deployManager.deploy(changelogPath, false),
                 "Deployment should complete without errors");
@@ -134,7 +134,7 @@ public class SQLiteRollbackTest extends SQLiteDeployTestBase {
 
         // Create an empty changelog to rollback to initial state
         // This will rollback all scripts
-        String emptyChangelogPath = "src/test/resources/sqlite-scripts/sqlite-test-changelog-empty.yml";
+        String emptyChangelogPath = "classpath:sqlite-scripts/sqlite-test-changelog-empty.yml";
         assertDoesNotThrow(() -> deployManager.rollback(emptyChangelogPath, false),
                 "Rollback to empty state should complete without errors");
 
@@ -184,7 +184,7 @@ public class SQLiteRollbackTest extends SQLiteDeployTestBase {
     @DisplayName("Test deploy, rollback, then deploy again with same changes")
     void testDeployRollbackRedeploy() throws Exception {
         // First deployment
-        String changelogPathV1 = "src/test/resources/sqlite-scripts/sqlite-test-changelog.yml";
+        String changelogPathV1 = "classpath:sqlite-scripts/sqlite-test-changelog.yml";
 
         assertDoesNotThrow(() -> deployManager.deploy(changelogPathV1, false),
                 "First deployment should complete without errors");
@@ -193,7 +193,7 @@ public class SQLiteRollbackTest extends SQLiteDeployTestBase {
         verifyFirstDeploymentState();
 
         // Second deploy with 1.0.1.20231110.1 using sqlite-scripts
-        String changelogPathV2 = "src/test/resources/sqlite-scripts/sqlite-test-changelog-v2.yml";
+        String changelogPathV2 = "classpath:sqlite-scripts/sqlite-test-changelog-v2.yml";
 
         assertDoesNotThrow(() -> deployManager.deploy(changelogPathV2, false),
                 "Second deployment should complete without errors");
@@ -209,7 +209,7 @@ public class SQLiteRollbackTest extends SQLiteDeployTestBase {
         verifyRollbackState();
 
         // Deploy 1.0.1.20231110.1 again
-        String changelogPathRedeploy = "src/test/resources/sqlite-scripts/sqlite-test-changelog-v2.yml";
+        String changelogPathRedeploy = "classpath:sqlite-scripts/sqlite-test-changelog-v2.yml";
 
         assertDoesNotThrow(() -> deployManager.deploy(changelogPathRedeploy, false),
                 "Redeployment should complete without errors");
