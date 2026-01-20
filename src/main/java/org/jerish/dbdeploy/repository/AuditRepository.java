@@ -3,7 +3,7 @@ package org.jerish.dbdeploy.repository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jerish.dbdeploy.model.ChangeLogEntry;
-import org.jerish.dbdeploy.model.ScriptExecutionStatus;
+import org.jerish.dbdeploy.entity.ScriptExecutionStatus;
 import org.jerish.dbdeploy.entity.DatabaseStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;

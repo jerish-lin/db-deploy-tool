@@ -1,4 +1,4 @@
-package org.jerish.dbdeploy.model;
+package org.jerish.dbdeploy.entity;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

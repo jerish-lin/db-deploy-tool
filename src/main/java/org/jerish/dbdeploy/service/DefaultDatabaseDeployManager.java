@@ -3,16 +3,15 @@ package org.jerish.dbdeploy.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jerish.dbdeploy.config.DeploymentConfig;
-import org.jerish.dbdeploy.configloader.ConfigLoader;
+import org.jerish.dbdeploy.changelog.ConfigLoader;
 import org.jerish.dbdeploy.repository.AuditRepository;
 import org.jerish.dbdeploy.schema.SchemaInitializationManager;
+import org.jerish.dbdeploy.changelog.ChangeLogManager;
 import org.jerish.dbdeploy.entity.ChangeLogConfig;
 import org.jerish.dbdeploy.entity.DatabaseStatus;
-import org.jerish.dbdeploy.model.ChangeLogEntry;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -24,9 +23,11 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
     private final DatabaseDeployService deployService;
+    private final DatabaseStatusService databaseStatusService;
     private final SchemaInitializationManager schemaInitializationManager;
     private final AuditRepository auditRepository;
     private final DeploymentConfig deploymentConfig;
+    private final ChangeLogManager changeLogManager;
 
     @Override
     public void deploy(String changeLogConfigPath, boolean dryRun) throws Exception {
@@ -81,54 +82,25 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
             // Load changelog config
             ChangeLogConfig changeLogConfig = ConfigLoader.loadChangeLogConfig(changeLogConfigPath);
 
-            // Get all successfully executed scripts from database
-            List<ChangeLogEntry> executedScripts = auditRepository.getAllExecutedScripts();
+            // Use ChangeLogManager to determine what action is needed
+            ChangeLogManager.DeploymentAction action =
+                    changeLogManager.determineDeploymentAction(changeLogConfig);
 
-            // Get script names from changelog
-            List<String> changelogScriptNames = new ArrayList<>();
-            for (org.jerish.dbdeploy.entity.ScriptConfig scriptConfig : changeLogConfig.getScripts()) {
-                changelogScriptNames.add(scriptConfig.getName());
-            }
-
-            // Get executed script names
-            List<String> executedScriptNames = new ArrayList<>();
-            for (ChangeLogEntry entry : executedScripts) {
-                executedScriptNames.add(entry.getScriptName());
-            }
-
-            // Determine if we need to deploy or rollback
-            // If there are scripts in changelog that are not executed, we need to deploy
-            // If there are scripts executed that are not in changelog, we need to rollback
-            boolean needDeploy = false;
-            boolean needRollback = false;
-
-            for (String scriptName : changelogScriptNames) {
-                if (!executedScriptNames.contains(scriptName)) {
-                    needDeploy = true;
+            switch (action) {
+                case DEPLOY:
+                    log.info("Detected pending scripts, performing deployment");
+                    deploy(changeLogConfigPath, dryRun);
                     break;
-                }
-            }
-
-            for (String scriptName : executedScriptNames) {
-                if (!changelogScriptNames.contains(scriptName)) {
-                    needRollback = true;
+                case ROLLBACK:
+                    if (!deploymentConfig.isEnableAutoRollback()) {
+                        throw new RuntimeException("Rollback is required but enableAutoRollback is not enabled. Please enable enableAutoRollback in the configuration or use explicit rollback command.");
+                    }
+                    log.info("Detected scripts to rollback, performing rollback");
+                    rollback(changeLogConfigPath, dryRun);
                     break;
-                }
-            }
-
-            if (needDeploy && needRollback) {
-                throw new RuntimeException("Cannot determine whether to deploy or rollback. Both deployment and rollback are needed. Please use explicit deploy or rollback command.");
-            } else if (needDeploy) {
-                log.info("Detected pending scripts, performing deployment");
-                deploy(changeLogConfigPath, dryRun);
-            } else if (needRollback) {
-                if (!deploymentConfig.isEnableAutoRollback()) {
-                    throw new RuntimeException("Rollback is required but enableAutoRollback is not enabled. Please enable enableAutoRollback in the configuration or use explicit rollback command.");
-                }
-                log.info("Detected scripts to rollback, performing rollback");
-                rollback(changeLogConfigPath, dryRun);
-            } else {
-                log.info("Database is already at the target state. No action needed.");
+                case NONE:
+                    log.info("Database is already at the target state. No action needed.");
+                    break;
             }
 
         } catch (Exception e) {
@@ -180,7 +152,7 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
                 return status;
             }
 
-            return deployService.getComprehensiveStatus();
+            return databaseStatusService.getComprehensiveStatus();
 
         } catch (Exception e) {
             log.warn("Failed to get database status", e);

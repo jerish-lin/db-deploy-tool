@@ -1,31 +1,26 @@
 package org.jerish.dbdeploy.service;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jerish.dbdeploy.entity.ChangeLogConfig;
-import org.jerish.dbdeploy.entity.DatabaseStatus;
 import org.jerish.dbdeploy.entity.ScriptConfig;
 import org.jerish.dbdeploy.model.ChangeLogEntry;
-import org.jerish.dbdeploy.model.DeploymentTag;
-import org.jerish.dbdeploy.model.ScriptExecutionStatus;
+import org.jerish.dbdeploy.entity.ScriptExecutionStatus;
 import org.jerish.dbdeploy.repository.AuditRepository;
-import org.jerish.dbdeploy.script.MultiNodeScriptExecutor;
+import org.jerish.dbdeploy.changelog.ChangeLogManager;
+import org.jerish.dbdeploy.script.ScriptExecutionManager;
+import org.jerish.dbdeploy.entity.ScriptFileContent;
 import org.jerish.dbdeploy.script.ScriptExecutor;
-import org.jerish.dbdeploy.script.ScriptFileManager;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -34,33 +29,26 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
 
     private final JdbcTemplate jdbcTemplate;
     private final AuditRepository auditRepository;
-    private final ScriptExecutor scriptExecutor;
-    private final ScriptFileManager scriptFileManager;
-    private final MultiNodeScriptExecutor multiNodeScriptExecutor;
-    private final Map<String, JdbcTemplate> nodeJdbcTemplateMap;
-
-    public DefaultDatabaseDeployService(JdbcTemplate jdbcTemplate,
-                                         AuditRepository auditRepository,
-                                         ScriptExecutor scriptExecutor,
-                                         ScriptFileManager scriptFileManager,
-                                         MultiNodeScriptExecutor multiNodeScriptExecutor,
-                                         @Qualifier("nodeJdbcTemplateMap") Map<String, JdbcTemplate> nodeJdbcTemplateMap) {
+    private final ChangeLogManager changeLogManager;
+    private final ScriptExecutionManager scriptExecutionManager;
+    private final ScriptExecutor scriptExecutorV2;
+    
+    @Autowired
+    @Qualifier("nodeJdbcTemplateMap")
+    private Map<String, JdbcTemplate> nodeJdbcTemplateMap;
+    
+    @Autowired
+    public DefaultDatabaseDeployService(
+            JdbcTemplate jdbcTemplate,
+            AuditRepository auditRepository,
+            ChangeLogManager changeLogManager,
+            ScriptExecutionManager scriptExecutionManager,
+            ScriptExecutor scriptExecutorV2) {
         this.jdbcTemplate = jdbcTemplate;
         this.auditRepository = auditRepository;
-        this.scriptExecutor = scriptExecutor;
-        this.scriptFileManager = scriptFileManager;
-        this.multiNodeScriptExecutor = multiNodeScriptExecutor;
-        this.nodeJdbcTemplateMap = nodeJdbcTemplateMap;
-    }
-
-    private String deriveScriptBasePath(String changelogPath) {
-        if (changelogPath == null) {
-            return ".";
-        }
-        // Get the parent directory of the changelog file and append "scripts"
-        Path changelogFile = Paths.get(changelogPath);
-        Path scriptsDir = changelogFile.getParent() != null ? changelogFile.getParent().resolve("scripts") : Paths.get("scripts");
-        return scriptsDir.toString();
+        this.changeLogManager = changeLogManager;
+        this.scriptExecutionManager = scriptExecutionManager;
+        this.scriptExecutorV2 = scriptExecutorV2;
     }
 
     @Override
@@ -70,7 +58,6 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
 
     @Override
     public void deploy(ChangeLogConfig changeLogConfig, boolean dryRun, Map<String, String> parameters) throws Exception {
-
         log.info("Starting deployment");
 
         String lockOwner = "deploy-" + System.currentTimeMillis();
@@ -83,30 +70,31 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
         }
 
         try {
-            // Load all scripts from changelog
-            String scriptBasePath = deriveScriptBasePath(changeLogConfig.getChangelogFilePath());
-            List<ScriptFileManager.ScriptFile> scripts = scriptFileManager.loadScripts(scriptBasePath, changeLogConfig.getScripts());
+            // Get pending scripts using ChangeLogManager
+            List<ScriptFileContent> pendingScripts = changeLogManager.determinePendingScripts(
+                    changeLogConfig, parameters != null ? parameters : Map.of());
+
+            if (pendingScripts.isEmpty()) {
+                log.info("No pending scripts to deploy. Database is already up to date.");
+                return;
+            }
+
+            log.info("Found {} pending scripts to deploy", pendingScripts.size());
 
             // Create a map of script name to ScriptConfig for easy lookup
             Map<String, ScriptConfig> scriptConfigMap = changeLogConfig.getScripts().stream()
                     .collect(Collectors.toMap(ScriptConfig::getName, config -> config));
 
-            for (ScriptFileManager.ScriptFile script : scripts) {
+            // Execute each pending script
+            for (ScriptFileContent script : pendingScripts) {
                 if (dryRun) {
                     log.info("[DRY RUN] Would execute script: {}", script.getName());
                     continue;
                 }
 
-                // Check if script was already executed
-                String scriptNameForDb = script.getName();
-                if (auditRepository.isScriptExecuted(scriptNameForDb)) {
-                    log.info("Skipping already executed script: {}", script.getName());
-                    continue;
-                }
-
                 log.info("Executing script: {}", script.getName());
                 ScriptConfig scriptConfig = scriptConfigMap.get(script.getName());
-                executeScriptWithAudit(script, parameters, scriptConfig);
+                executeScriptWithAudit(script, scriptConfig);
             }
 
             log.info("Deployment completed successfully");
@@ -118,83 +106,90 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
         }
     }
 
-    private void executeScriptWithAudit(ScriptFileManager.ScriptFile script, Map<String, String> parameters, ScriptConfig scriptConfig) throws Exception {
+    private void executeScriptWithAudit(ScriptFileContent script, ScriptConfig scriptConfig) throws Exception {
         ChangeLogEntry entry = new ChangeLogEntry();
-        // Use the full script name including folder structure
-        String scriptNameForDb = script.getName();
-        entry.setScriptName(scriptNameForDb);
+        entry.setScriptName(script.getName());
         entry.setRollbackScriptContent(script.getRollbackContent());
-        entry.setRollbackVerifyScriptContent(script.getRollbackVerifyContent());
+        entry.setRollbackVerifyScriptContent(script.getRollbackVerificationContent());
         entry.setExecutionStatus(ScriptExecutionStatus.SUCCESS);
         entry.setExecutionTime(LocalDateTime.now());
         entry.setCreatedAt(LocalDateTime.now());
         entry.setUpdatedAt(LocalDateTime.now());
 
-        // Calculate checksum from the script content that's already loaded
-        String checksum = scriptExecutor.calculateChecksum(script.getApplyContent());
+        // Calculate checksum from the script content
+        String checksum = scriptExecutorV2.calculateChecksum(script.getApplyContent());
         entry.setScriptChecksum(checksum);
 
-        // Check if this is a multi-node script
-        if (scriptConfig != null && scriptConfig.isMultiNode()) {
-            // Store the original target nodes from the script config (e.g., ["ALL"] or ["node1"])
-            entry.setTargetNodes(scriptConfig.getNodes());
+        ScriptExecutor.ScriptExecutionResult result = null;
+        ScriptExecutionManager.MultiNodeExecutionResult multiNodeResult = null;
+        boolean success = false;
+        String errorMessage = null;
 
-            try {
-                // Resolve target nodes for execution (e.g., "ALL" -> ["node1", "node2", "node3"])
+        try {
+            // Check if this is a multi-node script
+            if (scriptConfig != null && scriptConfig.isMultiNode()) {
+                // Store the original target nodes from the script config
+                entry.setTargetNodes(scriptConfig.getNodes());
+
+                // Resolve target nodes for execution
                 List<String> executionTargetNodes = determineTargetNodes(scriptConfig);
 
                 // Execute on multiple nodes in parallel
-                String scriptContent = script.getApplyContent();
-                if (parameters != null && !parameters.isEmpty()) {
-                    scriptContent = replacePlaceholders(scriptContent, parameters);
-                }
-
-                MultiNodeScriptExecutor.MultiNodeExecutionResult multiNodeResult =
-                        multiNodeScriptExecutor.executeOnMultipleNodes(scriptContent, executionTargetNodes, script.getName());
+                multiNodeResult = scriptExecutionManager.executeAndVerifyOnMultipleNodes(
+                        script.getApplyContent(),
+                        script.getApplyVerificationContent(),
+                        executionTargetNodes,
+                        script.getName());
 
                 if (multiNodeResult.isSuccess()) {
                     entry.setExecutionDurationMs(multiNodeResult.getDuration());
                     entry.setNodeExecutionDetails(
-                            multiNodeScriptExecutor.nodeResultsToJson(multiNodeResult.getNodeResults()));
-                    auditRepository.recordScriptExecution(entry);
+                            serializeNodeResults(multiNodeResult.getNodeResults(), executionTargetNodes));
+                    success = true;
                     log.info("Multi-node script {} executed successfully on {} nodes",
                             script.getName(), executionTargetNodes.size());
                 } else {
-                    entry.setExecutionStatus(ScriptExecutionStatus.FAILED);
-                    entry.setErrorMessage(multiNodeResult.getErrorMessage());
+                    errorMessage = multiNodeResult.getErrorMessage();
                     entry.setNodeExecutionDetails(
-                            multiNodeScriptExecutor.nodeResultsToJson(multiNodeResult.getNodeResults()));
-                    auditRepository.recordScriptExecution(entry);
-                    throw new RuntimeException("Multi-node script execution failed: " + multiNodeResult.getErrorMessage());
+                            serializeNodeResults(multiNodeResult.getNodeResults(), executionTargetNodes));
                 }
-            } catch (Exception e) {
-                entry.setExecutionStatus(ScriptExecutionStatus.FAILED);
-                entry.setErrorMessage(e.getMessage());
-                auditRepository.recordScriptExecution(entry);
-                throw e;
-            }
-        } else {
-            // Single-node execution (existing behavior)
-
-            try {
-                // Execute script with verification in the same transaction
-                ScriptExecutor.ScriptExecutionResult result = scriptExecutor.executeScriptWithVerificationInTransaction(
-                        script.getApplyPath(), script.getName(), parameters);
+            } else {
+                // Single-node execution
+                result = scriptExecutionManager.executeAndVerify(
+                        script.getApplyContent(),
+                        script.getApplyVerificationContent(),
+                        script.getName());
 
                 if (result.isSuccess()) {
                     entry.setExecutionDurationMs(result.getDuration());
-                    auditRepository.recordScriptExecution(entry);
+                    success = true;
                     log.info("Script {} executed and verified successfully", script.getName());
                 } else {
-                    throw new RuntimeException(result.getErrorMessage());
+                    errorMessage = result.getErrorMessage();
                 }
-            } catch (Exception e) {
-                entry.setExecutionStatus(ScriptExecutionStatus.FAILED);
-                entry.setErrorMessage(e.getMessage());
-                auditRepository.recordScriptExecution(entry);
-                throw e;
             }
+        } catch (Exception e) {
+            errorMessage = e.getMessage();
         }
+
+        // Record audit result in a separate transaction
+        if (!success) {
+            entry.setExecutionStatus(ScriptExecutionStatus.FAILED);
+            entry.setErrorMessage(errorMessage);
+            recordScriptExecutionWithNewTransaction(entry);
+            throw new RuntimeException("Script execution failed: " + errorMessage);
+        } else {
+            recordScriptExecutionWithNewTransaction(entry);
+        }
+    }
+
+    /**
+     * Record script execution in a new transaction to ensure audit records are committed
+     * even when the script execution transaction is rolled back.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    private void recordScriptExecutionWithNewTransaction(ChangeLogEntry entry) {
+        auditRepository.recordScriptExecution(entry);
     }
 
     /**
@@ -203,11 +198,40 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
     private List<String> determineTargetNodes(ScriptConfig scriptConfig) {
         if (scriptConfig.isAllNodes()) {
             // Return all configured nodes
-            return new ArrayList<>(nodeJdbcTemplateMap.keySet());
+            log.debug("All node keys in map: {}", nodeJdbcTemplateMap.keySet());
+            List<String> allNodes = new ArrayList<>(nodeJdbcTemplateMap.keySet());
+            log.debug("Determined target nodes for ALL: {}", allNodes);
+            return allNodes;
         } else {
             // Return specific nodes
+            log.debug("Determined target nodes for specific: {}", scriptConfig.getNodes());
             return scriptConfig.getNodes();
         }
+    }
+
+    /**
+     * Serialize node execution results to JSON format
+     */
+    private String serializeNodeResults(List<ScriptExecutor.ScriptExecutionResult> nodeResults, List<String> nodeNames) {
+        if (nodeResults == null || nodeResults.isEmpty() || nodeNames == null || nodeNames.isEmpty()) {
+            return null;
+        }
+
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < Math.min(nodeResults.size(), nodeNames.size()); i++) {
+            ScriptExecutor.ScriptExecutionResult result = nodeResults.get(i);
+            String nodeName = nodeNames.get(i);
+            sb.append("{\"nodeName\":\"").append(nodeName).append("\"")
+                    .append(",\"success\":").append(result.isSuccess())
+                    .append(",\"durationMs\":").append(result.getDuration())
+                    .append(",\"errorMessage\":\"").append(result.getErrorMessage() != null ? result.getErrorMessage().replace("\"", "'") : "")
+                    .append("\"}");
+            if (i < Math.min(nodeResults.size(), nodeNames.size()) - 1) {
+                sb.append(",");
+            }
+        }
+        sb.append("]");
+        return sb.toString();
     }
 
     @Override
@@ -229,14 +253,10 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
         }
 
         try {
-            // Extract script names from the target changelog
-            List<String> targetScriptNames = new ArrayList<>();
-            for (org.jerish.dbdeploy.entity.ScriptConfig scriptConfig : changeLogConfig.getScripts()) {
-                targetScriptNames.add(scriptConfig.getName());
-            }
-
-            // Get scripts that need to be rolled back (scripts in DB but not in target changelog)
-            List<ChangeLogEntry> scriptsToRollback = auditRepository.getScriptsToRollback(targetScriptNames);
+            // Use ChangeLogManager to determine which scripts need to be rolled back
+            // The rollback content is already saved in the database with parameters replaced,
+            // so no need to replace parameters again
+            List<ChangeLogEntry> scriptsToRollback = changeLogManager.determineRollbackScripts(changeLogConfig);
 
             if (scriptsToRollback.isEmpty()) {
                 log.info("No scripts to rollback. Database is already at the target state");
@@ -245,7 +265,7 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
 
             log.info("Found {} scripts to rollback", scriptsToRollback.size());
 
-            // Execute rollback scripts in reverse order
+            // Execute rollback scripts in reverse order (already handled by ChangeLogManager)
             for (ChangeLogEntry entry : scriptsToRollback) {
                 if (dryRun) {
                     log.info("[DRY RUN] Would rollback script: {}", entry.getScriptName());
@@ -256,8 +276,6 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
 
                 // Execute rollback script if available
                 if (entry.getRollbackScriptContent() != null && !entry.getRollbackScriptContent().isEmpty()) {
-                    String rollbackContent = replacePlaceholders(entry.getRollbackScriptContent(), parameters);
-
                     // Check if this was a multi-node script (targetNodes is not null)
                     if (entry.getTargetNodes() != null && !entry.getTargetNodes().isEmpty()) {
                         // Execute rollback on all target nodes
@@ -268,55 +286,39 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
                         }
 
                         log.info("Executing multi-node rollback on {} nodes: {}", targetNodes.size(), targetNodes);
-                        MultiNodeScriptExecutor.MultiNodeExecutionResult rollbackResult =
-                                multiNodeScriptExecutor.executeOnMultipleNodes(rollbackContent, targetNodes, entry.getScriptName());
+                        ScriptExecutionManager.MultiNodeExecutionResult rollbackResult =
+                                scriptExecutionManager.executeAndVerifyOnMultipleNodes(
+                                        entry.getRollbackScriptContent(),
+                                        entry.getRollbackVerifyScriptContent(),
+                                        targetNodes,
+                                        entry.getScriptName());
 
                         if (!rollbackResult.isSuccess()) {
                             throw new RuntimeException("Multi-node rollback failed: " + rollbackResult.getErrorMessage());
                         }
                     } else {
-                        // Single-node rollback (existing behavior)
-                        scriptExecutor.executeScriptContent(rollbackContent);
+                        // Single-node rollback
+                        ScriptExecutor.ScriptExecutionResult result =
+                                scriptExecutionManager.executeAndVerify(
+                                        entry.getRollbackScriptContent(),
+                                        entry.getRollbackVerifyScriptContent(),
+                                        entry.getScriptName());
+
+                        if (!result.isSuccess()) {
+                            throw new RuntimeException("Rollback execution failed: " + result.getErrorMessage());
+                        }
                     }
                 } else {
                     log.warn("No rollback script available for: {}", entry.getScriptName());
                 }
 
-                // Execute rollback verification if available
-                if (entry.getRollbackVerifyScriptContent() != null && !entry.getRollbackVerifyScriptContent().isEmpty()) {
-                    try {
-                        String rollbackVerifyContent = replacePlaceholders(entry.getRollbackVerifyScriptContent(), parameters);
-                        ScriptExecutor.VerificationResult verificationResult = scriptExecutor.executeVerificationContent(rollbackVerifyContent);
-
-                        // Log verification results
-                        log.info("\n=== ROLLBACK VERIFICATION RESULTS ===");
-                        log.info("Script: {}", entry.getScriptName());
-                        log.info("Verification Status: {}", verificationResult.isSuccess() ? "SUCCESS" : "FAILED");
-                        log.info("Duration: {}ms", verificationResult.getDuration());
-                        log.info("Output:");
-                        log.info("{}", verificationResult.getOutput());
-
-                        if (!verificationResult.isSuccess()) {
-                            log.error("Rollback verification error: {}", verificationResult.getErrorMessage());
-                        }
-                        log.info("=== END ROLLBACK VERIFICATION ===\n");
-
-                        // If verification fails, log warning but continue
-                        if (!verificationResult.isSuccess()) {
-                            log.warn("Rollback verification failed for script: {}", entry.getScriptName());
-                        }
-                    } catch (Exception e) {
-                        log.warn("Could not execute rollback verification for script {}: {}", entry.getScriptName(), e.getMessage());
-                    }
-                }
-
-                // Record the rollback as a new audit entry (instead of updating the existing one)
+                // Record the rollback as a new audit entry
                 ChangeLogEntry rollbackEntry = new ChangeLogEntry();
                 rollbackEntry.setScriptName(entry.getScriptName());
                 rollbackEntry.setScriptChecksum(entry.getScriptChecksum());
                 rollbackEntry.setExecutionStatus(ScriptExecutionStatus.ROLLED_BACK);
                 rollbackEntry.setExecutionTime(LocalDateTime.now());
-                rollbackEntry.setExecutionDurationMs(0L); // Rollback duration is tracked separately
+                rollbackEntry.setExecutionDurationMs(0L);
                 rollbackEntry.setRollbackScriptContent(entry.getRollbackScriptContent());
                 rollbackEntry.setRollbackVerifyScriptContent(entry.getRollbackVerifyScriptContent());
                 rollbackEntry.setParentAuditId(entry.getId());
@@ -325,8 +327,6 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
 
                 // Copy multi-node fields if applicable
                 rollbackEntry.setTargetNodes(entry.getTargetNodes());
-                // For rollback, we could track node execution details, but for now we'll leave it null
-                // to avoid complexity. The main audit entry already has the execution details.
 
                 auditRepository.recordRollbackScriptExecution(rollbackEntry, entry.getId());
 
@@ -340,268 +340,5 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
                 auditRepository.releaseLock("db_deploy_tool", lockOwner);
             }
         }
-    }
-
-    /**
-     * Get comprehensive database deployment status
-     *
-     * @return DatabaseStatus object with detailed status information
-     */
-    @Override
-    public DatabaseStatus getComprehensiveStatus() {
-        DatabaseStatus status = new DatabaseStatus();
-        // Basic connection info
-        status.setDatabaseConnected(true);
-
-        // Query deployment state using views
-        populateDeploymentState(status);
-
-        // Query script status using views
-        populateScriptStatus(status);
-
-        // Query deployment lock status
-        populateLockStatus(status);
-
-        // Query database health
-        populateDatabaseHealth(status);
-
-        // Query configuration status
-        populateConfigurationStatus(status);
-
-        // Query recent deployment history
-        populateDeploymentHistory(status);
-        return status;
-    }
-
-    private void populateDeploymentState(DatabaseStatus status) {
-
-            try {
-
-                status.setDatabaseConnected(true);
-
-                DatabaseStatus.DeploymentStateInfo stateInfo = auditRepository.getCurrentDeploymentState();
-
-                if (stateInfo != null) {
-
-                    // Set total rolled back scripts count across all tags
-
-                    stateInfo.setRolledBackScripts(auditRepository.getTotalRolledBackScripts());
-
-                    status.setDeploymentState(stateInfo);
-
-                } else {
-
-                    // Create empty deployment state
-
-                    DatabaseStatus.DeploymentStateInfo emptyState = new DatabaseStatus.DeploymentStateInfo();
-
-                    emptyState.setCurrentTag("");
-
-                    emptyState.setTotalScripts(0);
-
-                    emptyState.setSuccessfulScripts(0);
-
-                    emptyState.setFailedScripts(0);
-
-                    emptyState.setRolledBackScripts(auditRepository.getTotalRolledBackScripts());
-
-                    status.setDeploymentState(emptyState);
-
-                }
-
-            } catch (Exception e) {
-
-                log.error("Error populating deployment state", e);
-
-            }
-
-        }
-
-    private void populateScriptStatus(DatabaseStatus status) {
-        try {
-            List<DatabaseStatus.ScriptExecutionInfo> scriptHistory = auditRepository.getScriptExecutionHistory();
-
-            List<String> executedScripts = new ArrayList<>();
-            List<String> failedScripts = new ArrayList<>();
-            List<String> rolledBackScripts = new ArrayList<>();
-
-            for (DatabaseStatus.ScriptExecutionInfo info : scriptHistory) {
-                switch (info.getExecutionStatus()) {
-                    case "SUCCESS" -> executedScripts.add(info.getScriptName());
-                    case "FAILED" -> failedScripts.add(info.getScriptName());
-                    case "ROLLED_BACK" -> rolledBackScripts.add(info.getScriptName());
-                }
-            }
-
-            // Create script status info
-            DatabaseStatus.ScriptStatusInfo scriptStatus = new DatabaseStatus.ScriptStatusInfo();
-            scriptStatus.setExecutedScriptNames(executedScripts);
-            scriptStatus.setFailedScriptNames(failedScripts);
-            scriptStatus.setRolledBackScriptNames(rolledBackScripts);
-            scriptStatus.setPendingScriptNames(new ArrayList<>());
-            scriptStatus.setScriptHistory(scriptHistory);
-            
-            // Get detailed failure information if needed
-            if (!failedScripts.isEmpty()) {
-                List<DatabaseStatus.FailedScriptInfo> failedScriptDetails = auditRepository.getFailedScripts();
-                scriptStatus.setFailedScriptDetails(failedScriptDetails);
-            } else {
-                scriptStatus.setFailedScriptDetails(new ArrayList<>());
-            }
-            
-            // Set script counts
-            scriptStatus.setExecutedScripts(executedScripts.size());
-            scriptStatus.setFailedScripts(failedScripts.size());
-            scriptStatus.setRolledBackScripts(rolledBackScripts.size());
-            scriptStatus.setPendingScripts(0);
-
-            status.setScriptStatus(scriptStatus);
-
-        } catch (Exception e) {
-            log.error("Error populating script status", e);
-            DatabaseStatus.ScriptStatusInfo emptyScriptStatus = new DatabaseStatus.ScriptStatusInfo();
-            emptyScriptStatus.setExecutedScriptNames(new ArrayList<>());
-            emptyScriptStatus.setFailedScriptNames(new ArrayList<>());
-            emptyScriptStatus.setRolledBackScriptNames(new ArrayList<>());
-            emptyScriptStatus.setPendingScriptNames(new ArrayList<>());
-            emptyScriptStatus.setScriptHistory(new ArrayList<>());
-            emptyScriptStatus.setFailedScriptDetails(new ArrayList<>());
-            status.setScriptStatus(emptyScriptStatus);
-        }
-    }
-
-    private void populateLockStatus(DatabaseStatus status) {
-            try {
-                DatabaseStatus.LockInfo lockInfo = auditRepository.getCurrentLockStatus();
-                
-                if (lockInfo != null && lockInfo.isActive()) {
-                    status.setLockInfo(lockInfo);
-                } else {
-                    // Create empty lock info
-                    DatabaseStatus.LockInfo emptyLockInfo = new DatabaseStatus.LockInfo();
-                    emptyLockInfo.setActive(false);
-                    emptyLockInfo.setLockOwner("");
-                    status.setLockInfo(emptyLockInfo);
-                }
-            } catch (Exception e) {
-                log.error("Error populating lock status", e);
-                DatabaseStatus.LockInfo emptyLockInfo = new DatabaseStatus.LockInfo();
-                emptyLockInfo.setActive(false);
-                emptyLockInfo.setLockOwner("");
-                status.setLockInfo(emptyLockInfo);
-            }
-        }
-    private void populateDatabaseHealth(DatabaseStatus status) {
-            try {
-                // Basic health check - query database version and response time
-                long startTime = System.currentTimeMillis();
-    
-                DatabaseStatus.DatabaseHealthInfo healthInfo = auditRepository.getDatabaseHealthInfo();
-                
-                // Add response time to health info
-                long responseTime = System.currentTimeMillis() - startTime;
-                healthInfo.setResponseTime(responseTime);
-                
-                status.setHealthInfo(healthInfo);
-    
-            } catch (Exception e) {
-                log.error("Error populating database health", e);
-                DatabaseStatus.DatabaseHealthInfo errorHealthInfo = new DatabaseStatus.DatabaseHealthInfo();
-                errorHealthInfo.setHealthy(false);
-                errorHealthInfo.setHealthMessage("Health check error: " + e.getMessage());
-                errorHealthInfo.setResponseTime(-1);
-                status.setHealthInfo(errorHealthInfo);
-            }
-        }
-    private void populateConfigurationStatus(DatabaseStatus status) {
-        try {
-            DatabaseStatus.ConfigurationInfo configInfo = auditRepository.getConfigurationInfo();
-            status.setConfigurationInfo(configInfo);
-
-        } catch (Exception e) {
-            log.error("Error populating configuration status", e);
-            DatabaseStatus.ConfigurationInfo errorConfigInfo = new DatabaseStatus.ConfigurationInfo();
-            errorConfigInfo.setValid(false);
-            errorConfigInfo.setMessage("Configuration check failed");
-            status.setConfigurationInfo(errorConfigInfo);
-        }
-    }
-
-    private void populateDeploymentHistory(DatabaseStatus status) {
-        try {
-            List<DatabaseStatus.DeploymentHistoryEntry> history = auditRepository.getRecentDeploymentHistory();
-            status.setRecentDeployments(history);
-
-        } catch (Exception e) {
-            log.error("Error populating deployment history", e);
-            status.setRecentDeployments(new ArrayList<>());
-        }
-    }
-
-    private LocalDateTime parseDateTime(String dateTimeStr) {
-        if (dateTimeStr == null || dateTimeStr.isEmpty()) {
-            return null;
-        }
-        try {
-            // Try standard ISO format first
-            return LocalDateTime.parse(dateTimeStr);
-        } catch (DateTimeParseException e1) {
-            try {
-                // Try SQLite datetime format: "YYYY-MM-DD HH:MM:SS"
-                DateTimeFormatter sqliteFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-                return LocalDateTime.parse(dateTimeStr, sqliteFormatter);
-            } catch (Exception e2) {
-                log.debug("Failed to parse datetime: {}", dateTimeStr, e2);
-                return null;
-            }
-        } catch (Exception e) {
-            log.debug("Failed to parse datetime: {}", dateTimeStr, e);
-            return null;
-        }
-    }
-
-    /**
-     * Replace placeholders in SQL content with actual parameter values.
-     * Placeholders are in the format ${param_name}.
-     *
-     * @param content   The SQL content with placeholders
-     * @param parameters The map of parameter names to values
-     * @return The SQL content with placeholders replaced
-     * @throws RuntimeException if a placeholder is found but no value is provided
-     */
-    private String replacePlaceholders(String content, Map<String, String> parameters) {
-        if (content == null) {
-            return null;
-        }
-
-        if (parameters == null || parameters.isEmpty()) {
-            // Check if there are any placeholders in the content
-            Pattern placeholderCheck = Pattern.compile("\\$\\{(\\w+)\\}");
-            Matcher checkMatcher = placeholderCheck.matcher(content);
-            if (checkMatcher.find()) {
-                throw new RuntimeException("SQL contains placeholders but no parameters were provided. Found placeholder: " + checkMatcher.group());
-            }
-            return content;
-        }
-
-        Pattern pattern = Pattern.compile("\\$\\{(\\w+)\\}");
-        Matcher matcher = pattern.matcher(content);
-        StringBuffer result = new StringBuffer();
-
-        while (matcher.find()) {
-            String placeholder = matcher.group(1); // Get the parameter name without ${}
-            String value = parameters.get(placeholder);
-
-            if (value != null) {
-                // Replace the placeholder with the actual value
-                matcher.appendReplacement(result, Matcher.quoteReplacement(value));
-            } else {
-                // Throw exception if no value is found for a placeholder
-                throw new RuntimeException("No value provided for placeholder: " + placeholder);
-            }
-        }
-
-        matcher.appendTail(result);
-        return result.toString();
     }
 }

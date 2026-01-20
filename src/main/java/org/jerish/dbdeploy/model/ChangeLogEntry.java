@@ -2,6 +2,7 @@ package org.jerish.dbdeploy.model;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.jerish.dbdeploy.entity.ScriptExecutionStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;

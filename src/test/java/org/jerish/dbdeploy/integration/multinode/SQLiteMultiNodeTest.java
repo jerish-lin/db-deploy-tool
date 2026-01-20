@@ -1,10 +1,9 @@
 package org.jerish.dbdeploy.integration.multinode;
 
 import org.jerish.dbdeploy.TestApplication;
-import org.jerish.dbdeploy.configloader.ConfigLoader;
 import org.jerish.dbdeploy.entity.ChangeLogConfig;
 import org.jerish.dbdeploy.model.ChangeLogEntry;
-import org.jerish.dbdeploy.model.ScriptExecutionStatus;
+import org.jerish.dbdeploy.entity.ScriptExecutionStatus;
 import org.jerish.dbdeploy.schema.SchemaInitializationManager;
 import org.jerish.dbdeploy.service.DatabaseDeployManager;
 import org.jerish.dbdeploy.service.DatabaseDeployService;
@@ -89,7 +88,7 @@ public class SQLiteMultiNodeTest {
     @Test
     void testMultiNodeDeployment() throws Exception {
         // Load changelog configuration
-        ChangeLogConfig changeLogConfig = org.jerish.dbdeploy.configloader.ConfigLoader.loadChangeLogConfig(CHANGELOG_PATH);
+        ChangeLogConfig changeLogConfig = org.jerish.dbdeploy.changelog.ConfigLoader.loadChangeLogConfig(CHANGELOG_PATH);
         assertNotNull(changeLogConfig, "ChangeLogConfig should not be null");
         assertEquals(4, changeLogConfig.getScripts().size(), "Should have 4 scripts in changelog");
 
@@ -184,7 +183,7 @@ public class SQLiteMultiNodeTest {
     @Test
     void testMultiNodeRollback() throws Exception {
         // Deploy scripts
-        ChangeLogConfig changeLogConfig = org.jerish.dbdeploy.configloader.ConfigLoader.loadChangeLogConfig(CHANGELOG_PATH);
+        ChangeLogConfig changeLogConfig = org.jerish.dbdeploy.changelog.ConfigLoader.loadChangeLogConfig(CHANGELOG_PATH);
         deployService.deploy(changeLogConfig, false);
 
         // Verify deployment
@@ -197,7 +196,7 @@ public class SQLiteMultiNodeTest {
 
         // Rollback to initial state (empty changelog)
         ChangeLogConfig emptyConfig = new ChangeLogConfig();
-        emptyConfig.setChangelogFilePath(CHANGELOG_PATH);
+        emptyConfig.setBasePath("src/test/resources/multinode"); emptyConfig.setFileName("changelog.yml");
         emptyConfig.setScripts(List.of());
 
         deployService.rollback(emptyConfig, false);
@@ -223,7 +222,7 @@ public class SQLiteMultiNodeTest {
     @Test
     void testNodeExecutionDetails() throws Exception {
         // Deploy scripts
-        ChangeLogConfig changeLogConfig = org.jerish.dbdeploy.configloader.ConfigLoader.loadChangeLogConfig(CHANGELOG_PATH);
+        ChangeLogConfig changeLogConfig = org.jerish.dbdeploy.changelog.ConfigLoader.loadChangeLogConfig(CHANGELOG_PATH);
         deployService.deploy(changeLogConfig, false);
 
         // Get the multi-node script entry

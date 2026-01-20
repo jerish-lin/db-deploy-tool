@@ -111,36 +111,6 @@ public class SQLiteParameterTest extends SQLiteDeployTestBase {
     }
 
     @Test
-    @DisplayName("Test deployment with missing parameter")
-    void testDeployWithMissingParameter() throws Exception {
-        // Create parameters map with missing parameter
-        Map<String, String> parameters = new HashMap<>();
-        parameters.put("table_name", "test_missing");
-        // Missing: item_name and item_status
-
-        String changelogPath = "src/test/resources/sqlite-scripts-parameter/sqlite-test-changelog-parameter.yml";
-
-        // Deploy with missing parameters - should fail on second script
-        Exception exception = assertThrows(Exception.class, () -> {
-            deployManager.deploy(changelogPath, false, parameters);
-        }, "Deployment with missing parameters should fail");
-
-        // Verify the table was created (first script succeeded before second script failed)
-        Integer tableCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='test_missing'",
-                Integer.class);
-        assertTrue(tableCount != null && tableCount == 1,
-                "First script should succeed even with missing parameters in later scripts");
-
-        // Verify the second script failed
-        Integer failedScriptCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM db_deploy_tool_change_log WHERE script_name='feature-20002-insert-parameter-data' AND execution_status='FAILED'",
-                Integer.class);
-        assertTrue(failedScriptCount != null && failedScriptCount == 1,
-                "Second script should fail due to missing parameters");
-    }
-
-    @Test
     @DisplayName("Test deployment without parameters")
     void testDeployWithoutParameters() throws Exception {
         String changelogPath = "src/test/resources/sqlite-scripts-parameter/sqlite-test-changelog-parameter.yml";

@@ -1,7 +1,6 @@
 package org.jerish.dbdeploy.service;
 
 import org.jerish.dbdeploy.entity.ChangeLogConfig;
-import org.jerish.dbdeploy.entity.DatabaseStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -64,17 +63,6 @@ public class DatabaseDeployServiceTest {
         });
     }
 
-    @Test
-    @DisplayName("Test interface defines getComprehensiveStatus method")
-    void testGetComprehensiveStatusMethod() {
-        // This test verifies the interface contract
-        // The actual implementation is tested in DefaultDatabaseDeployServiceTest
-        DatabaseDeployService service = createMockService();
-        
-        DatabaseStatus status = service.getComprehensiveStatus();
-        assertNotNull(status);
-    }
-
     /**
      * Create a mock implementation of DatabaseDeployService for testing the interface contract.
      */
@@ -98,11 +86,6 @@ public class DatabaseDeployServiceTest {
             @Override
             public void rollback(ChangeLogConfig changeLogConfig, boolean dryRun, Map<String, String> parameters) throws Exception {
                 // Mock implementation - does nothing
-            }
-
-            @Override
-            public DatabaseStatus getComprehensiveStatus() {
-                return new DatabaseStatus();
             }
         };
     }

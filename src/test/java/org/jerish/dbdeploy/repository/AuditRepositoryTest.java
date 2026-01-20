@@ -1,7 +1,7 @@
 package org.jerish.dbdeploy.repository;
 
 import org.jerish.dbdeploy.model.ChangeLogEntry;
-import org.jerish.dbdeploy.model.ScriptExecutionStatus;
+import org.jerish.dbdeploy.entity.ScriptExecutionStatus;
 import org.jerish.dbdeploy.entity.DatabaseStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -15,7 +15,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 
-import java.sql.ResultSet;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;

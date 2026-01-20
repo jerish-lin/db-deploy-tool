@@ -8,14 +8,16 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 public class ChangeLogConfig {
-    private String changelogFilePath;
+    private String basePath;
+    private String fileName;
     private List<ScriptConfig> scripts;
 
     @Override
     public String toString() {
         return "ChangeLogConfig{" +
-                "changelogFilePath=" + changelogFilePath +
-                "scripts=" + scripts +
+                "basePath=" + basePath +
+                ", fileName=" + fileName +
+                ", scripts=" + scripts +
                 '}';
     }
 }
