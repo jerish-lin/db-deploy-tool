@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConfigurationProperties(prefix = "db-deploy")
+@ConfigurationProperties(prefix = "schemaflow")
 @Data
 public class DeploymentConfig {
     private boolean enableAutoRollback = true;

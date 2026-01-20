@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConfigurationProperties(prefix = "db-deploy.database")
+@ConfigurationProperties(prefix = "schemaflow.database")
 @Data
 public class DatabaseConnectionConfig {
     private String name;

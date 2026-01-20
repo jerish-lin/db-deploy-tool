@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Component
-@ConfigurationProperties(prefix = "db-deploy")
+@ConfigurationProperties(prefix = "schemaflow")
 @Data
 public class NodesConfig {
     private List<DatabaseConnectionConfig> nodes = new ArrayList<>();

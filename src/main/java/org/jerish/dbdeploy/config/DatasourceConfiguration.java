@@ -34,7 +34,7 @@ public class DatasourceConfiguration {
         hikariConfig.setConnectionTimeout(config.getConnectionTimeout());
         hikariConfig.setIdleTimeout(config.getIdleTimeout());
         hikariConfig.setMaxLifetime(config.getMaxLifetime());
-        hikariConfig.setPoolName("db-deploy-tool-pool");
+        hikariConfig.setPoolName("schemaflow-pool");
 
         return new HikariDataSource(hikariConfig);
         //        DriverManagerDataSource dataSource = new DriverManagerDataSource();

@@ -1,4 +1,4 @@
-db-deploy:
+schemaflow:
   database:
     url: "jdbc:sqlite:testdb.sqlite"
     username:
