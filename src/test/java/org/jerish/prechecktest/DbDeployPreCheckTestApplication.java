@@ -4,6 +4,7 @@ import org.jerish.precheck.annotation.EnableDbDeployCheck;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
+import org.springframework.context.annotation.Profile;
 
 /**
  * Test application to verify EnableDbDeployCheck annotation functionality.

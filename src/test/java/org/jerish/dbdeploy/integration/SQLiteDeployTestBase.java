@@ -14,7 +14,6 @@ import org.springframework.test.context.ActiveProfiles;
 import java.io.File;
 
 @SpringBootTest(classes = TestApplication.class)
-@ActiveProfiles("test")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 public class SQLiteDeployTestBase {
     private static final String DB_FILE = "testdb.sqlite";
