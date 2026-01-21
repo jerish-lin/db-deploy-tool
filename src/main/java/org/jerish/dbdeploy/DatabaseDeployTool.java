@@ -7,10 +7,10 @@ import org.jerish.dbdeploy.entity.DatabaseStatus;
 import org.jerish.dbdeploy.service.DatabaseDeployManager;
 import org.jerish.dbdeploy.service.DatabaseStatusPrinter;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.builder.SpringApplicationBuilder;
 
 @SpringBootApplication
 @Slf4j
@@ -22,13 +22,26 @@ public class DatabaseDeployTool implements CommandLineRunner {
     @Autowired
     private DatabaseStatusPrinter statusPrinter;
 
-    @Value("${db-deploy.test-mode:false}")
-    private boolean testMode;
-
     public static void main(String[] args) {
         try {
             log.info("Starting Database Deploy Tool");
-            System.exit(SpringApplication.exit(SpringApplication.run(DatabaseDeployTool.class, args)));
+
+            // Parse command line arguments first to get config path
+            CommandLineOptions options = CommandLineOptions.parseArgs(args);
+
+            // Create SpringApplicationBuilder with custom config location if specified
+            SpringApplicationBuilder builder = new SpringApplicationBuilder(DatabaseDeployTool.class);
+
+            if (options.getConfigPath() != null) {
+                log.info("Using custom config file: {}", options.getConfigPath());
+                // Set the config location - this will override application.yml
+                builder.properties("spring.config.location=" + options.getConfigPath());
+            } else {
+                log.info("Using default config file from classpath");
+            }
+
+            SpringApplication app = builder.build();
+            System.exit(SpringApplication.exit(app.run(args)));
         } catch (Exception e) {
             log.error("Database deploy tool failed", e);
             System.exit(1);
@@ -37,12 +50,6 @@ public class DatabaseDeployTool implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        // Skip execution in test mode
-        if (testMode) {
-            log.info("DatabaseDeployTool skipped - running in test mode");
-            return;
-        }
-
         CommandLineOptions options = optionsResolver.resolve(args);
         if (options.isVerbose()) {
             System.setProperty("org.slf4j.simplelog.defaultLogLevel", "debug");
@@ -63,13 +70,13 @@ public class DatabaseDeployTool implements CommandLineRunner {
     private void executeAction(CommandLineOptions options) throws Exception {
         switch (options.getAction()) {
             case DEPLOY_OR_ROLLBACK -> {
-                deployManager.deployOrRollback(options.getChangelogPath(), options.getTagName(), options.isDryRun());
+                deployManager.deployOrRollback(options.getChangelogPath(), options.isDryRun());
             }
             case DEPLOY -> {
-                deployManager.deploy(options.getChangelogPath(), options.getTagName(), options.isDryRun());
+                deployManager.deploy(options.getChangelogPath(), options.isDryRun());
             }
             case ROLLBACK -> {
-                deployManager.rollback(options.getTagName(), options.isDryRun());
+                deployManager.rollback(options.getChangelogPath(), options.isDryRun());
             }
             case STATUS -> {
                 DatabaseStatus status = deployManager.status();
