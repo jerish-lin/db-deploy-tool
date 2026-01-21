@@ -8,5 +8,5 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "schemaflow.changelog")
 @Data
 public class ChangeLogPathConfig {
-    private String path;
+    private String path = "classpath:db/db-changelog.yml";
 }

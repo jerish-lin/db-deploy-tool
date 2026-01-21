@@ -21,36 +21,11 @@ public class DatasourceConfiguration {
     private final NodesConfig nodesConfig;
 
     /**
-     * Create the default DataSource for audit tables and single-node scripts
-     */
-    @Bean
-    public DataSource dbDeployDataSource(DatabaseConnectionConfig config) {
-        HikariConfig hikariConfig = new HikariConfig();
-        hikariConfig.setJdbcUrl(config.getUrl());
-        hikariConfig.setUsername(config.getUsername());
-        hikariConfig.setPassword(config.getPassword());
-        hikariConfig.setDriverClassName(config.getDriver());
-        hikariConfig.setMaximumPoolSize(config.getMaxPoolSize());
-        hikariConfig.setConnectionTimeout(config.getConnectionTimeout());
-        hikariConfig.setIdleTimeout(config.getIdleTimeout());
-        hikariConfig.setMaxLifetime(config.getMaxLifetime());
-        hikariConfig.setPoolName("schemaflow-pool");
-
-        return new HikariDataSource(hikariConfig);
-        //        DriverManagerDataSource dataSource = new DriverManagerDataSource();
-        //        dataSource.setDriverClassName(config.getDriver());
-        //        dataSource.setUrl(config.getUrl());
-        //        dataSource.setUsername(config.getUsername());
-        //        dataSource.setPassword(config.getPassword());
-        //        return dataSource;
-    }
-
-    /**
      * Create the default JdbcTemplate
      */
-    @Bean
-    public JdbcTemplate dbDeployJdbcTemplate(DataSource dbDeployDataSource) {
-        return new JdbcTemplate(dbDeployDataSource);
+    @Bean("dbDeployJdbcTemplate")
+    public JdbcTemplate dbDeployJdbcTemplate() {
+        return new JdbcTemplate(createDataSource("schemaflow-pool", databaseConnectionConfig));
     }
 
     /**
@@ -74,7 +49,7 @@ public class DatasourceConfiguration {
             }
 
             try {
-                DataSource dataSource = createDataSourceForNode(node);
+                DataSource dataSource = createDataSource("node-" + node.getName() + "-pool", node);
                 JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
                 templateMap.put(node.getName(), jdbcTemplate);
                 log.info("Successfully configured JDBC template for node: {}", node.getName());
@@ -87,31 +62,19 @@ public class DatasourceConfiguration {
         return templateMap;
     }
 
-    /**
-     * Create a DataSource for a specific node configuration
-     */
-    private DataSource createDataSourceForNode(DatabaseConnectionConfig node) {
+    private DataSource createDataSource(String poolName, DatabaseConnectionConfig databaseConnectionConfig) {
         HikariConfig hikariConfig = new HikariConfig();
-        hikariConfig.setJdbcUrl(node.getUrl());
-        hikariConfig.setUsername(node.getUsername() != null ? node.getUsername() : "");
-        hikariConfig.setPassword(node.getPassword() != null ? node.getPassword() : "");
-        hikariConfig.setDriverClassName(node.getDriver());
-        hikariConfig.setPoolName("node-" + node.getName() + "-pool");
+        hikariConfig.setPoolName(poolName);
+        hikariConfig.setJdbcUrl(databaseConnectionConfig.getUrl());
+        hikariConfig.setUsername(databaseConnectionConfig.getUsername() != null ? databaseConnectionConfig.getUsername() : "");
+        hikariConfig.setPassword(databaseConnectionConfig.getPassword() != null ? databaseConnectionConfig.getPassword() : "");
+        hikariConfig.setDriverClassName(databaseConnectionConfig.getDriver());
 
-        // Use node-specific pool settings if provided, otherwise use defaults
-        hikariConfig.setMaximumPoolSize(node.getMaxPoolSize() != null ? node.getMaxPoolSize() : 5);
-        hikariConfig.setConnectionTimeout(node.getConnectionTimeout() != null ? node.getConnectionTimeout() : 10000);
-        hikariConfig.setIdleTimeout(node.getIdleTimeout() != null ? node.getIdleTimeout() : 300000);
-        hikariConfig.setMaxLifetime(node.getMaxLifetime() != null ? node.getMaxLifetime() : 600000);
+        hikariConfig.setMaximumPoolSize(databaseConnectionConfig.getMaxPoolSize() != null ? databaseConnectionConfig.getMaxPoolSize() : 5);
+        hikariConfig.setConnectionTimeout(databaseConnectionConfig.getConnectionTimeout() != null ? databaseConnectionConfig.getConnectionTimeout() : 10000);
+        hikariConfig.setIdleTimeout(databaseConnectionConfig.getIdleTimeout() != null ? databaseConnectionConfig.getIdleTimeout() : 300000);
+        hikariConfig.setMaxLifetime(databaseConnectionConfig.getMaxLifetime() != null ? databaseConnectionConfig.getMaxLifetime() : 600000);
 
         return new HikariDataSource(hikariConfig);
-    }
-
-    /**
-     * Check if multi-node configuration is available
-     */
-    @Bean
-    public boolean isMultiNodeEnabled() {
-        return nodesConfig.getNodes() != null && !nodesConfig.getNodes().isEmpty();
     }
 }

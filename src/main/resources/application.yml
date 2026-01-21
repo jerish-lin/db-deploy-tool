@@ -6,53 +6,13 @@ spring:
     name: db-deploy-tool
 
 # Database Configuration
-db-deploy:
+schemaflow:
   database:
-    # Default SQLite configuration for development
-    url: jdbc:sqlite:testdb.sqlite
+    url: "jdbc:sqlite:testdb.sqlite"
     username:
     password:
     driver: org.sqlite.JDBC
     max-pool-size: 10
-    connection-timeout: 30000
+    connection-timeout: 5000
     idle-timeout: 600000
     max-lifetime: 1800000
-  
-  changelog:
-    path: db/db-changelog.yml
-
----
-# Production Profile - PostgreSQL
-spring:
-  config:
-    activate:
-      on-profile: production
-
-db-deploy:
-  database:
-    url: jdbc:postgresql://localhost:5432/dbdeploy
-    username: dbdeploy_user
-    password: ${DB_DEPLOY_PASSWORD:change_me}
-    driver: org.postgresql.Driver
-    max-pool-size: 20
-    connection-timeout: 30000
-    idle-timeout: 600000
-    max-lifetime: 1800000
-
----
-# Test Profile - SQLite
-spring:
-  config:
-    activate:
-      on-profile: test
-
-db-deploy:
-  database:
-    url: jdbc:sqlite:testdb.sqlite
-    username:
-    password:
-    driver: org.sqlite.JDBC
-    max-pool-size: 5
-    connection-timeout: 10000
-    idle-timeout: 300000
-    max-lifetime: 600000
