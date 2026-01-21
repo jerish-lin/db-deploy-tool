@@ -21,8 +21,13 @@ public class CommandLineOptions {
             defaultValue = "DEPLOY_OR_ROLLBACK")
     private Action action = Action.DEPLOY_OR_ROLLBACK;
 
+    @Option(names = {"--config"},
+            description = "Path to custom Spring configuration file (YAML or properties)")
+    private String configPath;
+
     @Option(names = {"-c", "--changelog"},
-            description = "Path to the db-changelog.yml file (required for deploy and rollback)")
+            required = false,
+            description = "Path to the db-changelog.yml file (default to classpath:db/db-changelog.yml)")
     private String changelogPath;
 
     @Option(names = {"-v", "--verbose"},
