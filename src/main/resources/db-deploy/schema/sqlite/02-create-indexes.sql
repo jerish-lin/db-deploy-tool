@@ -1,13 +1,18 @@
--- SQLite Indexes for Database Deployment Tool
--- Performance indexes for audit tables
+-- SQLite Indexes for SchemaFlow (Refactored)
 
--- Indexes for schemaflow_change_log table
-CREATE INDEX IF NOT EXISTS idx_script_name ON schemaflow_change_log(script_name);
-CREATE INDEX IF NOT EXISTS idx_execution_status ON schemaflow_change_log(execution_status);
-CREATE INDEX IF NOT EXISTS idx_execution_time ON schemaflow_change_log(execution_time);
-CREATE INDEX IF NOT EXISTS idx_created_at ON schemaflow_change_log(created_at);
+-- Indexes for schemaflow_changelog_script table
+CREATE INDEX IF NOT EXISTS idx_changelog_script_name ON schemaflow_changelog_script(script_name);
+CREATE INDEX IF NOT EXISTS idx_changelog_script_checksum ON schemaflow_changelog_script(script_checksum);
 
--- Indexes for schemaflow_deploy_lock table
-CREATE INDEX IF NOT EXISTS idx_lock_key ON schemaflow_deploy_lock(lock_key);
-CREATE INDEX IF NOT EXISTS idx_lock_expires_at ON schemaflow_deploy_lock(lock_expires_at);
-CREATE INDEX IF NOT EXISTS idx_lock_is_active ON schemaflow_deploy_lock(is_active);
+-- Indexes for schemaflow_changelog_audit table
+CREATE INDEX IF NOT EXISTS idx_changelog_audit_script_id ON schemaflow_changelog_audit(script_id);
+CREATE INDEX IF NOT EXISTS idx_changelog_audit_execution_time ON schemaflow_changelog_audit(execution_time);
+CREATE INDEX IF NOT EXISTS idx_changelog_audit_execution_status ON schemaflow_changelog_audit(execution_status);
+CREATE INDEX IF NOT EXISTS idx_changelog_audit_parent_audit_id ON schemaflow_changelog_audit(parent_audit_id);
+
+-- Composite index for latest script status queries
+CREATE INDEX IF NOT EXISTS idx_changelog_audit_script_time ON schemaflow_changelog_audit(script_id, execution_time DESC);
+
+-- Index for schemaflow_deploy_lock table
+CREATE INDEX IF NOT EXISTS idx_deploy_lock_key ON schemaflow_deploy_lock(lock_key);
+CREATE INDEX IF NOT EXISTS idx_deploy_lock_expires ON schemaflow_deploy_lock(lock_expires_at, is_active);

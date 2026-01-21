@@ -43,7 +43,7 @@ public class SQLiteSchemaInitializationStrategyTest {
     }
 
     @Test
-    @DisplayName("Test isSchemaInitialized returns true when schemaflow_change_log table exists")
+    @DisplayName("Test isSchemaInitialized returns true when schemaflow_changelog_script table exists")
     void testIsSchemaInitialized_TableExists() {
         when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class)))
                 .thenReturn(1);
@@ -52,13 +52,13 @@ public class SQLiteSchemaInitializationStrategyTest {
 
         assertTrue(result);
         verify(jdbcTemplate).queryForObject(
-                eq("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schemaflow_change_log'"),
+                eq("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schemaflow_changelog_script'"),
                 eq(Integer.class)
         );
     }
 
     @Test
-    @DisplayName("Test isSchemaInitialized returns false when schemaflow_change_log table does not exist")
+    @DisplayName("Test isSchemaInitialized returns false when schemaflow_changelog_script table does not exist")
     void testIsSchemaInitialized_TableNotExists() {
         when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class)))
                 .thenReturn(0);

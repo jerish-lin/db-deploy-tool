@@ -43,7 +43,7 @@ public class ClickHouseSchemaInitializationStrategyTest {
     }
 
     @Test
-    @DisplayName("Test isSchemaInitialized returns true when schemaflow_change_log table exists")
+    @DisplayName("Test isSchemaInitialized returns true when schemaflow_changelog_script table exists")
     void testIsSchemaInitialized_TableExists() {
         when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class)))
                 .thenReturn(1);
@@ -58,7 +58,7 @@ public class ClickHouseSchemaInitializationStrategyTest {
     }
 
     @Test
-    @DisplayName("Test isSchemaInitialized returns false when schemaflow_change_log table does not exist")
+    @DisplayName("Test isSchemaInitialized returns false when schemaflow_changelog_script table does not exist")
     void testIsSchemaInitialized_TableNotExists() {
         when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class)))
                 .thenReturn(0);
@@ -204,7 +204,7 @@ public class ClickHouseSchemaInitializationStrategyTest {
     }
 
     @Test
-    @DisplayName("Test isSchemaInitialized checks for schemaflow_change_log table")
+    @DisplayName("Test isSchemaInitialized checks for schemaflow_changelog_script table")
     void testIsSchemaInitialized_ChecksCorrectTable() {
         when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class)))
                 .thenReturn(1);
@@ -212,7 +212,7 @@ public class ClickHouseSchemaInitializationStrategyTest {
         strategy.isSchemaInitialized(jdbcTemplate);
 
         verify(jdbcTemplate).queryForObject(
-                contains("schemaflow_change_log"),
+                contains("schemaflow_changelog_script"),
                 eq(Integer.class)
         );
     }
@@ -231,7 +231,7 @@ public class ClickHouseSchemaInitializationStrategyTest {
         strategy.initializeSchema(jdbcTemplate);
 
         // Verify that tables are created (checking for table names in SQL)
-        verify(jdbcTemplate, atLeastOnce()).execute(contains("schemaflow_change_log"));
+        verify(jdbcTemplate, atLeastOnce()).execute(contains("schemaflow_changelog_script"));
         verify(jdbcTemplate, atLeastOnce()).execute(contains("schemaflow_deploy_lock"));
     }
 

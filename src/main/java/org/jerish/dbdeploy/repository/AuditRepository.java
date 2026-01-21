@@ -2,8 +2,10 @@ package org.jerish.dbdeploy.repository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jerish.dbdeploy.model.ChangeLogEntry;
+import org.jerish.dbdeploy.entity.AuditEntry;
 import org.jerish.dbdeploy.entity.ScriptExecutionStatus;
+import org.jerish.dbdeploy.entity.ScriptMetadata;
+import org.jerish.dbdeploy.model.ChangeLogEntry;
 import org.jerish.dbdeploy.entity.DatabaseStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -43,16 +45,43 @@ public class AuditRepository {
     }
 
     /**
-     * RowMapper for ChangeLogEntry
+     * RowMapper for ScriptMetadata
      */
-    private final RowMapper<ChangeLogEntry> changeLogEntryRowMapper = (ResultSet rs, int rowNum) -> {
-        ChangeLogEntry entry = new ChangeLogEntry();
+    private final RowMapper<ScriptMetadata> scriptMetadataRowMapper = (ResultSet rs, int rowNum) -> {
+        ScriptMetadata metadata = new ScriptMetadata();
+        metadata.setId(rs.getLong("id"));
+        metadata.setScriptName(rs.getString("script_name"));
+        metadata.setScriptChecksum(rs.getString("script_checksum"));
+        metadata.setApplyScriptContent(rs.getString("apply_script_content"));
+        metadata.setRollbackScriptContent(rs.getString("rollback_script_content"));
+        metadata.setApplyVerifyScriptContent(rs.getString("apply_verify_script_content"));
+        metadata.setRollbackVerifyScriptContent(rs.getString("rollback_verify_script_content"));
+
+        // Handle created_at timestamp
+        String createdAtStr = rs.getString("created_at");
+        if (createdAtStr != null) {
+            try {
+                metadata.setCreatedAt(LocalDateTime.parse(createdAtStr));
+            } catch (Exception e) {
+                metadata.setCreatedAt(LocalDateTime.now());
+            }
+        } else {
+            metadata.setCreatedAt(LocalDateTime.now());
+        }
+
+        return metadata;
+    };
+
+    /**
+     * RowMapper for AuditEntry
+     */
+    private final RowMapper<AuditEntry> auditEntryRowMapper = (ResultSet rs, int rowNum) -> {
+        AuditEntry entry = new AuditEntry();
         entry.setId(rs.getLong("id"));
-        entry.setScriptName(rs.getString("script_name"));
-        entry.setScriptChecksum(rs.getString("script_checksum"));
+        entry.setScriptId(rs.getLong("script_id"));
         entry.setExecutionStatus(ScriptExecutionStatus.fromValue(rs.getString("execution_status")));
 
-        // Handle SQLite timestamp parsing
+        // Handle execution_time timestamp
         String executionTimeStr = rs.getString("execution_time");
         if (executionTimeStr != null) {
             try {
@@ -70,8 +99,6 @@ public class AuditRepository {
             entry.setExecutionDurationMs(null);
         }
         entry.setErrorMessage(rs.getString("error_message"));
-        entry.setRollbackScriptContent(rs.getString("rollback_script_content"));
-        entry.setRollbackVerifyScriptContent(rs.getString("rollback_verify_script_content"));
 
         // Handle parent_audit_id
         try {
@@ -107,194 +134,289 @@ public class AuditRepository {
             entry.setCreatedAt(LocalDateTime.now());
         }
 
-        // Handle updated_at timestamp
-        String updatedAtStr = rs.getString("updated_at");
-        if (updatedAtStr != null) {
+        return entry;
+    };
+
+    /**
+     * RowMapper for ChangeLogEntry (combined script metadata and audit entry)
+     */
+    private final RowMapper<ChangeLogEntry> changeLogEntryRowMapper = (ResultSet rs, int rowNum) -> {
+        ChangeLogEntry entry = new ChangeLogEntry();
+
+        // Audit entry fields
+        entry.setId(rs.getLong("audit_id"));
+        entry.setScriptId(rs.getLong("script_id"));
+        entry.setExecutionStatus(ScriptExecutionStatus.fromValue(rs.getString("execution_status")));
+
+        String executionTimeStr = rs.getString("execution_time");
+        if (executionTimeStr != null) {
             try {
-                entry.setUpdatedAt(LocalDateTime.parse(updatedAtStr));
+                entry.setExecutionTime(LocalDateTime.parse(executionTimeStr));
             } catch (Exception e) {
-                entry.setUpdatedAt(LocalDateTime.now());
+                entry.setExecutionTime(LocalDateTime.now());
             }
         } else {
-            entry.setUpdatedAt(LocalDateTime.now());
+            entry.setExecutionTime(LocalDateTime.now());
         }
+
+        try {
+            entry.setExecutionDurationMs(rs.getObject("execution_duration_ms", Long.class));
+        } catch (SQLException e) {
+            entry.setExecutionDurationMs(null);
+        }
+        entry.setErrorMessage(rs.getString("error_message"));
+
+        try {
+            entry.setParentAuditId(rs.getObject("parent_audit_id", Long.class));
+        } catch (SQLException e) {
+            entry.setParentAuditId(null);
+        }
+
+        try {
+            String targetNodesStr = rs.getString("target_nodes");
+            if (targetNodesStr != null && !targetNodesStr.isEmpty()) {
+                entry.setTargetNodes(List.of(targetNodesStr.split(",")));
+            } else {
+                entry.setTargetNodes(null);
+            }
+        } catch (SQLException e) {
+            entry.setTargetNodes(null);
+        }
+
+        entry.setNodeExecutionDetails(rs.getString("node_execution_details"));
+
+        String createdAtStr = rs.getString("audit_created_at");
+        if (createdAtStr != null) {
+            try {
+                entry.setCreatedAt(LocalDateTime.parse(createdAtStr));
+            } catch (Exception e) {
+                entry.setCreatedAt(LocalDateTime.now());
+            }
+        } else {
+            entry.setCreatedAt(LocalDateTime.now());
+        }
+
+        // Script metadata fields
+        entry.setScriptName(rs.getString("script_name"));
+        entry.setScriptChecksum(rs.getString("script_checksum"));
+        entry.setRollbackScriptContent(rs.getString("rollback_script_content"));
+        entry.setRollbackVerifyScriptContent(rs.getString("rollback_verify_script_content"));
 
         return entry;
     };
 
-    public boolean isScriptExecuted(String scriptName) {
-        String sql = "SELECT COUNT(*) FROM schemaflow_change_log t1 WHERE t1.script_name = ? AND t1.id = (SELECT MAX(t2.id) FROM schemaflow_change_log t2 WHERE t2.script_name = ?) AND t1.execution_status = 'SUCCESS'";
+    // ==================== Script Metadata Operations ====================
 
-        Integer count = dbDeployJdbcTemplate.queryForObject(sql, Integer.class, scriptName, scriptName);
+    /**
+     * Get script metadata by script name
+     */
+    public ScriptMetadata getScriptMetadata(String scriptName) {
+        String sql = "SELECT * FROM schemaflow_changelog_script WHERE script_name = ?";
+        List<ScriptMetadata> results = dbDeployJdbcTemplate.query(sql, scriptMetadataRowMapper, scriptName);
+        return results.isEmpty() ? null : results.get(0);
+    }
+
+    /**
+     * Get script metadata by ID
+     */
+    public ScriptMetadata getScriptMetadataById(Long scriptId) {
+        String sql = "SELECT * FROM schemaflow_changelog_script WHERE id = ?";
+        List<ScriptMetadata> results = dbDeployJdbcTemplate.query(sql, scriptMetadataRowMapper, scriptId);
+        return results.isEmpty() ? null : results.get(0);
+    }
+
+    /**
+     * Insert or update script metadata
+     * Returns the script ID
+     */
+    public Long saveScriptMetadata(ScriptMetadata metadata) {
+        // Check if script already exists
+        ScriptMetadata existing = getScriptMetadata(metadata.getScriptName());
+        if (existing != null) {
+            return existing.getId();
+        }
+
+        String sql = """
+                INSERT INTO schemaflow_changelog_script (
+                    script_name, script_checksum, apply_script_content,
+                    rollback_script_content, apply_verify_script_content,
+                    rollback_verify_script_content, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """;
+
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+
+        if (isSQLiteDatabase()) {
+            dbDeployJdbcTemplate.update(connection -> {
+                PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+                ps.setString(1, metadata.getScriptName());
+                ps.setString(2, metadata.getScriptChecksum());
+                ps.setString(3, metadata.getApplyScriptContent());
+                ps.setString(4, metadata.getRollbackScriptContent());
+                ps.setString(5, metadata.getApplyVerifyScriptContent());
+                ps.setString(6, metadata.getRollbackVerifyScriptContent());
+                ps.setString(7, metadata.getCreatedAt() != null ? metadata.getCreatedAt().toString() : LocalDateTime.now().toString());
+                return ps;
+            }, keyHolder);
+        } else {
+            dbDeployJdbcTemplate.update(connection -> {
+                PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+                ps.setString(1, metadata.getScriptName());
+                ps.setString(2, metadata.getScriptChecksum());
+                ps.setString(3, metadata.getApplyScriptContent());
+                ps.setString(4, metadata.getRollbackScriptContent());
+                ps.setString(5, metadata.getApplyVerifyScriptContent());
+                ps.setString(6, metadata.getRollbackVerifyScriptContent());
+                ps.setTimestamp(7, Timestamp.valueOf(metadata.getCreatedAt() != null ? metadata.getCreatedAt() : LocalDateTime.now()));
+                return ps;
+            }, keyHolder);
+        }
+
+        Number generatedId = keyHolder.getKey();
+        if (generatedId != null) {
+            return generatedId.longValue();
+        } else {
+            throw new RuntimeException("Creating script metadata failed, no ID obtained.");
+        }
+    }
+
+    // ==================== Audit Entry Operations ====================
+
+    /**
+     * Record script execution as a new audit entry
+     */
+    public Long recordAuditEntry(AuditEntry entry) {
+        String sql = """
+                INSERT INTO schemaflow_changelog_audit (
+                    script_id, execution_status, execution_time,
+                    execution_duration_ms, error_message, parent_audit_id,
+                    target_nodes, node_execution_details, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """;
+
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+
+        if (isSQLiteDatabase()) {
+            dbDeployJdbcTemplate.update(connection -> {
+                PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+                ps.setLong(1, entry.getScriptId());
+                ps.setString(2, entry.getExecutionStatus().getValue());
+                ps.setString(3, entry.getExecutionTime().toString());
+                ps.setObject(4, entry.getExecutionDurationMs());
+                ps.setString(5, entry.getErrorMessage());
+                ps.setObject(6, entry.getParentAuditId());
+                ps.setString(7, entry.getTargetNodes() != null ? String.join(",", entry.getTargetNodes()) : null);
+                ps.setString(8, entry.getNodeExecutionDetails());
+                ps.setString(9, entry.getCreatedAt().toString());
+                return ps;
+            }, keyHolder);
+        } else {
+            dbDeployJdbcTemplate.update(connection -> {
+                PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+                ps.setLong(1, entry.getScriptId());
+                ps.setString(2, entry.getExecutionStatus().getValue());
+                ps.setTimestamp(3, Timestamp.valueOf(entry.getExecutionTime()));
+                ps.setObject(4, entry.getExecutionDurationMs());
+                ps.setString(5, entry.getErrorMessage());
+                ps.setObject(6, entry.getParentAuditId());
+                ps.setArray(7, connection.createArrayOf("TEXT", entry.getTargetNodes() != null ? entry.getTargetNodes().toArray() : null));
+                ps.setString(8, entry.getNodeExecutionDetails());
+                ps.setTimestamp(9, Timestamp.valueOf(entry.getCreatedAt()));
+                return ps;
+            }, keyHolder);
+        }
+
+        Number generatedId = keyHolder.getKey();
+        if (generatedId != null) {
+            return generatedId.longValue();
+        } else {
+            throw new RuntimeException("Creating audit entry failed, no ID obtained.");
+        }
+    }
+
+    /**
+     * Check if a script has been successfully executed
+     */
+    public boolean isScriptExecuted(String scriptName) {
+        String sql = """
+                SELECT COUNT(*) FROM schemaflow_changelog_audit ca
+                INNER JOIN schemaflow_changelog_script cs ON ca.script_id = cs.id
+                WHERE cs.script_name = ?
+                AND ca.id = (
+                    SELECT MAX(ca2.id)
+                    FROM schemaflow_changelog_audit ca2
+                    WHERE ca2.script_id = cs.id
+                )
+                AND ca.execution_status = 'SUCCESS'
+                """;
+
+        Integer count = dbDeployJdbcTemplate.queryForObject(sql, Integer.class, scriptName);
         return count != null && count > 0;
     }
 
-    public void recordScriptExecution(ChangeLogEntry entry) {
+    /**
+     * Get the latest audit entry for a specific script
+     */
+    public AuditEntry getLatestAuditEntry(String scriptName) {
         String sql = """
-                INSERT INTO schemaflow_change_log (
-                    script_name, script_checksum, execution_status,
-                    execution_time, execution_duration_ms, error_message,
-                    rollback_script_content, rollback_verify_script_content, parent_audit_id,
-                    target_nodes, node_execution_details, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                SELECT ca.* FROM schemaflow_changelog_audit ca
+                INNER JOIN schemaflow_changelog_script cs ON ca.script_id = cs.id
+                WHERE cs.script_name = ?
+                ORDER BY ca.execution_time DESC
+                LIMIT 1
                 """;
-
-        KeyHolder keyHolder = new GeneratedKeyHolder();
-
-        if (isSQLiteDatabase()) {
-            dbDeployJdbcTemplate.update(connection -> {
-                PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-                ps.setString(1, entry.getScriptName());
-                ps.setString(2, entry.getScriptChecksum());
-                ps.setString(3, entry.getExecutionStatus().getValue());
-                ps.setString(4, entry.getExecutionTime().toString());
-                ps.setObject(5, entry.getExecutionDurationMs());
-                ps.setString(6, entry.getErrorMessage());
-                ps.setString(7, entry.getRollbackScriptContent());
-                ps.setString(8, entry.getRollbackVerifyScriptContent());
-                ps.setObject(9, entry.getParentAuditId());
-                ps.setString(10, entry.getTargetNodes() != null ? String.join(",", entry.getTargetNodes()) : null);
-                ps.setString(11, entry.getNodeExecutionDetails());
-                ps.setString(12, entry.getCreatedAt().toString());
-                ps.setString(13, entry.getUpdatedAt().toString());
-                return ps;
-            }, keyHolder);
-        } else {
-            dbDeployJdbcTemplate.update(connection -> {
-                PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-                ps.setString(1, entry.getScriptName());
-                ps.setString(2, entry.getScriptChecksum());
-                ps.setString(3, entry.getExecutionStatus().getValue());
-                ps.setTimestamp(4, Timestamp.valueOf(entry.getExecutionTime()));
-                ps.setObject(5, entry.getExecutionDurationMs());
-                ps.setString(6, entry.getErrorMessage());
-                ps.setString(7, entry.getRollbackScriptContent());
-                ps.setString(8, entry.getRollbackVerifyScriptContent());
-                ps.setObject(9, entry.getParentAuditId());
-                ps.setArray(10, connection.createArrayOf("TEXT", entry.getTargetNodes() != null ? entry.getTargetNodes().toArray() : null));
-                ps.setString(11, entry.getNodeExecutionDetails());
-                ps.setTimestamp(12, Timestamp.valueOf(entry.getCreatedAt()));
-                ps.setTimestamp(13, Timestamp.valueOf(entry.getUpdatedAt()));
-                return ps;
-            }, keyHolder);
-        }
-
-        Number generatedId = keyHolder.getKey();
-        if (generatedId != null) {
-            entry.setId(generatedId.longValue());
-        } else {
-            throw new RuntimeException("Creating script execution record failed, no ID obtained.");
-        }
+        List<AuditEntry> results = dbDeployJdbcTemplate.query(sql, auditEntryRowMapper, scriptName);
+        return results.isEmpty() ? null : results.get(0);
     }
 
     /**
-     * Record a rollback script execution as a new audit entry (instead of updating the existing one)
-     * This maintains a complete audit trail of all operations
+     * Get the full audit history for a specific script
      */
-    public void recordRollbackScriptExecution(ChangeLogEntry entry, Long parentAuditId) {
+    public List<AuditEntry> getAuditHistory(String scriptName) {
         String sql = """
-                INSERT INTO schemaflow_change_log (
-                    script_name, script_checksum, execution_status,
-                    execution_time, execution_duration_ms, error_message,
-                    rollback_script_content, rollback_verify_script_content, parent_audit_id, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                SELECT ca.* FROM schemaflow_changelog_audit ca
+                INNER JOIN schemaflow_changelog_script cs ON ca.script_id = cs.id
+                WHERE cs.script_name = ?
+                ORDER BY ca.execution_time DESC
                 """;
-
-        KeyHolder keyHolder = new GeneratedKeyHolder();
-
-        if (isSQLiteDatabase()) {
-            dbDeployJdbcTemplate.update(connection -> {
-                PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-                ps.setString(1, entry.getScriptName());
-                ps.setString(2, entry.getScriptChecksum());
-                ps.setString(3, entry.getExecutionStatus().getValue());
-                ps.setString(4, entry.getExecutionTime().toString());
-                ps.setObject(5, entry.getExecutionDurationMs());
-                ps.setString(6, entry.getErrorMessage());
-                ps.setString(7, entry.getRollbackScriptContent());
-                ps.setString(8, entry.getRollbackVerifyScriptContent());
-                ps.setObject(9, parentAuditId);
-                ps.setString(10, entry.getCreatedAt().toString());
-                ps.setString(11, entry.getUpdatedAt().toString());
-                return ps;
-            }, keyHolder);
-        } else {
-            dbDeployJdbcTemplate.update(connection -> {
-                PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-                ps.setString(1, entry.getScriptName());
-                ps.setString(2, entry.getScriptChecksum());
-                ps.setString(3, entry.getExecutionStatus().getValue());
-                ps.setTimestamp(4, Timestamp.valueOf(entry.getExecutionTime()));
-                ps.setObject(5, entry.getExecutionDurationMs());
-                ps.setString(6, entry.getErrorMessage());
-                ps.setString(7, entry.getRollbackScriptContent());
-                ps.setString(8, entry.getRollbackVerifyScriptContent());
-                ps.setObject(9, parentAuditId);
-                ps.setTimestamp(10, Timestamp.valueOf(entry.getCreatedAt()));
-                ps.setTimestamp(11, Timestamp.valueOf(entry.getUpdatedAt()));
-                return ps;
-            }, keyHolder);
-        }
-
-        Number generatedId = keyHolder.getKey();
-        if (generatedId != null) {
-            entry.setId(generatedId.longValue());
-        } else {
-            throw new RuntimeException("Creating rollback script execution record failed, no ID obtained.");
-        }
+        return dbDeployJdbcTemplate.query(sql, auditEntryRowMapper, scriptName);
     }
 
     /**
-     * Get all successfully executed scripts from the database
-     */
-    /**
-     * Get all executed scripts (latest status only)
-     * This returns only one entry per script_name - the most recent one
-     * Includes both SUCCESS and FAILED scripts (but not ROLLED_BACK)
+     * Get all successfully executed scripts (latest status only)
      */
     public List<ChangeLogEntry> getAllExecutedScripts() {
         String sql = """
-                SELECT * FROM schemaflow_change_log t1
-                WHERE t1.id = (
-                    SELECT MAX(t2.id)
-                    FROM schemaflow_change_log t2
-                    WHERE t2.script_name = t1.script_name
+                SELECT
+                    ca.id AS audit_id,
+                    ca.script_id,
+                    ca.execution_status,
+                    ca.execution_time,
+                    ca.execution_duration_ms,
+                    ca.error_message,
+                    ca.parent_audit_id,
+                    ca.target_nodes,
+                    ca.node_execution_details,
+                    ca.created_at AS audit_created_at,
+                    cs.script_name,
+                    cs.script_checksum,
+                    cs.rollback_script_content,
+                    cs.rollback_verify_script_content
+                FROM schemaflow_changelog_audit ca
+                INNER JOIN schemaflow_changelog_script cs ON ca.script_id = cs.id
+                WHERE ca.id = (
+                    SELECT MAX(ca2.id)
+                    FROM schemaflow_changelog_audit ca2
+                    WHERE ca2.script_id = cs.id
                 )
-                AND t1.execution_status IN ('SUCCESS', 'FAILED')
-                ORDER BY t1.execution_time ASC
+                AND ca.execution_status IN ('SUCCESS', 'FAILED')
+                ORDER BY ca.execution_time ASC
                 """;
         return dbDeployJdbcTemplate.query(sql, changeLogEntryRowMapper);
     }
 
     /**
-     * Get the full audit history for a specific script (all entries including rollbacks)
-     */
-    public List<ChangeLogEntry> getScriptAuditHistory(String scriptName) {
-        String sql = """
-                SELECT * FROM schemaflow_change_log 
-                WHERE script_name = ?
-                ORDER BY execution_time DESC
-                """;
-        return dbDeployJdbcTemplate.query(sql, changeLogEntryRowMapper, scriptName);
-    }
-
-    /**
-     * Get the latest entry for a specific script
-     */
-    public ChangeLogEntry getLatestScriptEntry(String scriptName) {
-        String sql = """
-                SELECT * FROM schemaflow_change_log 
-                WHERE script_name = ?
-                ORDER BY execution_time DESC
-                LIMIT 1
-                """;
-        List<ChangeLogEntry> results = dbDeployJdbcTemplate.query(sql, changeLogEntryRowMapper, scriptName);
-        return results.isEmpty() ? null : results.get(0);
-    }
-
-    /**
      * Get scripts that need to be rolled back based on the target changelog
-     * Returns scripts that are in the database but NOT in the target changelog
      */
     public List<ChangeLogEntry> getScriptsToRollback(List<String> targetScriptNames) {
         List<ChangeLogEntry> allExecuted = getAllExecutedScripts();
@@ -312,14 +434,82 @@ public class AuditRepository {
         return reversed;
     }
 
+    // ==================== Combined Operations for Backward Compatibility ====================
+
+    /**
+     * Record a complete script execution (metadata + audit entry)
+     * This is used for backward compatibility with existing code
+     */
+    public void recordScriptExecution(ChangeLogEntry entry) {
+        // First, save or get script metadata
+        ScriptMetadata metadata = new ScriptMetadata();
+        metadata.setScriptName(entry.getScriptName());
+        metadata.setScriptChecksum(entry.getScriptChecksum());
+        metadata.setRollbackScriptContent(entry.getRollbackScriptContent());
+        metadata.setRollbackVerifyScriptContent(entry.getRollbackVerifyScriptContent());
+        metadata.setCreatedAt(entry.getCreatedAt() != null ? entry.getCreatedAt() : LocalDateTime.now());
+
+        Long scriptId = saveScriptMetadata(metadata);
+        entry.setScriptId(scriptId);
+
+        // Then, create audit entry
+        AuditEntry auditEntry = new AuditEntry();
+        auditEntry.setScriptId(scriptId);
+        auditEntry.setExecutionStatus(entry.getExecutionStatus());
+        auditEntry.setExecutionTime(entry.getExecutionTime());
+        auditEntry.setExecutionDurationMs(entry.getExecutionDurationMs());
+        auditEntry.setErrorMessage(entry.getErrorMessage());
+        auditEntry.setParentAuditId(entry.getParentAuditId());
+        auditEntry.setTargetNodes(entry.getTargetNodes());
+        auditEntry.setNodeExecutionDetails(entry.getNodeExecutionDetails());
+        auditEntry.setCreatedAt(entry.getCreatedAt() != null ? entry.getCreatedAt() : LocalDateTime.now());
+
+        Long auditId = recordAuditEntry(auditEntry);
+        entry.setId(auditId);
+    }
+
+    /**
+     * Record a rollback script execution as a new audit entry
+     */
+    public void recordRollbackScriptExecution(ChangeLogEntry entry, Long parentAuditId) {
+        // Get or create script metadata
+        ScriptMetadata metadata = getScriptMetadata(entry.getScriptName());
+        if (metadata == null) {
+            metadata = new ScriptMetadata();
+            metadata.setScriptName(entry.getScriptName());
+            metadata.setScriptChecksum(entry.getScriptChecksum());
+            metadata.setRollbackScriptContent(entry.getRollbackScriptContent());
+            metadata.setRollbackVerifyScriptContent(entry.getRollbackVerifyScriptContent());
+            metadata.setCreatedAt(entry.getCreatedAt() != null ? entry.getCreatedAt() : LocalDateTime.now());
+        }
+
+        Long scriptId = saveScriptMetadata(metadata);
+        entry.setScriptId(scriptId);
+
+        // Create audit entry with parent reference
+        AuditEntry auditEntry = new AuditEntry();
+        auditEntry.setScriptId(scriptId);
+        auditEntry.setExecutionStatus(entry.getExecutionStatus());
+        auditEntry.setExecutionTime(entry.getExecutionTime());
+        auditEntry.setExecutionDurationMs(entry.getExecutionDurationMs());
+        auditEntry.setErrorMessage(entry.getErrorMessage());
+        auditEntry.setParentAuditId(parentAuditId);
+        auditEntry.setTargetNodes(entry.getTargetNodes());
+        auditEntry.setNodeExecutionDetails(entry.getNodeExecutionDetails());
+        auditEntry.setCreatedAt(entry.getCreatedAt() != null ? entry.getCreatedAt() : LocalDateTime.now());
+
+        Long auditId = recordAuditEntry(auditEntry);
+        entry.setId(auditId);
+    }
+
+    // ==================== Lock Operations ====================
+
     public boolean acquireLock(String lockKey, String lockOwner, int timeoutMinutes) {
         if (isSQLiteDatabase()) {
-            // SQLite doesn't support INTERVAL, use datetime function
             String sql = "INSERT OR IGNORE INTO schemaflow_deploy_lock (lock_key, lock_owner, lock_expires_at, is_active) " +
                     "VALUES (?, ?, datetime('now', '+' || ? || ' minutes'), 1)";
             return dbDeployJdbcTemplate.update(sql, lockKey, lockOwner, timeoutMinutes) > 0;
         } else {
-            // PostgreSQL syntax
             String sql = String.format(
                     "INSERT INTO schemaflow_deploy_lock (lock_key, lock_owner, lock_expires_at, is_active) " +
                             "VALUES (?, ?, CURRENT_TIMESTAMP + INTERVAL '%d minutes', TRUE) " +
@@ -333,11 +523,8 @@ public class AuditRepository {
         dbDeployJdbcTemplate.update(sql, lockKey, lockOwner);
     }
 
-    // Status-related methods moved from DefaultDatabaseDeployService
+    // ==================== Status and Reporting Operations ====================
 
-    /**
-     * Get current deployment state from database
-     */
     public DatabaseStatus.DeploymentStateInfo getCurrentDeploymentState() {
         DatabaseStatus.DeploymentStateInfo info = new DatabaseStatus.DeploymentStateInfo();
         info.setCurrentTag("");
@@ -345,11 +532,10 @@ public class AuditRepository {
         info.setDeploymentTime("");
         info.setCreatedBy("");
 
-        // Count scripts by status
-        String totalSql = "SELECT COUNT(*) FROM schemaflow_change_log";
-        String successSql = "SELECT COUNT(*) FROM schemaflow_change_log WHERE execution_status = 'SUCCESS'";
-        String failedSql = "SELECT COUNT(*) FROM schemaflow_change_log WHERE execution_status = 'FAILED'";
-        String rolledBackSql = "SELECT COUNT(*) FROM schemaflow_change_log WHERE execution_status = 'ROLLED_BACK'";
+        String totalSql = "SELECT COUNT(*) FROM schemaflow_changelog_audit";
+        String successSql = "SELECT COUNT(*) FROM schemaflow_changelog_audit WHERE execution_status = 'SUCCESS'";
+        String failedSql = "SELECT COUNT(*) FROM schemaflow_changelog_audit WHERE execution_status = 'FAILED'";
+        String rolledBackSql = "SELECT COUNT(*) FROM schemaflow_changelog_audit WHERE execution_status = 'ROLLED_BACK'";
 
         try {
             info.setTotalScripts(dbDeployJdbcTemplate.queryForObject(totalSql, Integer.class, 0));
@@ -363,15 +549,8 @@ public class AuditRepository {
         return info;
     }
 
-    /**
-     * Get total rolled back scripts count across all tags
-     */
     public int getTotalRolledBackScripts() {
-        String sql = """
-                SELECT COUNT(*) as total_rolled_back
-                FROM schemaflow_change_log
-                WHERE execution_status = 'ROLLED_BACK'
-                """;
+        String sql = "SELECT COUNT(*) FROM schemaflow_changelog_audit WHERE execution_status = 'ROLLED_BACK'";
         try {
             Integer totalRolledBack = dbDeployJdbcTemplate.queryForObject(sql, Integer.class);
             return totalRolledBack != null ? totalRolledBack : 0;
@@ -381,9 +560,6 @@ public class AuditRepository {
         }
     }
 
-    /**
-     * Get script execution history
-     */
     public List<DatabaseStatus.ScriptExecutionInfo> getScriptExecutionHistory() {
         String sql = """
                 SELECT script_name, execution_status
@@ -409,9 +585,6 @@ public class AuditRepository {
         }
     }
 
-    /**
-     * Get failed scripts with detailed information
-     */
     public List<DatabaseStatus.FailedScriptInfo> getFailedScripts() {
         String sql = """
                 SELECT script_name, error_message, execution_time
@@ -437,9 +610,6 @@ public class AuditRepository {
         }
     }
 
-    /**
-     * Get current deployment lock status
-     */
     public DatabaseStatus.LockInfo getCurrentLockStatus() {
         String sql = """
                 SELECT lock_owner, lock_acquired_at, lock_expires_at, is_active
@@ -466,21 +636,15 @@ public class AuditRepository {
         return null;
     }
 
-    /**
-     * Get database version and health information
-     */
     public DatabaseStatus.DatabaseHealthInfo getDatabaseHealthInfo() {
         DatabaseStatus.DatabaseHealthInfo info = new DatabaseStatus.DatabaseHealthInfo();
-        
+
         try {
-            // Try SQLite version first
-            String versionSql = dbDeployJdbcTemplate.queryForObject(
-                    "SELECT sqlite_version()", String.class);
+            String versionSql = dbDeployJdbcTemplate.queryForObject("SELECT sqlite_version()", String.class);
             info.setVersion(versionSql);
             info.setHealthy(true);
             info.setHealthMessage("Database health check passed");
         } catch (Exception e) {
-            // For non-SQLite databases, try a generic query
             try {
                 dbDeployJdbcTemplate.queryForObject("SELECT 1", Integer.class);
                 info.setVersion("Unknown");
@@ -493,18 +657,14 @@ public class AuditRepository {
         return info;
     }
 
-    /**
-     * Check configuration status (audit tables existence)
-     */
     public DatabaseStatus.ConfigurationInfo getConfigurationInfo() {
         DatabaseStatus.ConfigurationInfo info = new DatabaseStatus.ConfigurationInfo();
-        
+
         try {
-            // Check if audit tables exist and are accessible (SQLite)
             String tableCheckSql = """
                     SELECT COUNT(*) as table_count
                     FROM sqlite_master
-                    WHERE type='table' AND name IN ('schemaflow_change_log', 'schemaflow_deploy_lock')
+                    WHERE type='table' AND name IN ('schemaflow_changelog_script', 'schemaflow_changelog_audit')
                     """;
 
             try {
@@ -513,9 +673,8 @@ public class AuditRepository {
                 info.setMessage(tableCount != null && tableCount >= 2 ?
                         "Audit tables present" : "Missing audit tables");
             } catch (Exception e) {
-                // For non-SQLite databases
                 try {
-                    dbDeployJdbcTemplate.queryForObject("SELECT COUNT(*) FROM schemaflow_change_log", Integer.class);
+                    dbDeployJdbcTemplate.queryForObject("SELECT COUNT(*) FROM schemaflow_changelog_script", Integer.class);
                     info.setValid(true);
                     info.setMessage("Audit tables accessible");
                 } catch (Exception ex) {
@@ -530,11 +689,7 @@ public class AuditRepository {
         return info;
     }
 
-    /**
-     * Get recent deployment history
-     */
     public List<DatabaseStatus.DeploymentHistoryEntry> getRecentDeploymentHistory() {
-        // Return empty list since we no longer have deployment tags
         return new ArrayList<>();
     }
 }

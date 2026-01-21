@@ -1,23 +1,32 @@
--- PostgreSQL Schema for SchemaFlow
--- Audit tables for tracking script execution and deployment tags
+-- PostgreSQL Schema for SchemaFlow (Refactored)
+-- Separated script metadata from audit history
 
--- Create schemaflow_change_log table
-CREATE TABLE IF NOT EXISTS schemaflow_change_log (
+-- Create schemaflow_changelog_script table - stores script metadata (immutable)
+CREATE TABLE IF NOT EXISTS schemaflow_changelog_script (
     id BIGSERIAL PRIMARY KEY,
-    script_name VARCHAR(500) NOT NULL,
+    script_name VARCHAR(500) NOT NULL UNIQUE,
     script_checksum VARCHAR(64) NOT NULL,
+    apply_script_content TEXT,
+    rollback_script_content TEXT,
+    apply_verify_script_content TEXT,
+    rollback_verify_script_content TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create schemaflow_changelog_audit table - stores execution history (append-only)
+CREATE TABLE IF NOT EXISTS schemaflow_changelog_audit (
+    id BIGSERIAL PRIMARY KEY,
+    script_id BIGINT NOT NULL,
     execution_status VARCHAR(20) NOT NULL CHECK (execution_status IN ('SUCCESS', 'FAILED', 'ROLLED_BACK')),
     execution_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     execution_duration_ms BIGINT,
     error_message TEXT,
-    rollback_script_content TEXT,
-    rollback_verify_script_content TEXT,
     parent_audit_id BIGINT,
     target_nodes TEXT[],
     node_execution_details TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_parent_audit FOREIGN KEY (parent_audit_id) REFERENCES schemaflow_change_log(id)
+    CONSTRAINT fk_script FOREIGN KEY (script_id) REFERENCES schemaflow_changelog_script(id) ON DELETE CASCADE,
+    CONSTRAINT fk_parent_audit FOREIGN KEY (parent_audit_id) REFERENCES schemaflow_changelog_audit(id)
 );
 
 -- Create schemaflow_deploy_lock table

@@ -49,7 +49,7 @@ public class SQLiteParameterTest extends SQLiteDeployTestBase {
 
         // Verify audit log entries exist
         Integer scriptCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM schemaflow_change_log",
+                "SELECT COUNT(*) FROM schemaflow_changelog_audit",
                 Integer.class);
         assertTrue(scriptCount != null && scriptCount == 2,
                 "Should have 2 audit log entries");
@@ -104,7 +104,7 @@ public class SQLiteParameterTest extends SQLiteDeployTestBase {
 
         // Verify audit log entries show rolled back status
         Integer rolledBackCount = dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM schemaflow_change_log t1 WHERE t1.id = (SELECT MAX(t2.id) FROM schemaflow_change_log t2 WHERE t2.script_name = t1.script_name) AND t1.execution_status='ROLLED_BACK'",
+                "SELECT COUNT(*) FROM schemaflow_changelog_audit ca INNER JOIN schemaflow_changelog_script cs ON ca.script_id = cs.id WHERE ca.id = (SELECT MAX(ca2.id) FROM schemaflow_changelog_audit ca2 WHERE ca2.script_id = cs.id) AND ca.execution_status='ROLLED_BACK'",
                 Integer.class);
         assertTrue(rolledBackCount != null && rolledBackCount == 2,
                 "Both scripts should be marked as ROLLED_BACK (latest status)");

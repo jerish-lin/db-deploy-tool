@@ -1,23 +1,32 @@
--- SQLite Schema for SchemaFlow
--- Audit tables for tracking script execution and deployment tags
+-- SQLite Schema for SchemaFlow (Refactored)
+-- Separated script metadata from audit history
 
--- Create schemaflow_change_log table
-CREATE TABLE IF NOT EXISTS schemaflow_change_log (
+-- Create schemaflow_changelog_script table - stores script metadata (immutable)
+CREATE TABLE IF NOT EXISTS schemaflow_changelog_script (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    script_name TEXT NOT NULL,
+    script_name TEXT NOT NULL UNIQUE,
     script_checksum TEXT NOT NULL,
+    apply_script_content TEXT,
+    rollback_script_content TEXT,
+    apply_verify_script_content TEXT,
+    rollback_verify_script_content TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create schemaflow_changelog_audit table - stores execution history (append-only)
+CREATE TABLE IF NOT EXISTS schemaflow_changelog_audit (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    script_id INTEGER NOT NULL,
     execution_status TEXT NOT NULL CHECK (execution_status IN ('SUCCESS', 'FAILED', 'ROLLED_BACK')),
     execution_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     execution_duration_ms INTEGER,
     error_message TEXT,
-    rollback_script_content TEXT,
-    rollback_verify_script_content TEXT,
     parent_audit_id INTEGER,
     target_nodes TEXT,
     node_execution_details TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (parent_audit_id) REFERENCES schemaflow_change_log(id)
+    FOREIGN KEY (script_id) REFERENCES schemaflow_changelog_script(id),
+    FOREIGN KEY (parent_audit_id) REFERENCES schemaflow_changelog_audit(id)
 );
 
 -- Create schemaflow_deploy_lock table

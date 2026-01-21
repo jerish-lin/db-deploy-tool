@@ -1,21 +1,18 @@
-package org.jerish.dbdeploy.model;
+package org.jerish.dbdeploy.entity;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.jerish.dbdeploy.entity.ScriptExecutionStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Combined model representing both script metadata and audit entry.
- * This is used for backward compatibility with existing code that expects
- * a single object containing both script and audit information.
+ * Entity representing audit entry stored in changelog_audit table.
+ * This table stores execution history for scripts with a reference to the script metadata.
  */
 @Data
 @NoArgsConstructor
-public class ChangeLogEntry {
-    // Audit entry fields
+public class AuditEntry {
     private Long id;
     private Long scriptId;
     private ScriptExecutionStatus executionStatus;
@@ -24,13 +21,6 @@ public class ChangeLogEntry {
     private String errorMessage;
     private Long parentAuditId;
     private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-
-    // Script metadata fields
-    private String scriptName;
-    private String scriptChecksum;
-    private String rollbackScriptContent;
-    private String rollbackVerifyScriptContent;
 
     /**
      * List of target node names for multi-node execution.
@@ -45,4 +35,14 @@ public class ChangeLogEntry {
      * Null for single-node execution.
      */
     private String nodeExecutionDetails;
+
+    /**
+     * Convenience constructor for creating a new audit entry
+     */
+    public AuditEntry(Long scriptId, ScriptExecutionStatus executionStatus) {
+        this.scriptId = scriptId;
+        this.executionStatus = executionStatus;
+        this.executionTime = LocalDateTime.now();
+        this.createdAt = LocalDateTime.now();
+    }
 }

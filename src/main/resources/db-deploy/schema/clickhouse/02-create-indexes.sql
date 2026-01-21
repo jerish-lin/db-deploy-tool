@@ -1,12 +1,16 @@
--- ClickHouse doesn't need explicit indexes for MergeTree engines
--- The ORDER BY clause in table creation serves as the primary sorting/indexing mechanism
--- Additional materialized indexes can be created if needed for specific query patterns
+-- ClickHouse Indexes for SchemaFlow (Refactored)
+-- Note: ClickHouse uses ORDER BY and PRIMARY KEY for indexing
 
--- Example of creating a materialized index for script_name (if needed for performance)
--- ALTER TABLE db_change_log ADD INDEX idx_script_name script_name TYPE minmax GRANULARITY 1;
+-- Indexes are already defined in table creation statements via ORDER BY
+-- Additional materialized views or projections can be added here if needed
 
--- Example of creating a materialized index for execution_status (if needed for performance)
--- ALTER TABLE db_change_log ADD INDEX idx_execution_status execution_status TYPE set(100) GRANULARITY 1;
-
--- Note: ClickHouse MergeTree tables are optimized for analytical queries
--- The primary ORDER BY clause provides efficient range scans and filtering
+-- Materialized view for latest script status (optional optimization)
+CREATE MATERIALIZED VIEW IF NOT EXISTS latest_script_status_mv
+ENGINE = AggregatingMergeTree()
+ORDER BY (script_id)
+AS SELECT
+    script_id,
+    argMax(execution_status, execution_time) AS latest_status,
+    max(execution_time) AS last_execution_time
+FROM schemaflow_changelog_audit
+GROUP BY script_id;

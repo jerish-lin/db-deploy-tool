@@ -25,7 +25,7 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-@DisplayName("Unit tests for AuditRepository")
+@DisplayName("Unit tests for AuditRepository (Refactored with changelog_script and changelog_audit tables)")
 public class AuditRepositoryTest {
 
     @Mock
@@ -48,16 +48,15 @@ public class AuditRepositoryTest {
     @Test
     @DisplayName("Test isScriptExecuted returns true when script exists with SUCCESS status")
     void testIsScriptExecuted_Success() {
-        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class), anyString(), anyString()))
+        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class), anyString()))
                 .thenReturn(1);
 
         boolean result = auditRepository.isScriptExecuted("test-script");
 
         assertTrue(result);
         verify(jdbcTemplate).queryForObject(
-                contains("SELECT COUNT(*) FROM schemaflow_change_log"),
+                contains("SELECT COUNT(*) FROM schemaflow_changelog_audit"),
                 eq(Integer.class),
-                eq("test-script"),
                 eq("test-script")
         );
     }
@@ -65,7 +64,7 @@ public class AuditRepositoryTest {
     @Test
     @DisplayName("Test isScriptExecuted returns false when script doesn't exist")
     void testIsScriptExecuted_NotExists() {
-        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class), anyString(), anyString()))
+        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class), anyString()))
                 .thenReturn(0);
 
         boolean result = auditRepository.isScriptExecuted("test-script");
@@ -76,7 +75,7 @@ public class AuditRepositoryTest {
     @Test
     @DisplayName("Test isScriptExecuted returns false when count is null")
     void testIsScriptExecuted_NullCount() {
-        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class), anyString(), anyString()))
+        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class), anyString()))
                 .thenReturn(null);
 
         boolean result = auditRepository.isScriptExecuted("test-script");
@@ -84,11 +83,15 @@ public class AuditRepositoryTest {
         assertFalse(result);
     }
 
-@Test
+    @Test
     @DisplayName("Test recordScriptExecution inserts entry and returns generated ID")
     void testRecordScriptExecution_Success() {
         ChangeLogEntry entry = createTestEntry();
-        
+
+        // Mock script metadata query to return null (script doesn't exist)
+        when(jdbcTemplate.query(anyString(), any(RowMapper.class), eq(entry.getScriptName())))
+                .thenReturn(List.of());
+
         // Mock the update to return 1 (number of rows affected)
         when(jdbcTemplate.update(any(), any(GeneratedKeyHolder.class))).thenReturn(1);
 
@@ -97,8 +100,8 @@ public class AuditRepositoryTest {
             auditRepository.recordScriptExecution(entry);
         });
 
-        // Verify that update was called (even though it failed to get the key)
-        verify(jdbcTemplate).update(any(), any(GeneratedKeyHolder.class));
+        // Verify that update was called at least once
+        verify(jdbcTemplate, atLeastOnce()).update(any(), any(GeneratedKeyHolder.class));
     }
 
     @Test
@@ -106,7 +109,11 @@ public class AuditRepositoryTest {
     void testRecordRollbackScriptExecution_Success() {
         ChangeLogEntry entry = createTestEntry();
         entry.setExecutionStatus(ScriptExecutionStatus.ROLLED_BACK);
-        
+
+        // Mock script metadata query to return null (script doesn't exist)
+        when(jdbcTemplate.query(anyString(), any(RowMapper.class), eq(entry.getScriptName())))
+                .thenReturn(List.of());
+
         // Mock the update to return 1 (number of rows affected)
         when(jdbcTemplate.update(any(), any(GeneratedKeyHolder.class))).thenReturn(1);
 
@@ -115,8 +122,8 @@ public class AuditRepositoryTest {
             auditRepository.recordRollbackScriptExecution(entry, 1L);
         });
 
-        // Verify that update was called (even though it failed to get the key)
-        verify(jdbcTemplate).update(any(), any(GeneratedKeyHolder.class));
+        // Verify that update was called at least once
+        verify(jdbcTemplate, atLeastOnce()).update(any(), any(GeneratedKeyHolder.class));
     }
 
     @Test
@@ -129,42 +136,42 @@ public class AuditRepositoryTest {
         List<ChangeLogEntry> result = auditRepository.getAllExecutedScripts();
 
         assertNotNull(result);
-        verify(jdbcTemplate).query(contains("SELECT * FROM schemaflow_change_log"), any(RowMapper.class));
+        verify(jdbcTemplate).query(contains("FROM schemaflow_changelog_audit ca"), any(RowMapper.class));
     }
 
     @Test
-    @DisplayName("Test getScriptAuditHistory returns history for specific script")
-    void testGetScriptAuditHistory_Success() {
-        List<ChangeLogEntry> mockEntries = List.of(createTestEntry());
+    @DisplayName("Test getAuditHistory returns history for specific script")
+    void testGetAuditHistory_Success() {
+        List<org.jerish.dbdeploy.entity.AuditEntry> mockEntries = List.of(new org.jerish.dbdeploy.entity.AuditEntry());
         when(jdbcTemplate.query(anyString(), any(RowMapper.class), anyString()))
                 .thenReturn(mockEntries);
 
-        List<ChangeLogEntry> result = auditRepository.getScriptAuditHistory("test-script");
+        List<org.jerish.dbdeploy.entity.AuditEntry> result = auditRepository.getAuditHistory("test-script");
 
         assertNotNull(result);
-        verify(jdbcTemplate).query(contains("WHERE script_name = ?"), any(RowMapper.class), eq("test-script"));
+        verify(jdbcTemplate).query(contains("INNER JOIN schemaflow_changelog_script"), any(RowMapper.class), eq("test-script"));
     }
 
     @Test
-    @DisplayName("Test getLatestScriptEntry returns latest entry for script")
-    void testGetLatestScriptEntry_Success() {
-        List<ChangeLogEntry> mockEntries = List.of(createTestEntry());
+    @DisplayName("Test getLatestAuditEntry returns latest entry for script")
+    void testGetLatestAuditEntry_Success() {
+        org.jerish.dbdeploy.entity.AuditEntry mockEntry = new org.jerish.dbdeploy.entity.AuditEntry();
         when(jdbcTemplate.query(anyString(), any(RowMapper.class), anyString()))
-                .thenReturn(mockEntries);
+                .thenReturn(List.of(mockEntry));
 
-        ChangeLogEntry result = auditRepository.getLatestScriptEntry("test-script");
+        org.jerish.dbdeploy.entity.AuditEntry result = auditRepository.getLatestAuditEntry("test-script");
 
         assertNotNull(result);
         verify(jdbcTemplate).query(contains("LIMIT 1"), any(RowMapper.class), eq("test-script"));
     }
 
     @Test
-    @DisplayName("Test getLatestScriptEntry returns null when no entries exist")
-    void testGetLatestScriptEntry_NotFound() {
+    @DisplayName("Test getLatestAuditEntry returns null when no entries exist")
+    void testGetLatestAuditEntry_NotFound() {
         when(jdbcTemplate.query(anyString(), any(RowMapper.class), anyString()))
                 .thenReturn(List.of());
 
-        ChangeLogEntry result = auditRepository.getLatestScriptEntry("test-script");
+        org.jerish.dbdeploy.entity.AuditEntry result = auditRepository.getLatestAuditEntry("test-script");
 
         assertNull(result);
     }
@@ -194,8 +201,8 @@ public class AuditRepositoryTest {
         // Mock isSQLiteDatabase to return true (SQLite)
         when(jdbcTemplate.queryForObject("SELECT sqlite_version()", String.class))
                 .thenReturn("3.45.1");
-        
-        when(jdbcTemplate.update(contains("INSERT OR IGNORE INTO schemaflow_deploy_lock"), 
+
+        when(jdbcTemplate.update(contains("INSERT OR IGNORE INTO schemaflow_deploy_lock"),
                 eq("test-lock"), eq("owner1"), eq(30)))
                 .thenReturn(1);
 
@@ -210,8 +217,8 @@ public class AuditRepositoryTest {
         // Mock isSQLiteDatabase to return true (SQLite)
         when(jdbcTemplate.queryForObject("SELECT sqlite_version()", String.class))
                 .thenReturn("3.45.1");
-        
-        when(jdbcTemplate.update(contains("INSERT OR IGNORE INTO schemaflow_deploy_lock"), 
+
+        when(jdbcTemplate.update(contains("INSERT OR IGNORE INTO schemaflow_deploy_lock"),
                 eq("test-lock"), eq("owner1"), eq(30)))
                 .thenReturn(0);
 
@@ -435,6 +442,7 @@ public class AuditRepositoryTest {
     private ChangeLogEntry createTestEntry() {
         ChangeLogEntry entry = new ChangeLogEntry();
         entry.setId(1L);
+        entry.setScriptId(1L);
         entry.setScriptName("test-script");
         entry.setScriptChecksum("abc123");
         entry.setExecutionStatus(ScriptExecutionStatus.SUCCESS);

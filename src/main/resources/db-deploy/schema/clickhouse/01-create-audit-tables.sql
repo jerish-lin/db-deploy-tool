@@ -1,25 +1,35 @@
--- ClickHouse Schema for SchemaFlow
--- Audit tables for tracking script execution and deployment tags
+-- ClickHouse Schema for SchemaFlow (Refactored)
+-- Separated script metadata from audit history
 
--- Create schemaflow_change_log table
-CREATE TABLE IF NOT EXISTS schemaflow_change_log (
+-- Create schemaflow_changelog_script table - stores script metadata (immutable)
+CREATE TABLE IF NOT EXISTS schemaflow_changelog_script (
     id UInt64,
     script_name String NOT NULL,
     script_checksum String NOT NULL,
+    apply_script_content Nullable(String),
+    rollback_script_content Nullable(String),
+    apply_verify_script_content Nullable(String),
+    rollback_verify_script_content Nullable(String),
+    created_at DateTime NOT NULL DEFAULT now()
+) ENGINE = MergeTree()
+ORDER BY (id)
+UNIQUE KEY script_name;
+
+-- Create schemaflow_changelog_audit table - stores execution history (append-only)
+CREATE TABLE IF NOT EXISTS schemaflow_changelog_audit (
+    id UInt64,
+    script_id UInt64 NOT NULL,
     execution_status Enum8('SUCCESS' = 1, 'FAILED' = 2, 'ROLLED_BACK' = 3) NOT NULL,
     execution_time DateTime NOT NULL DEFAULT now(),
     execution_duration_ms Nullable(UInt64),
     error_message Nullable(String),
-    rollback_script_content Nullable(String),
-    rollback_verify_script_content Nullable(String),
     parent_audit_id Nullable(UInt64),
     target_nodes Array(String),
     node_execution_details Nullable(String),
-    created_at DateTime NOT NULL DEFAULT now(),
-    updated_at DateTime NOT NULL DEFAULT now()
+    created_at DateTime NOT NULL DEFAULT now()
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMM(execution_time)
-ORDER BY (execution_time, id);
+ORDER BY (script_id, execution_time, id);
 
 -- Create schemaflow_deploy_lock table
 CREATE TABLE IF NOT EXISTS schemaflow_deploy_lock (

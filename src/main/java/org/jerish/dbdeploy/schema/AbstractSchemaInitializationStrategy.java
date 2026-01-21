@@ -16,17 +16,17 @@ public abstract class AbstractSchemaInitializationStrategy implements SchemaInit
     @Override
     public boolean isSchemaInitialized(JdbcTemplate jdbcTemplate) {
         try {
-            // Check if the main audit table exists
+            // Check if the main audit table exists (schemaflow_changelog_script)
             String sql = """
-                SELECT COUNT(*) FROM information_schema.tables 
-                WHERE table_name = 'schemaflow_change_log'
+                SELECT COUNT(*) FROM information_schema.tables
+                WHERE table_name = 'schemaflow_changelog_script'
                 """;
-            
+
             // For SQLite, use different query
             if (getSupportedDatabaseType().name().toLowerCase().contains("sqlite")) {
-                sql = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schemaflow_change_log'";
+                sql = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schemaflow_changelog_script'";
             }
-            
+
             Integer count = jdbcTemplate.queryForObject(sql, Integer.class);
             return count != null && count > 0;
         } catch (Exception e) {
