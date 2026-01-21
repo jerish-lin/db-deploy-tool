@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -24,7 +23,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ScriptExecutionManager {
 
-    private final ScriptExecutor scriptExecutorV2;
+    private final ScriptExecutor scriptExecutor;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -58,7 +57,7 @@ public class ScriptExecutionManager {
         log.info("Executing SQL: {}", sqlName);
 
         // Execute the main SQL
-        ScriptExecutor.ScriptExecutionResult result = scriptExecutorV2.execute(jdbcTemplate, sqlContent);
+        ScriptExecutor.ScriptExecutionResult result = scriptExecutor.execute(jdbcTemplate, sqlContent);
 
         if (!result.isSuccess()) {
             log.error("SQL execution failed for: {}", sqlName);
@@ -69,7 +68,7 @@ public class ScriptExecutionManager {
         if (sqlVerificationContent != null && !sqlVerificationContent.trim().isEmpty()) {
             log.info("Executing verification SQL for: {}", sqlName);
             ScriptExecutor.ScriptExecutionResult verificationResult =
-                    scriptExecutorV2.executeVerificationSql(jdbcTemplate, sqlVerificationContent);
+                    scriptExecutor.executeVerificationSql(jdbcTemplate, sqlVerificationContent);
 
             if (!verificationResult.isSuccess()) {
                 log.error("Verification SQL execution failed for: {}", sqlName);

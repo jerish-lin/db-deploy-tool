@@ -18,12 +18,8 @@ import org.springframework.context.annotation.Import;
         ChangeLogPathConfig.class,
         DatabaseConnectionConfig.class,
         DatasourceConfiguration.class,
-        DeploymentConfig.class,
-        NodesConfig.class,
 
         FileReader.class,
-        ScriptExecutor.class,
-        ScriptExecutionManager.class,
         ScriptParameterHandler.class,
 
         AuditRepository.class,

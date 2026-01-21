@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -18,7 +19,9 @@ import java.util.Map;
 public class DatasourceConfiguration {
 
     private final DatabaseConnectionConfig databaseConnectionConfig;
-    private final NodesConfig nodesConfig;
+
+    @Autowired(required = false)
+    private NodesConfig nodesConfig;
 
     /**
      * Create the default JdbcTemplate
@@ -35,7 +38,7 @@ public class DatasourceConfiguration {
     public Map<String, JdbcTemplate> nodeJdbcTemplateMap() {
         Map<String, JdbcTemplate> templateMap = new HashMap<>();
 
-        if (nodesConfig.getNodes() == null || nodesConfig.getNodes().isEmpty()) {
+        if (nodesConfig == null || nodesConfig.getNodes() == null || nodesConfig.getNodes().isEmpty()) {
             log.info("No multi-node configuration found. Single-node mode will be used.");
             return templateMap;
         }
