@@ -85,7 +85,7 @@ public class FileReaderTest {
             fileReader.readFile(null);
         });
 
-        assertTrue(exception.getMessage().contains("Path cannot be null or empty"), 
+        assertTrue(exception.getMessage().contains("Path cannot be null or empty"),
                 "Exception should mention null path");
     }
 
@@ -96,7 +96,7 @@ public class FileReaderTest {
             fileReader.readFile("");
         });
 
-        assertTrue(exception.getMessage().contains("Path cannot be null or empty"), 
+        assertTrue(exception.getMessage().contains("Path cannot be null or empty"),
                 "Exception should mention empty path");
     }
 
@@ -107,7 +107,7 @@ public class FileReaderTest {
             fileReader.readFile("   ");
         });
 
-        assertTrue(exception.getMessage().contains("Path cannot be null or empty"), 
+        assertTrue(exception.getMessage().contains("Path cannot be null or empty"),
                 "Exception should mention empty path");
     }
 
@@ -120,7 +120,7 @@ public class FileReaderTest {
             fileReader.readFile(path);
         });
 
-        assertTrue(exception.getMessage().contains("Classpath resource not found"), 
+        assertTrue(exception.getMessage().contains("Classpath resource not found"),
                 "Exception should mention resource not found");
     }
 
@@ -133,7 +133,7 @@ public class FileReaderTest {
             fileReader.readFile(path);
         });
 
-        assertTrue(exception.getMessage().contains("File not found"), 
+        assertTrue(exception.getMessage().contains("File not found"),
                 "Exception should mention file not found");
     }
 
@@ -147,9 +147,9 @@ public class FileReaderTest {
             fileReader.readFile(path);
         });
 
-        assertTrue(exception.getMessage().contains("Path is not a regular file"), 
+        assertTrue(exception.getMessage().contains("Path is not a regular file"),
                 "Exception should mention path is not a regular file");
-        
+
         // Clean up
         Files.deleteIfExists(tempDir);
     }
@@ -159,7 +159,7 @@ public class FileReaderTest {
     public void testReadFileWithUtf8Encoding() throws IOException {
         String testContent = "Test content with special characters: 你好世界 αβγ";
         Files.writeString(tempFile, testContent, StandardOpenOption.WRITE);
-        
+
         String path = tempFile.toAbsolutePath().toString();
         String content = fileReader.readFile(path);
 
@@ -173,13 +173,13 @@ public class FileReaderTest {
         String testContent = "Line 1\nLine 2\nLine 3";
         Path multiLineFile = Files.createTempFile("test-multiline-" + System.currentTimeMillis(), ".txt");
         Files.writeString(multiLineFile, testContent, StandardOpenOption.WRITE);
-        
+
         String path = multiLineFile.toAbsolutePath().toString();
         String content = fileReader.readFile(path);
 
         assertNotNull(content, "Content should not be null");
         assertEquals(testContent, content, "Content should match with multiple lines");
-        
+
         // Clean up
         Files.deleteIfExists(multiLineFile);
     }
@@ -189,13 +189,13 @@ public class FileReaderTest {
     public void testReadFileWithEmptyContent() throws IOException {
         Path emptyFile = Files.createTempFile("test-empty-" + System.currentTimeMillis(), ".txt");
         Files.writeString(emptyFile, "", StandardOpenOption.WRITE);
-        
+
         String path = emptyFile.toAbsolutePath().toString();
         String content = fileReader.readFile(path);
 
         assertNotNull(content, "Content should not be null");
         assertEquals("", content, "Content should be empty");
-        
+
         // Clean up
         Files.deleteIfExists(emptyFile);
     }
@@ -204,18 +204,18 @@ public class FileReaderTest {
     @DisplayName("Read file with SQL content")
     public void testReadFileWithSqlContent() throws IOException {
         String testContent = "CREATE TABLE test_table (\n" +
-                           "    id INT PRIMARY KEY,\n" +
-                           "    name VARCHAR(100)\n" +
-                           ");";
+                "    id INT PRIMARY KEY,\n" +
+                "    name VARCHAR(100)\n" +
+                ");";
         Path sqlFile = Files.createTempFile("test-sql-" + System.currentTimeMillis(), ".sql");
         Files.writeString(sqlFile, testContent, StandardOpenOption.WRITE);
-        
+
         String path = sqlFile.toAbsolutePath().toString();
         String content = fileReader.readFile(path);
 
         assertNotNull(content, "Content should not be null");
         assertEquals(testContent, content, "Content should match SQL content");
-        
+
         // Clean up
         Files.deleteIfExists(sqlFile);
     }

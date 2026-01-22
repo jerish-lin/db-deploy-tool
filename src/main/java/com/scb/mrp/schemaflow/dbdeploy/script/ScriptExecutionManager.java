@@ -35,15 +35,15 @@ public class ScriptExecutionManager {
     /**
      * Execute SQL content and optionally run verification SQL.
      *
-     * @param sqlContent The SQL content to execute
+     * @param sqlContent             The SQL content to execute
      * @param sqlVerificationContent The verification SQL content (can be null)
-     * @param sqlName The name of the SQL for logging
+     * @param sqlName                The name of the SQL for logging
      * @return ScriptExecutionResult containing execution details
      */
     public ScriptExecutor.ScriptExecutionResult executeAndVerify(
             String sqlContent,
             String sqlVerificationContent,
-            String sqlName){
+            String sqlName) {
         return executeAndVerify(jdbcTemplate, sqlContent, sqlVerificationContent, sqlName);
     }
 
@@ -86,10 +86,10 @@ public class ScriptExecutionManager {
     /**
      * Execute SQL and verification on multiple nodes in parallel.
      *
-     * @param sqlContent The SQL content to execute
+     * @param sqlContent             The SQL content to execute
      * @param sqlVerificationContent The verification SQL content (can be null)
-     * @param targetNodes List of target node names to execute on
-     * @param sqlName The name of the SQL for logging
+     * @param targetNodes            List of target node names to execute on
+     * @param sqlName                The name of the SQL for logging
      * @return MultiNodeExecutionResult containing per-node execution details
      */
     public MultiNodeExecutionResult executeAndVerifyOnMultipleNodes(
@@ -108,7 +108,7 @@ public class ScriptExecutionManager {
 
         // Execute on each node in parallel
         List<CompletableFuture<ScriptExecutor.ScriptExecutionResult>> futures = targetNodes.stream()
-                .map(nodeName -> CompletableFuture.supplyAsync(() -> 
+                .map(nodeName -> CompletableFuture.supplyAsync(() ->
                         executeAndVerifyOnNode(sqlContent, sqlVerificationContent, nodeName, sqlName)))
                 .collect(Collectors.toList());
 

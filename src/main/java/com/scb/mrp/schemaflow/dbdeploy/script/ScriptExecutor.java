@@ -23,7 +23,7 @@ public class ScriptExecutor {
      * Uses execute() for DDL/DML statements.
      *
      * @param jdbcTemplate The JdbcTemplate to execute the SQL on
-     * @param sqlContent The SQL content to execute
+     * @param sqlContent   The SQL content to execute
      * @return ScriptExecutionResult containing execution details
      */
     @Transactional
@@ -67,7 +67,7 @@ public class ScriptExecutor {
      * If output contains "FAILED" or "FAIL", marks verification as failed.
      *
      * @param jdbcTemplate The JdbcTemplate to execute the SQL on
-     * @param sqlContent The SQL content to execute
+     * @param sqlContent   The SQL content to execute
      * @return ScriptExecutionResult containing execution details and captured output
      */
     @Transactional

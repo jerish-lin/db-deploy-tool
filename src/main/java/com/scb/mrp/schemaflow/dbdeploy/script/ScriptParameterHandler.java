@@ -21,7 +21,7 @@ public class ScriptParameterHandler {
      * Replace placeholders in SQL content with actual parameter values.
      * Placeholders are in the format ${param_name}.
      *
-     * @param content The SQL content with placeholders
+     * @param content    The SQL content with placeholders
      * @param parameters The map of parameter names to values
      * @return The SQL content with placeholders replaced
      * @throws RuntimeException if a placeholder is found but no value is provided
@@ -82,7 +82,7 @@ public class ScriptParameterHandler {
      */
     public java.util.List<String> extractPlaceholderNames(String content) {
         java.util.List<String> placeholders = new java.util.ArrayList<>();
-        
+
         if (content == null) {
             return placeholders;
         }
@@ -101,7 +101,7 @@ public class ScriptParameterHandler {
     /**
      * Validate that all placeholders in the content have corresponding values in the parameters map
      *
-     * @param content The content to validate
+     * @param content    The content to validate
      * @param parameters The parameters map
      * @throws RuntimeException if any placeholder is missing a value
      */
@@ -111,7 +111,7 @@ public class ScriptParameterHandler {
         }
 
         java.util.List<String> placeholders = extractPlaceholderNames(content);
-        
+
         for (String placeholder : placeholders) {
             if (parameters == null || !parameters.containsKey(placeholder)) {
                 throw new RuntimeException("No value provided for placeholder: " + placeholder);

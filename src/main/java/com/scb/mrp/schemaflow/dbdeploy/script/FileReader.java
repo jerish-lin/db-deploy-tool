@@ -49,7 +49,7 @@ public class FileReader {
      */
     private String readFromClasspath(String classpathPath) throws IOException {
         String resourcePath = classpathPath.substring("classpath:".length());
-        
+
         // Remove leading slash if present
         if (resourcePath.startsWith("/")) {
             resourcePath = resourcePath.substring(1);
@@ -75,7 +75,7 @@ public class FileReader {
      */
     private String readFromFileSystem(String filePath) throws IOException {
         Path path = Paths.get(filePath);
-        
+
         if (!Files.exists(path)) {
             throw new IOException("File not found: " + filePath);
         }

@@ -1,8 +1,8 @@
 package com.scb.mrp.schemaflow.dbdeploy.schema;
 
+import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;

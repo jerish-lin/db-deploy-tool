@@ -2,7 +2,7 @@ package com.scb.mrp.schemaflow.dbdeploy.integration.failure;
 
 import com.scb.mrp.schemaflow.dbdeploy.integration.SQLiteDeployTestBase;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Base class for SQLite failure scenario tests.

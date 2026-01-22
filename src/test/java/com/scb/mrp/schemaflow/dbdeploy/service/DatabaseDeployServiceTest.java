@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 /**
  * Unit tests for the DatabaseDeployService interface contract.
@@ -21,7 +21,7 @@ public class DatabaseDeployServiceTest {
         // This test verifies the interface contract
         // The actual implementation is tested in DefaultDatabaseDeployServiceTest
         DatabaseDeployService service = createMockService();
-        
+
         assertDoesNotThrow(() -> {
             service.deploy(new ChangeLogConfig(), false);
         });
@@ -33,7 +33,7 @@ public class DatabaseDeployServiceTest {
         // This test verifies the interface contract
         // The actual implementation is tested in DefaultDatabaseDeployServiceTest
         DatabaseDeployService service = createMockService();
-        
+
         assertDoesNotThrow(() -> {
             service.deploy(new ChangeLogConfig(), false, Map.of("key", "value"));
         });
@@ -45,7 +45,7 @@ public class DatabaseDeployServiceTest {
         // This test verifies the interface contract
         // The actual implementation is tested in DefaultDatabaseDeployServiceTest
         DatabaseDeployService service = createMockService();
-        
+
         assertDoesNotThrow(() -> {
             service.rollback(new ChangeLogConfig(), false);
         });
@@ -57,7 +57,7 @@ public class DatabaseDeployServiceTest {
         // This test verifies the interface contract
         // The actual implementation is tested in DefaultDatabaseDeployServiceTest
         DatabaseDeployService service = createMockService();
-        
+
         assertDoesNotThrow(() -> {
             service.rollback(new ChangeLogConfig(), false, Map.of("key", "value"));
         });

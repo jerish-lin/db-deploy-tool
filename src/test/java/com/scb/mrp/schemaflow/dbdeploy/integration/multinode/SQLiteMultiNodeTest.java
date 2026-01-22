@@ -1,10 +1,10 @@
 package com.scb.mrp.schemaflow.dbdeploy.integration.multinode;
 
-import com.scb.mrp.schemaflow.dbdeploy.changelog.ConfigLoader;
 import com.scb.mrp.schemaflow.dbdeploy.TestApplication;
+import com.scb.mrp.schemaflow.dbdeploy.changelog.ConfigLoader;
 import com.scb.mrp.schemaflow.dbdeploy.entity.ChangeLogConfig;
-import com.scb.mrp.schemaflow.dbdeploy.model.ChangeLogEntry;
 import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptExecutionStatus;
+import com.scb.mrp.schemaflow.dbdeploy.model.ChangeLogEntry;
 import com.scb.mrp.schemaflow.dbdeploy.schema.SchemaInitializationManager;
 import com.scb.mrp.schemaflow.dbdeploy.service.DatabaseDeployManager;
 import com.scb.mrp.schemaflow.dbdeploy.service.DatabaseDeployService;
@@ -123,13 +123,13 @@ public class SQLiteMultiNodeTest {
 
         // Verify users table exists on all nodes
         assertTrue(nodeJdbcTemplateMap.get("node1").queryForObject(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'", Integer.class) > 0,
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'", Integer.class) > 0,
                 "Users table should exist on node1");
         assertTrue(nodeJdbcTemplateMap.get("node2").queryForObject(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'", Integer.class) > 0,
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'", Integer.class) > 0,
                 "Users table should exist on node2");
         assertTrue(nodeJdbcTemplateMap.get("node3").queryForObject(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'", Integer.class) > 0,
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'", Integer.class) > 0,
                 "Users table should exist on node3");
 
         // Verify second script (node1 only)
@@ -141,13 +141,13 @@ public class SQLiteMultiNodeTest {
 
         // Verify products table exists only on node1
         assertTrue(nodeJdbcTemplateMap.get("node1").queryForObject(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='products'", Integer.class) > 0,
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='products'", Integer.class) > 0,
                 "Products table should exist on node1");
         assertFalse(nodeJdbcTemplateMap.get("node2").queryForObject(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='products'", Integer.class) > 0,
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='products'", Integer.class) > 0,
                 "Products table should NOT exist on node2");
         assertFalse(nodeJdbcTemplateMap.get("node3").queryForObject(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='products'", Integer.class) > 0,
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='products'", Integer.class) > 0,
                 "Products table should NOT exist on node3");
 
         // Verify third script (node2 only)
@@ -159,13 +159,13 @@ public class SQLiteMultiNodeTest {
 
         // Verify orders table exists only on node2
         assertFalse(nodeJdbcTemplateMap.get("node1").queryForObject(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='orders'", Integer.class) > 0,
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='orders'", Integer.class) > 0,
                 "Orders table should NOT exist on node1");
         assertTrue(nodeJdbcTemplateMap.get("node2").queryForObject(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='orders'", Integer.class) > 0,
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='orders'", Integer.class) > 0,
                 "Orders table should exist on node2");
         assertFalse(nodeJdbcTemplateMap.get("node3").queryForObject(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='orders'", Integer.class) > 0,
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='orders'", Integer.class) > 0,
                 "Orders table should NOT exist on node3");
 
         // Verify fourth script (single-node, backward compatibility)
@@ -177,7 +177,7 @@ public class SQLiteMultiNodeTest {
 
         // Verify sample_table exists only on default database
         assertTrue(dbDeployJdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='sample_table'", Integer.class) > 0,
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='sample_table'", Integer.class) > 0,
                 "Sample table should exist on default database");
     }
 
@@ -197,20 +197,21 @@ public class SQLiteMultiNodeTest {
 
         // Rollback to initial state (empty changelog)
         ChangeLogConfig emptyConfig = new ChangeLogConfig();
-        emptyConfig.setBasePath("classpath:multinode"); emptyConfig.setFileName("changelog.yml");
+        emptyConfig.setBasePath("classpath:multinode");
+        emptyConfig.setFileName("changelog.yml");
         emptyConfig.setScripts(List.of());
 
         deployService.rollback(emptyConfig, false);
 
         // Verify tables are dropped from all nodes
         assertFalse(nodeJdbcTemplateMap.get("node1").queryForObject(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'", Integer.class) > 0,
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'", Integer.class) > 0,
                 "Users table should be dropped from node1");
         assertFalse(nodeJdbcTemplateMap.get("node2").queryForObject(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'", Integer.class) > 0,
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'", Integer.class) > 0,
                 "Users table should be dropped from node2");
         assertFalse(nodeJdbcTemplateMap.get("node3").queryForObject(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'", Integer.class) > 0,
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'", Integer.class) > 0,
                 "Users table should be dropped from node3");
 
         // Verify rollback entries in audit log

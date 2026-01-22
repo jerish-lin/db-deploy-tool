@@ -73,6 +73,7 @@ public class ScriptConfig {
 
     /**
      * Check if this script should be executed on multiple nodes
+     *
      * @return true if nodes field is non-null and non-empty
      */
     public boolean isMultiNode() {
@@ -81,6 +82,7 @@ public class ScriptConfig {
 
     /**
      * Check if this script should be executed on all configured nodes
+     *
      * @return true if nodes list contains "ALL"
      */
     public boolean isAllNodes() {

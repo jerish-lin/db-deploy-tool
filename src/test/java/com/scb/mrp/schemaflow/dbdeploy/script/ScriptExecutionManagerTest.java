@@ -281,7 +281,7 @@ public class ScriptExecutionManagerTest {
     @DisplayName("MultiNodeExecutionResult data class holds all fields")
     public void testMultiNodeExecutionResultFields() {
         ScriptExecutionManager.MultiNodeExecutionResult result = new ScriptExecutionManager.MultiNodeExecutionResult();
-        
+
         result.setScriptName("test_script");
         result.setTargetNodes(List.of("node1", "node2"));
         result.setNodeResults(List.of(successResult, failureResult));

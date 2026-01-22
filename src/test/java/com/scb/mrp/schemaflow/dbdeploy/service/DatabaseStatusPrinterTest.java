@@ -13,7 +13,7 @@
 //
 //import static org.junit.jupiter.api.Assertions.*;
 //
-///**
+/// **
 // * Unit tests for DatabaseStatusPrinter.
 // */
 //@ExtendWith(MockitoExtension.class)

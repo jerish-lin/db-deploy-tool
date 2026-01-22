@@ -1,9 +1,9 @@
 package com.scb.mrp.schemaflow.dbdeploy.repository;
 
 import com.scb.mrp.schemaflow.dbdeploy.entity.AuditEntry;
-import com.scb.mrp.schemaflow.dbdeploy.model.ChangeLogEntry;
-import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptExecutionStatus;
 import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseStatus;
+import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptExecutionStatus;
+import com.scb.mrp.schemaflow.dbdeploy.model.ChangeLogEntry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -344,7 +344,7 @@ public class AuditRepositoryTest {
     void testGetCurrentLockStatus_Active() {
         List<Map<String, Object>> mockResults = List.of(
                 Map.of("lock_owner", "owner1", "lock_acquired_at", "2024-01-01 10:00:00",
-                       "lock_expires_at", "2024-01-01 10:30:00", "is_active", 1)
+                        "lock_expires_at", "2024-01-01 10:30:00", "is_active", 1)
         );
         when(jdbcTemplate.queryForList(anyString()))
                 .thenReturn(mockResults);

@@ -1,7 +1,5 @@
 package com.scb.mrp.schemaflow.dbdeploy.changelog;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import com.scb.mrp.schemaflow.dbdeploy.entity.ChangeLogConfig;
 import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptConfig;
 import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptFileContent;
@@ -9,6 +7,8 @@ import com.scb.mrp.schemaflow.dbdeploy.model.ChangeLogEntry;
 import com.scb.mrp.schemaflow.dbdeploy.repository.AuditRepository;
 import com.scb.mrp.schemaflow.dbdeploy.script.FileReader;
 import com.scb.mrp.schemaflow.dbdeploy.script.ScriptParameterHandler;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.File;

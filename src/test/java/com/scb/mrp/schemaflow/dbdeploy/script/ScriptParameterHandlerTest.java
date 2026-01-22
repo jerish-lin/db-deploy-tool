@@ -96,7 +96,7 @@ public class ScriptParameterHandlerTest {
             parameterHandler.replacePlaceholders(content, parameters);
         });
 
-        assertTrue(exception.getMessage().contains("No value provided for placeholder: table_name"), 
+        assertTrue(exception.getMessage().contains("No value provided for placeholder: table_name"),
                 "Exception should mention missing placeholder");
     }
 
@@ -112,7 +112,7 @@ public class ScriptParameterHandlerTest {
 
         // When parameters is empty, the exception message is different from when it's null
         assertTrue(exception.getMessage().contains("SQL contains placeholders but no parameters were provided") ||
-                   exception.getMessage().contains("No value provided for placeholder"), 
+                        exception.getMessage().contains("No value provided for placeholder"),
                 "Exception should mention missing placeholder or no parameters");
     }
 
@@ -125,7 +125,7 @@ public class ScriptParameterHandlerTest {
             parameterHandler.replacePlaceholders(content, null);
         });
 
-        assertTrue(exception.getMessage().contains("SQL contains placeholders but no parameters were provided"), 
+        assertTrue(exception.getMessage().contains("SQL contains placeholders but no parameters were provided"),
                 "Exception should mention no parameters provided");
     }
 
@@ -268,7 +268,7 @@ public class ScriptParameterHandlerTest {
             parameterHandler.validatePlaceholders(content, parameters);
         });
 
-        assertTrue(exception.getMessage().contains("No value provided for placeholder: id"), 
+        assertTrue(exception.getMessage().contains("No value provided for placeholder: id"),
                 "Exception should mention missing placeholder");
     }
 
@@ -281,7 +281,7 @@ public class ScriptParameterHandlerTest {
             parameterHandler.validatePlaceholders(content, null);
         });
 
-        assertTrue(exception.getMessage().contains("No value provided for placeholder: table_name"), 
+        assertTrue(exception.getMessage().contains("No value provided for placeholder: table_name"),
                 "Exception should mention missing placeholder");
     }
 

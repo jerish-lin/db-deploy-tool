@@ -1,0 +1,9 @@
+# Ignore everything at root level first
+/*
+
+# But keep these specific files and directories
+!pom.xml
+!src/
+!.gitignore
+!.git/
+!.mvn/

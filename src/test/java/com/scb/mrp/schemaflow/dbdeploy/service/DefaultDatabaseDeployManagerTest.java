@@ -1,8 +1,8 @@
 package com.scb.mrp.schemaflow.dbdeploy.service;
 
-import com.scb.mrp.schemaflow.dbdeploy.config.DeploymentConfig;
-import com.scb.mrp.schemaflow.dbdeploy.changelog.ConfigLoader;
 import com.scb.mrp.schemaflow.dbdeploy.changelog.ChangeLogManager;
+import com.scb.mrp.schemaflow.dbdeploy.changelog.ConfigLoader;
+import com.scb.mrp.schemaflow.dbdeploy.config.DeploymentConfig;
 import com.scb.mrp.schemaflow.dbdeploy.entity.ChangeLogConfig;
 import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseStatus;
 import com.scb.mrp.schemaflow.dbdeploy.model.ChangeLogEntry;

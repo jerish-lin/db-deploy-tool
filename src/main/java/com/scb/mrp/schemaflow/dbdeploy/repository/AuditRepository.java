@@ -1,12 +1,12 @@
 package com.scb.mrp.schemaflow.dbdeploy.repository;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import com.scb.mrp.schemaflow.dbdeploy.entity.AuditEntry;
+import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseStatus;
 import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptExecutionStatus;
 import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptMetadata;
 import com.scb.mrp.schemaflow.dbdeploy.model.ChangeLogEntry;
-import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseStatus;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;

@@ -1,8 +1,8 @@
 package com.scb.mrp.schemaflow.dbdeploy.cli;
 
+import com.scb.mrp.schemaflow.dbdeploy.config.ChangeLogPathConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import com.scb.mrp.schemaflow.dbdeploy.config.ChangeLogPathConfig;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Component;
 

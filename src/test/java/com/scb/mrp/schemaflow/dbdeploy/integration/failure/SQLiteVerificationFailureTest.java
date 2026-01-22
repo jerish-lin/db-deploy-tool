@@ -3,7 +3,8 @@ package com.scb.mrp.schemaflow.dbdeploy.integration.failure;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Test for verification failure handling in the database deployment tool using SQLite.

@@ -1,11 +1,11 @@
 package com.scb.mrp.schemaflow.dbdeploy;
 
-import lombok.extern.slf4j.Slf4j;
 import com.scb.mrp.schemaflow.dbdeploy.cli.CommandLineOptions;
 import com.scb.mrp.schemaflow.dbdeploy.cli.CommandLineOptionsResolver;
 import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseStatus;
 import com.scb.mrp.schemaflow.dbdeploy.service.DatabaseDeployManager;
 import com.scb.mrp.schemaflow.dbdeploy.service.DatabaseStatusPrinter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;

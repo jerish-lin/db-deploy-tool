@@ -1,8 +1,8 @@
 package com.scb.mrp.schemaflow.dbdeploy.model;
 
+import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptExecutionStatus;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptExecutionStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;

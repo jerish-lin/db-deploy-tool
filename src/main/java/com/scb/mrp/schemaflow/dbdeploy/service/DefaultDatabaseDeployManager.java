@@ -1,14 +1,14 @@
 package com.scb.mrp.schemaflow.dbdeploy.service;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import com.scb.mrp.schemaflow.dbdeploy.config.DeploymentConfig;
-import com.scb.mrp.schemaflow.dbdeploy.changelog.ConfigLoader;
-import com.scb.mrp.schemaflow.dbdeploy.repository.AuditRepository;
-import com.scb.mrp.schemaflow.dbdeploy.schema.SchemaInitializationManager;
 import com.scb.mrp.schemaflow.dbdeploy.changelog.ChangeLogManager;
+import com.scb.mrp.schemaflow.dbdeploy.changelog.ConfigLoader;
+import com.scb.mrp.schemaflow.dbdeploy.config.DeploymentConfig;
 import com.scb.mrp.schemaflow.dbdeploy.entity.ChangeLogConfig;
 import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseStatus;
+import com.scb.mrp.schemaflow.dbdeploy.repository.AuditRepository;
+import com.scb.mrp.schemaflow.dbdeploy.schema.SchemaInitializationManager;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;

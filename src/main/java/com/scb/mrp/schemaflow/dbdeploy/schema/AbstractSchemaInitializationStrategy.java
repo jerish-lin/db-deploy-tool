@@ -18,9 +18,9 @@ public abstract class AbstractSchemaInitializationStrategy implements SchemaInit
         try {
             // Check if the main audit table exists (schemaflow_changelog_script)
             String sql = """
-                SELECT COUNT(*) FROM information_schema.tables
-                WHERE table_name = 'schemaflow_changelog_script'
-                """;
+                    SELECT COUNT(*) FROM information_schema.tables
+                    WHERE table_name = 'schemaflow_changelog_script'
+                    """;
 
             // For SQLite, use different query
             if (getSupportedDatabaseType().name().toLowerCase().contains("sqlite")) {
@@ -64,7 +64,7 @@ public abstract class AbstractSchemaInitializationStrategy implements SchemaInit
      * Execute a SQL file from the classpath resources.
      *
      * @param jdbcTemplate JdbcTemplate for database operations
-     * @param fileName      the SQL file name
+     * @param fileName     the SQL file name
      */
     protected void executeSqlFile(JdbcTemplate jdbcTemplate, String fileName) {
         String fullPath = getSchemaFilesBasePath() + "/" + fileName;

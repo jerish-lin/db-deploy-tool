@@ -22,10 +22,10 @@ public class ConfigLoader {
 
         String content = fileReader.readFile(configPath);
         ChangeLogConfig config = new ChangeLogConfig();
-        
+
         // Parse basePath and fileName from configPath
         parsePathComponents(configPath, config);
-        
+
         // Load as generic map to handle both formats
         Object rawConfig = yaml.load(content);
         if (rawConfig == null) {
@@ -48,7 +48,7 @@ public class ConfigLoader {
             if (lastSlashIndex == -1) {
                 lastSlashIndex = configPath.lastIndexOf('\\');
             }
-            
+
             if (lastSlashIndex > 0) {
                 config.setBasePath(configPath.substring(0, lastSlashIndex + 1));
                 config.setFileName(configPath.substring(lastSlashIndex + 1));

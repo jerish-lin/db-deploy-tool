@@ -46,8 +46,8 @@ public class ScriptExecutorTest {
     @DisplayName("Execute multiple SQL statements successfully")
     public void testExecuteMultipleSqlStatementsSuccess() {
         String sqlContent = "CREATE TABLE test_table1 (id INT PRIMARY KEY);" +
-                           "CREATE TABLE test_table2 (id INT PRIMARY KEY);" +
-                           "INSERT INTO test_table1 VALUES (1);";
+                "CREATE TABLE test_table2 (id INT PRIMARY KEY);" +
+                "INSERT INTO test_table1 VALUES (1);";
 
         ScriptExecutor.ScriptExecutionResult result = scriptExecutor.execute(jdbcTemplate, sqlContent);
 
@@ -215,7 +215,7 @@ public class ScriptExecutorTest {
     @DisplayName("ScriptExecutionResult data class holds all fields")
     public void testScriptExecutionResultFields() {
         ScriptExecutor.ScriptExecutionResult result = new ScriptExecutor.ScriptExecutionResult();
-        
+
         result.setSuccess(true);
         result.setErrorMessage("Test error");
         result.setOutput("Test output");

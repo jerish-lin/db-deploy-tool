@@ -164,7 +164,7 @@ public class DatabaseDeployManagerTest {
     void testStatusMethodMultipleCalls() {
         DatabaseStatus status1 = deployManager.status();
         DatabaseStatus status2 = deployManager.status();
-        
+
         assertNotNull(status1);
         assertNotNull(status2);
         verify(deployManager, times(2)).status();
