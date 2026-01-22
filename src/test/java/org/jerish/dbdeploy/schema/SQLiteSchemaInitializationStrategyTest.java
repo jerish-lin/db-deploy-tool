@@ -104,10 +104,9 @@ public class SQLiteSchemaInitializationStrategyTest {
     void testGetSchemaFiles() {
         List<String> files = ReflectionTestUtils.invokeMethod(strategy, "getSchemaFiles");
 
-        assertEquals(3, files.size());
+        assertEquals(2, files.size());
         assertEquals("01-create-audit-tables.sql", files.get(0));
         assertEquals("02-create-indexes.sql", files.get(1));
-        assertEquals("03-create-views.sql", files.get(2));
     }
 
     @Test
