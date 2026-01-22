@@ -15,9 +15,7 @@ public class ScriptMetadata {
     private Long id;
     private String scriptName;
     private String scriptChecksum;
-    private String applyScriptContent;
     private String rollbackScriptContent;
-    private String applyVerifyScriptContent;
     private String rollbackVerifyScriptContent;
     private LocalDateTime createdAt;
 

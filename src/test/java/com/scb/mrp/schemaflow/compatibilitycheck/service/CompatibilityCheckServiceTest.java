@@ -27,7 +27,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-@DisplayName("Unit tests for DBStatusPreCheckService")
 public class CompatibilityCheckServiceTest {
 
     @Mock
@@ -195,17 +194,30 @@ public class CompatibilityCheckServiceTest {
     }
 
     @Test
-    @DisplayName("Test pre-check handles exceptions gracefully")
-    void testPreCheckHandlesExceptionsGracefully() {
+    @DisplayName("Test pre-check fails when database status service throws exception")
+    void testPreCheckFailsWhenDatabaseStatusServiceThrowsException() throws Exception {
         // Simulate an exception from databaseStatusService
         when(databaseStatusService.getComprehensiveStatus())
                 .thenThrow(new RuntimeException("Database connection failed"));
 
-        // The service should catch the exception and log a warning, not throw
-        assertDoesNotThrow(() -> service.performCompatibilityCheck());
+        try (MockedStatic<ConfigLoader> mockedConfigLoader = mockStatic(ConfigLoader.class)) {
+            ChangeLogConfig changeLogConfig = new ChangeLogConfig();
+            changeLogConfig.setScripts(List.of());
+            mockedConfigLoader.when(() -> ConfigLoader.loadChangeLogConfig(anyString())).thenReturn(changeLogConfig);
 
-        // Should only call getComprehensiveStatus once
-        verify(databaseStatusService, times(1)).getComprehensiveStatus();
+            when(changeLogManager.determinePendingScripts(any(), any())).thenReturn(List.of());
+
+            // The service now throws IllegalStateException on all failures
+            IllegalStateException exception = assertThrows(IllegalStateException.class, () -> {
+                service.performCompatibilityCheck();
+            });
+
+            assertTrue(exception.getMessage().contains("Database deployment status pre-check failed"));
+            assertTrue(exception.getCause().getMessage().contains("Database connection failed"));
+
+            // Should only call getComprehensiveStatus once
+            verify(databaseStatusService, times(1)).getComprehensiveStatus();
+        }
     }
 
     @Test
@@ -288,13 +300,17 @@ public class CompatibilityCheckServiceTest {
     }
 
     @Test
-    @DisplayName("Test pre-check skips when schema is not initialized")
-    void testPreCheckSkipsWhenSchemaNotInitialized() {
+    @DisplayName("Test pre-check fails when schema is not initialized")
+    void testPreCheckFailsWhenSchemaNotInitialized() {
         // Mock schema as not initialized
         when(schemaInitializationManager.isSchemaInitialized()).thenReturn(false);
 
-        // Should not throw any exception and should not call databaseStatusService
-        assertDoesNotThrow(() -> service.performCompatibilityCheck());
+        // Should throw IllegalStateException
+        IllegalStateException exception = assertThrows(IllegalStateException.class, () -> {
+            service.performCompatibilityCheck();
+        });
+
+        assertTrue(exception.getMessage().contains("Database schema is not initialized"));
 
         // Verify that database status service was not called since schema is not initialized
         verifyNoInteractions(databaseStatusService);
@@ -302,14 +318,18 @@ public class CompatibilityCheckServiceTest {
     }
 
     @Test
-    @DisplayName("Test pre-check skips when schema initialization check throws exception")
-    void testPreCheckSkipsWhenSchemaInitializationCheckThrowsException() {
+    @DisplayName("Test pre-check fails when schema initialization check throws exception")
+    void testPreCheckFailsWhenSchemaInitializationCheckThrowsException() {
         // Mock schema initialization check to throw exception
         when(schemaInitializationManager.isSchemaInitialized())
                 .thenThrow(new RuntimeException("Failed to check schema initialization"));
 
-        // Should not throw any exception and should not call databaseStatusService
-        assertDoesNotThrow(() -> service.performCompatibilityCheck());
+        // Should throw RuntimeException (thrown before being wrapped in IllegalStateException)
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            service.performCompatibilityCheck();
+        });
+
+        assertTrue(exception.getMessage().contains("Failed to check schema initialization"));
 
         // Verify that database status service was not called since schema check failed
         verifyNoInteractions(databaseStatusService);

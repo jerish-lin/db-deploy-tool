@@ -1,5 +1,6 @@
 package com.scb.mrp.schemaflow.compatibilitycheck.autoconfigure;
 
+import com.scb.mrp.schemaflow.compatibilitycheck.service.CompatibilityCheckService;
 import com.scb.mrp.schemaflow.dbdeploy.changelog.ChangeLogManager;
 import com.scb.mrp.schemaflow.dbdeploy.config.ChangeLogPathConfig;
 import com.scb.mrp.schemaflow.dbdeploy.config.DatabaseConnectionConfig;
@@ -12,7 +13,6 @@ import com.scb.mrp.schemaflow.dbdeploy.schema.SchemaInitializationManager;
 import com.scb.mrp.schemaflow.dbdeploy.script.FileReader;
 import com.scb.mrp.schemaflow.dbdeploy.script.ScriptParameterHandler;
 import com.scb.mrp.schemaflow.dbdeploy.service.DatabaseStatusService;
-import com.scb.mrp.schemaflow.compatibilitycheck.service.CompatibilityCheckService;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.context.annotation.Import;
 
@@ -34,6 +34,7 @@ import org.springframework.context.annotation.Import;
         SQLiteSchemaInitializationStrategy.class,
         ClickHouseSchemaInitializationStrategy.class,
         SchemaInitializationManager.class
+
 })
 public class CompatibilityCheckAutoConfiguration {
 }

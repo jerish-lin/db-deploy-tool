@@ -6,9 +6,7 @@ CREATE TABLE IF NOT EXISTS schemaflow_changelog_script (
     id UInt64,
     script_name String NOT NULL,
     script_checksum String NOT NULL,
-    apply_script_content Nullable(String),
     rollback_script_content Nullable(String),
-    apply_verify_script_content Nullable(String),
     rollback_verify_script_content Nullable(String),
     created_at DateTime NOT NULL DEFAULT now()
 ) ENGINE = MergeTree()

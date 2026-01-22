@@ -53,9 +53,7 @@ public class AuditRepository {
         metadata.setId(rs.getLong("id"));
         metadata.setScriptName(rs.getString("script_name"));
         metadata.setScriptChecksum(rs.getString("script_checksum"));
-        metadata.setApplyScriptContent(rs.getString("apply_script_content"));
         metadata.setRollbackScriptContent(rs.getString("rollback_script_content"));
-        metadata.setApplyVerifyScriptContent(rs.getString("apply_verify_script_content"));
         metadata.setRollbackVerifyScriptContent(rs.getString("rollback_verify_script_content"));
 
         // Handle created_at timestamp
@@ -226,10 +224,9 @@ public class AuditRepository {
 
         String sql = """
                 INSERT INTO schemaflow_changelog_script (
-                    script_name, script_checksum, apply_script_content,
-                    rollback_script_content, apply_verify_script_content,
-                    rollback_verify_script_content, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    script_name, script_checksum,
+                    rollback_script_content, rollback_verify_script_content, created_at
+                ) VALUES (?, ?, ?, ?, ?)
                 """;
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
@@ -239,11 +236,9 @@ public class AuditRepository {
                 PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
                 ps.setString(1, metadata.getScriptName());
                 ps.setString(2, metadata.getScriptChecksum());
-                ps.setString(3, metadata.getApplyScriptContent());
-                ps.setString(4, metadata.getRollbackScriptContent());
-                ps.setString(5, metadata.getApplyVerifyScriptContent());
-                ps.setString(6, metadata.getRollbackVerifyScriptContent());
-                ps.setString(7, metadata.getCreatedAt() != null ? metadata.getCreatedAt().toString() : LocalDateTime.now().toString());
+                ps.setString(3, metadata.getRollbackScriptContent());
+                ps.setString(4, metadata.getRollbackVerifyScriptContent());
+                ps.setString(5, metadata.getCreatedAt() != null ? metadata.getCreatedAt().toString() : LocalDateTime.now().toString());
                 return ps;
             }, keyHolder);
         } else {
@@ -251,11 +246,9 @@ public class AuditRepository {
                 PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
                 ps.setString(1, metadata.getScriptName());
                 ps.setString(2, metadata.getScriptChecksum());
-                ps.setString(3, metadata.getApplyScriptContent());
-                ps.setString(4, metadata.getRollbackScriptContent());
-                ps.setString(5, metadata.getApplyVerifyScriptContent());
-                ps.setString(6, metadata.getRollbackVerifyScriptContent());
-                ps.setTimestamp(7, Timestamp.valueOf(metadata.getCreatedAt() != null ? metadata.getCreatedAt() : LocalDateTime.now()));
+                ps.setString(3, metadata.getRollbackScriptContent());
+                ps.setString(4, metadata.getRollbackVerifyScriptContent());
+                ps.setTimestamp(5, Timestamp.valueOf(metadata.getCreatedAt() != null ? metadata.getCreatedAt() : LocalDateTime.now()));
                 return ps;
             }, keyHolder);
         }

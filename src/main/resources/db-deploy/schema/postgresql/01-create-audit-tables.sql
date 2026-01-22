@@ -6,9 +6,7 @@ CREATE TABLE IF NOT EXISTS schemaflow_changelog_script (
     id BIGSERIAL PRIMARY KEY,
     script_name VARCHAR(500) NOT NULL UNIQUE,
     script_checksum VARCHAR(64) NOT NULL,
-    apply_script_content TEXT,
     rollback_script_content TEXT,
-    apply_verify_script_content TEXT,
     rollback_verify_script_content TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
