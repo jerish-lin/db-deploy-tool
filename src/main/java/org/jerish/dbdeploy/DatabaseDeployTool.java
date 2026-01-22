@@ -9,6 +9,7 @@ import org.jerish.dbdeploy.service.DatabaseStatusPrinter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.builder.SpringApplicationBuilder;
@@ -25,23 +26,8 @@ public class DatabaseDeployTool implements CommandLineRunner {
 
     public static void main(String[] args) {
         try {
-            log.info("Starting Database Deploy Tool");
-
-            // Parse command line arguments first to get config path
-            CommandLineOptions options = CommandLineOptions.parseArgs(args);
-
-            // Create SpringApplicationBuilder with custom config location if specified
-            SpringApplicationBuilder builder = new SpringApplicationBuilder(DatabaseDeployTool.class);
-
-            if (options.getConfigPath() != null) {
-                log.info("Using custom config file: {}", options.getConfigPath());
-                // Set the config location - this will override application.yml
-                builder.properties("spring.config.location=" + options.getConfigPath());
-            } else {
-                log.info("Using default config file from classpath");
-            }
-
-            SpringApplication app = builder.build();
+            SpringApplication app = new SpringApplication(DatabaseDeployTool.class);
+            app.setWebApplicationType(WebApplicationType.NONE);
             System.exit(SpringApplication.exit(app.run(args)));
         } catch (Exception e) {
             log.error("Database deploy tool failed", e);

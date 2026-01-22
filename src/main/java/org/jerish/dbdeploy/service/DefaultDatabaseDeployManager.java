@@ -119,36 +119,21 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
                 log.info("Database schema not initialized - returning empty status");
                 DatabaseStatus status = new DatabaseStatus();
                 status.setDatabaseConnected(true);
-                
+
                 // Create empty sub-objects
-                DatabaseStatus.DeploymentStateInfo deploymentState = new DatabaseStatus.DeploymentStateInfo();
-                deploymentState.setCurrentTag("");
-                status.setDeploymentState(deploymentState);
-                
-                DatabaseStatus.DatabaseHealthInfo healthInfo = new DatabaseStatus.DatabaseHealthInfo();
-                healthInfo.setHealthy(true);
-                healthInfo.setHealthMessage("Database connected but schema not initialized");
-                status.setHealthInfo(healthInfo);
-                
-                DatabaseStatus.ConfigurationInfo configInfo = new DatabaseStatus.ConfigurationInfo();
-                configInfo.setValid(true);
-                configInfo.setMessage("Ready for initial deployment");
-                status.setConfigurationInfo(configInfo);
-                
-                DatabaseStatus.ScriptStatusInfo scriptStatus = new DatabaseStatus.ScriptStatusInfo();
-                scriptStatus.setExecutedScriptNames(new ArrayList<>());
-                scriptStatus.setFailedScriptNames(new ArrayList<>());
-                scriptStatus.setRolledBackScriptNames(new ArrayList<>());
-                scriptStatus.setPendingScriptNames(new ArrayList<>());
-                scriptStatus.setScriptHistory(new ArrayList<>());
-                scriptStatus.setFailedScriptDetails(new ArrayList<>());
-                status.setScriptStatus(scriptStatus);
-                
+                DatabaseStatus.ScriptSummary scriptSummary = new DatabaseStatus.ScriptSummary();
+                scriptSummary.setScripts(new ArrayList<>());
+                scriptSummary.setTotalScripts(0);
+                scriptSummary.setExecutedScripts(0);
+                scriptSummary.setFailedScripts(0);
+                scriptSummary.setRolledBackScripts(0);
+                status.setScriptSummary(scriptSummary);
+
                 DatabaseStatus.LockInfo lockInfo = new DatabaseStatus.LockInfo();
                 lockInfo.setActive(false);
                 status.setLockInfo(lockInfo);
-                
-                status.setRecentDeployments(new ArrayList<>());
+
+                status.setRecentAuditHistory(new ArrayList<>());
                 return status;
             }
 
@@ -158,12 +143,7 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
             log.warn("Failed to get database status", e);
             DatabaseStatus status = new DatabaseStatus();
             status.setDatabaseConnected(false);
-            
-            DatabaseStatus.DatabaseHealthInfo errorHealthInfo = new DatabaseStatus.DatabaseHealthInfo();
-            errorHealthInfo.setHealthy(false);
-            errorHealthInfo.setHealthMessage("Database connection failed: " + e.getMessage());
-            status.setHealthInfo(errorHealthInfo);
-            
+
             return status;
         }
     }

@@ -3,6 +3,10 @@ package org.jerish.precheck.autoconfigure;
 import org.jerish.dbdeploy.changelog.ChangeLogManager;
 import org.jerish.dbdeploy.config.*;
 import org.jerish.dbdeploy.repository.AuditRepository;
+import org.jerish.dbdeploy.schema.ClickHouseSchemaInitializationStrategy;
+import org.jerish.dbdeploy.schema.PostgreSqlSchemaInitializationStrategy;
+import org.jerish.dbdeploy.schema.SQLiteSchemaInitializationStrategy;
+import org.jerish.dbdeploy.schema.SchemaInitializationManager;
 import org.jerish.dbdeploy.script.FileReader;
 import org.jerish.dbdeploy.script.ScriptExecutionManager;
 import org.jerish.dbdeploy.script.ScriptExecutor;
@@ -25,7 +29,12 @@ import org.springframework.context.annotation.Import;
         AuditRepository.class,
         ChangeLogManager.class,
         DatabaseStatusService.class,
-        DBStatusPreCheckService.class
+        DBStatusPreCheckService.class,
+
+        PostgreSqlSchemaInitializationStrategy.class,
+        SQLiteSchemaInitializationStrategy.class,
+        ClickHouseSchemaInitializationStrategy.class,
+        SchemaInitializationManager.class
 })
 public class DbDeployCheckAutoConfiguration {
 }

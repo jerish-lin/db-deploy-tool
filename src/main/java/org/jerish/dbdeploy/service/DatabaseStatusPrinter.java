@@ -15,30 +15,40 @@ public class DatabaseStatusPrinter {
         }
 
         log.info("=== Database Deployment Status ===");
-        log.info("Database Name: {}", status.getDatabaseName());
-        
-        // Print deployment state
-        DatabaseStatus.DeploymentStateInfo deploymentState = status.getDeploymentState();
-        if (deploymentState != null) {
-            log.info("Current Tag: {}", deploymentState.getCurrentTag() != null ? deploymentState.getCurrentTag() : "None");
-            log.info("Total Scripts: {}", deploymentState.getTotalScripts());
-            log.info("Executed Scripts: {}", deploymentState.getSuccessfulScripts());
-            log.info("Failed Scripts: {}", deploymentState.getFailedScripts());
-            log.info("Rolled Back Scripts: {}", deploymentState.getRolledBackScripts());
-            log.info("Last Deployment Time: {}", deploymentState.getDeploymentTime() != null ? deploymentState.getDeploymentTime() : "Never");
-        }
-        
-        // Print database health
-        DatabaseStatus.DatabaseHealthInfo healthInfo = status.getHealthInfo();
-        if (healthInfo != null) {
-            log.info("Database Version: {}", healthInfo.getVersion() != null ? healthInfo.getVersion() : "Unknown");
+
+        // Print script summary
+        if (status.getScriptSummary() != null) {
+            DatabaseStatus.ScriptSummary summary = status.getScriptSummary();
+            log.info("Total Scripts: {}", summary.getTotalScripts());
+            log.info("Executed Scripts: {}", summary.getExecutedScripts());
+            log.info("Failed Scripts: {}", summary.getFailedScripts());
+            log.info("Rolled Back Scripts: {}", summary.getRolledBackScripts());
+
+            if (summary.getScripts() != null && !summary.getScripts().isEmpty()) {
+                log.info("Script Status:");
+                for (DatabaseStatus.ScriptStatus scriptStatus : summary.getScripts()) {
+                    log.info("  - {}: {}", scriptStatus.getScriptName(), scriptStatus.getLatestStatus());
+                }
+            }
         }
 
-        // Print script status
-        DatabaseStatus.ScriptStatusInfo scriptStatus = status.getScriptStatus();
-        if (scriptStatus != null && !scriptStatus.getExecutedScriptNames().isEmpty()) {
-            log.info("Executed Scripts:");
-            scriptStatus.getExecutedScriptNames().forEach(script -> log.info("  - {}", script));
+        // Print recent audit history
+        if (status.getRecentAuditHistory() != null && !status.getRecentAuditHistory().isEmpty()) {
+            log.info("Recent Audit History (last 10):");
+            for (DatabaseStatus.AuditHistoryEntry entry : status.getRecentAuditHistory()) {
+                log.info("  - [{}] {} at {}",
+                        entry.getExecutionStatus(),
+                        entry.getScriptName(),
+                        entry.getExecutionTime());
+                if (entry.getErrorMessage() != null && !entry.getErrorMessage().isEmpty()) {
+                    log.info("    Error: {}", entry.getErrorMessage());
+                }
+            }
+        }
+
+        // Print lock info
+        if (status.getLockInfo() != null && status.getLockInfo().isActive()) {
+            log.info("Deployment Lock: ACTIVE (held by: {})", status.getLockInfo().getLockOwner());
         }
 
         log.info("=== End Status ===");

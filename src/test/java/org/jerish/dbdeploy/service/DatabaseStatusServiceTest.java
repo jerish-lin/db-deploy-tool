@@ -38,80 +38,65 @@ public class DatabaseStatusServiceTest {
     @DisplayName("Test getComprehensiveStatus returns database status")
     void testGetComprehensiveStatus() {
         // Setup mock responses
-        when(auditRepository.getCurrentDeploymentState()).thenReturn(new DatabaseStatus.DeploymentStateInfo());
-        when(auditRepository.getScriptExecutionHistory()).thenReturn(new ArrayList<>());
+        when(auditRepository.getScriptSummary()).thenReturn(new DatabaseStatus.ScriptSummary());
         when(auditRepository.getCurrentLockStatus()).thenReturn(new DatabaseStatus.LockInfo());
-        when(auditRepository.getDatabaseHealthInfo()).thenReturn(new DatabaseStatus.DatabaseHealthInfo());
-        when(auditRepository.getConfigurationInfo()).thenReturn(new DatabaseStatus.ConfigurationInfo());
-        when(auditRepository.getRecentDeploymentHistory()).thenReturn(new ArrayList<>());
-        when(auditRepository.getTotalRolledBackScripts()).thenReturn(0);
+        when(auditRepository.getRecentAuditHistory()).thenReturn(new ArrayList<>());
 
         DatabaseStatus status = service.getComprehensiveStatus();
 
         assertNotNull(status);
         assertTrue(status.isDatabaseConnected());
-        assertNotNull(status.getDeploymentState());
-        assertNotNull(status.getScriptStatus());
+        assertNotNull(status.getScriptSummary());
         assertNotNull(status.getLockInfo());
-        assertNotNull(status.getHealthInfo());
-        assertNotNull(status.getConfigurationInfo());
-        assertNotNull(status.getRecentDeployments());
+        assertNotNull(status.getRecentAuditHistory());
 
-        verify(auditRepository).getCurrentDeploymentState();
-        verify(auditRepository).getScriptExecutionHistory();
+        verify(auditRepository).getScriptSummary();
         verify(auditRepository).getCurrentLockStatus();
-        verify(auditRepository).getDatabaseHealthInfo();
-        verify(auditRepository).getConfigurationInfo();
-        verify(auditRepository).getRecentDeploymentHistory();
-        verify(auditRepository).getTotalRolledBackScripts();
+        verify(auditRepository).getRecentAuditHistory();
     }
 
     @Test
     @DisplayName("Test getComprehensiveStatus handles audit repository exceptions")
     void testGetComprehensiveStatusHandlesExceptions() {
-        when(auditRepository.getCurrentDeploymentState()).thenThrow(new RuntimeException("Database error"));
+        when(auditRepository.getScriptSummary()).thenThrow(new RuntimeException("Database error"));
         // Mock other methods to return empty objects
-        when(auditRepository.getScriptExecutionHistory()).thenReturn(new ArrayList<>());
         when(auditRepository.getCurrentLockStatus()).thenReturn(new DatabaseStatus.LockInfo());
-        when(auditRepository.getDatabaseHealthInfo()).thenReturn(new DatabaseStatus.DatabaseHealthInfo());
-        when(auditRepository.getConfigurationInfo()).thenReturn(new DatabaseStatus.ConfigurationInfo());
-        when(auditRepository.getRecentDeploymentHistory()).thenReturn(new ArrayList<>());
-        when(auditRepository.getTotalRolledBackScripts()).thenReturn(0);
+        when(auditRepository.getRecentAuditHistory()).thenReturn(new ArrayList<>());
 
         DatabaseStatus status = service.getComprehensiveStatus();
 
         assertNotNull(status);
         // Should still return a status object even when there are exceptions
-        assertNotNull(status.getScriptStatus());
+        assertNotNull(status.getScriptSummary());
         assertNotNull(status.getLockInfo());
-        assertNotNull(status.getHealthInfo());
-        assertNotNull(status.getConfigurationInfo());
-        assertNotNull(status.getRecentDeployments());
+        assertNotNull(status.getRecentAuditHistory());
     }
 
     @Test
     @DisplayName("Test getComprehensiveStatus with failed scripts")
     void testGetComprehensiveStatusWithFailedScripts() {
         // Setup mock responses with failed scripts
-        when(auditRepository.getCurrentDeploymentState()).thenReturn(new DatabaseStatus.DeploymentStateInfo());
-        
-        DatabaseStatus.ScriptExecutionInfo failedScript = new DatabaseStatus.ScriptExecutionInfo();
+        DatabaseStatus.ScriptSummary summary = new DatabaseStatus.ScriptSummary();
+        summary.setTotalScripts(3);
+        summary.setExecutedScripts(2);
+        summary.setFailedScripts(1);
+        summary.setRolledBackScripts(0);
+
+        DatabaseStatus.ScriptStatus failedScript = new DatabaseStatus.ScriptStatus();
         failedScript.setScriptName("failed-script.sql");
-        failedScript.setExecutionStatus("FAILED");
-        when(auditRepository.getScriptExecutionHistory()).thenReturn(new ArrayList<>(java.util.List.of(failedScript)));
-        
-        when(auditRepository.getFailedScripts()).thenReturn(new ArrayList<>(java.util.List.of(new DatabaseStatus.FailedScriptInfo())));
+        failedScript.setLatestStatus("FAILED");
+        summary.setScripts(new ArrayList<>(java.util.List.of(failedScript)));
+
+        when(auditRepository.getScriptSummary()).thenReturn(summary);
         when(auditRepository.getCurrentLockStatus()).thenReturn(new DatabaseStatus.LockInfo());
-        when(auditRepository.getDatabaseHealthInfo()).thenReturn(new DatabaseStatus.DatabaseHealthInfo());
-        when(auditRepository.getConfigurationInfo()).thenReturn(new DatabaseStatus.ConfigurationInfo());
-        when(auditRepository.getRecentDeploymentHistory()).thenReturn(new ArrayList<>());
-        when(auditRepository.getTotalRolledBackScripts()).thenReturn(0);
+        when(auditRepository.getRecentAuditHistory()).thenReturn(new ArrayList<>());
 
         DatabaseStatus status = service.getComprehensiveStatus();
 
         assertNotNull(status);
-        assertEquals(1, status.getScriptStatus().getFailedScripts());
-        assertFalse(status.getScriptStatus().getFailedScriptNames().isEmpty());
-        assertTrue(status.getScriptStatus().getFailedScriptNames().contains("failed-script.sql"));
+        assertEquals(1, status.getScriptSummary().getFailedScripts());
+        assertFalse(status.getScriptSummary().getScripts().isEmpty());
+        assertTrue(status.getScriptSummary().getScripts().stream()
+                .anyMatch(s -> "FAILED".equals(s.getLatestStatus()) && "failed-script.sql".equals(s.getScriptName())));
     }
 }

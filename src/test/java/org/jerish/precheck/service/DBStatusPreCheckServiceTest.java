@@ -6,6 +6,7 @@ import org.jerish.dbdeploy.config.ChangeLogPathConfig;
 import org.jerish.dbdeploy.entity.ChangeLogConfig;
 import org.jerish.dbdeploy.entity.DatabaseStatus;
 import org.jerish.dbdeploy.entity.ScriptFileContent;
+import org.jerish.dbdeploy.schema.SchemaInitializationManager;
 import org.jerish.dbdeploy.service.DatabaseStatusService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -38,14 +39,19 @@ public class DBStatusPreCheckServiceTest {
     @Mock
     private ChangeLogPathConfig configuration;
 
+    @Mock
+    private SchemaInitializationManager schemaInitializationManager;
+
     private DBStatusPreCheckService service;
 
     @BeforeEach
     void setUp() {
-        service = new DBStatusPreCheckService(databaseStatusService, changeLogManager, configuration);
+        service = new DBStatusPreCheckService(databaseStatusService, changeLogManager, configuration, schemaInitializationManager);
 
         // Set default values for configuration
         when(configuration.getPath()).thenReturn("classpath:db-changelog.yml");
+        // Set default schema initialized to true
+        when(schemaInitializationManager.isSchemaInitialized()).thenReturn(true);
     }
 
     @Test
@@ -59,9 +65,10 @@ public class DBStatusPreCheckServiceTest {
         lockInfo.setActive(false);
         status.setLockInfo(lockInfo);
 
-        DatabaseStatus.ScriptStatusInfo scriptStatus = new DatabaseStatus.ScriptStatusInfo();
-        scriptStatus.setFailedScriptNames(List.of());
-        status.setScriptStatus(scriptStatus);
+        DatabaseStatus.ScriptSummary scriptSummary = new DatabaseStatus.ScriptSummary();
+        scriptSummary.setFailedScripts(0);
+        scriptSummary.setScripts(List.of());
+        status.setScriptSummary(scriptSummary);
 
         when(databaseStatusService.getComprehensiveStatus()).thenReturn(status);
 
@@ -113,9 +120,19 @@ public class DBStatusPreCheckServiceTest {
         lockInfo.setActive(false);
         status.setLockInfo(lockInfo);
 
-        DatabaseStatus.ScriptStatusInfo scriptStatus = new DatabaseStatus.ScriptStatusInfo();
-        scriptStatus.setFailedScriptNames(List.of("script1", "script2"));
-        status.setScriptStatus(scriptStatus);
+        DatabaseStatus.ScriptSummary scriptSummary = new DatabaseStatus.ScriptSummary();
+        scriptSummary.setFailedScripts(2);
+
+        DatabaseStatus.ScriptStatus scriptStatus1 = new DatabaseStatus.ScriptStatus();
+        scriptStatus1.setScriptName("script1");
+        scriptStatus1.setLatestStatus("FAILED");
+
+        DatabaseStatus.ScriptStatus scriptStatus2 = new DatabaseStatus.ScriptStatus();
+        scriptStatus2.setScriptName("script2");
+        scriptStatus2.setLatestStatus("FAILED");
+
+        scriptSummary.setScripts(List.of(scriptStatus1, scriptStatus2));
+        status.setScriptSummary(scriptSummary);
 
         when(databaseStatusService.getComprehensiveStatus()).thenReturn(status);
 
@@ -146,9 +163,10 @@ public class DBStatusPreCheckServiceTest {
         lockInfo.setActive(false);
         status.setLockInfo(lockInfo);
 
-        DatabaseStatus.ScriptStatusInfo scriptStatus = new DatabaseStatus.ScriptStatusInfo();
-        scriptStatus.setFailedScriptNames(List.of());
-        status.setScriptStatus(scriptStatus);
+        DatabaseStatus.ScriptSummary scriptSummary = new DatabaseStatus.ScriptSummary();
+        scriptSummary.setFailedScripts(0);
+        scriptSummary.setScripts(List.of());
+        status.setScriptSummary(scriptSummary);
 
         when(databaseStatusService.getComprehensiveStatus()).thenReturn(status);
 
@@ -200,9 +218,10 @@ public class DBStatusPreCheckServiceTest {
         lockInfo.setActive(false);
         status.setLockInfo(lockInfo);
 
-        DatabaseStatus.ScriptStatusInfo scriptStatus = new DatabaseStatus.ScriptStatusInfo();
-        scriptStatus.setFailedScriptNames(List.of());
-        status.setScriptStatus(scriptStatus);
+        DatabaseStatus.ScriptSummary scriptSummary = new DatabaseStatus.ScriptSummary();
+        scriptSummary.setFailedScripts(0);
+        scriptSummary.setScripts(List.of());
+        status.setScriptSummary(scriptSummary);
 
         when(databaseStatusService.getComprehensiveStatus()).thenReturn(status);
 
@@ -218,8 +237,8 @@ public class DBStatusPreCheckServiceTest {
     }
 
     @Test
-    @DisplayName("Test pre-check handles null script status gracefully")
-    void testPreCheckHandlesNullScriptStatus() throws Exception {
+    @DisplayName("Test pre-check handles null script summary gracefully")
+    void testPreCheckHandlesNullScriptSummary() throws Exception {
         DatabaseStatus status = new DatabaseStatus();
         status.setDatabaseConnected(true);
 
@@ -227,7 +246,7 @@ public class DBStatusPreCheckServiceTest {
         lockInfo.setActive(false);
         status.setLockInfo(lockInfo);
 
-        status.setScriptStatus(null);
+        status.setScriptSummary(null);
 
         when(databaseStatusService.getComprehensiveStatus()).thenReturn(status);
 
@@ -250,9 +269,10 @@ public class DBStatusPreCheckServiceTest {
 
         status.setLockInfo(null);
 
-        DatabaseStatus.ScriptStatusInfo scriptStatus = new DatabaseStatus.ScriptStatusInfo();
-        scriptStatus.setFailedScriptNames(List.of());
-        status.setScriptStatus(scriptStatus);
+        DatabaseStatus.ScriptSummary scriptSummary = new DatabaseStatus.ScriptSummary();
+        scriptSummary.setFailedScripts(0);
+        scriptSummary.setScripts(List.of());
+        status.setScriptSummary(scriptSummary);
 
         when(databaseStatusService.getComprehensiveStatus()).thenReturn(status);
 
@@ -265,5 +285,34 @@ public class DBStatusPreCheckServiceTest {
 
             assertDoesNotThrow(() -> service.performPreCheck());
         }
+    }
+
+    @Test
+    @DisplayName("Test pre-check skips when schema is not initialized")
+    void testPreCheckSkipsWhenSchemaNotInitialized() {
+        // Mock schema as not initialized
+        when(schemaInitializationManager.isSchemaInitialized()).thenReturn(false);
+
+        // Should not throw any exception and should not call databaseStatusService
+        assertDoesNotThrow(() -> service.performPreCheck());
+
+        // Verify that database status service was not called since schema is not initialized
+        verifyNoInteractions(databaseStatusService);
+        verifyNoInteractions(changeLogManager);
+    }
+
+    @Test
+    @DisplayName("Test pre-check skips when schema initialization check throws exception")
+    void testPreCheckSkipsWhenSchemaInitializationCheckThrowsException() {
+        // Mock schema initialization check to throw exception
+        when(schemaInitializationManager.isSchemaInitialized())
+                .thenThrow(new RuntimeException("Failed to check schema initialization"));
+
+        // Should not throw any exception and should not call databaseStatusService
+        assertDoesNotThrow(() -> service.performPreCheck());
+
+        // Verify that database status service was not called since schema check failed
+        verifyNoInteractions(databaseStatusService);
+        verifyNoInteractions(changeLogManager);
     }
 }

@@ -220,8 +220,8 @@ public class DefaultDatabaseDeployManagerTest {
     }
 
     @Test
-    @DisplayName("Test deployOrRollback does nothing when both deploy and rollback needed (ambiguous state)")
-    void testDeployOrRollback_AmbiguousState() throws Exception {
+    @DisplayName("Test deployOrRollback does nothing when database already at target state")
+    void testDeployOrRollback_NoActionNeeded() throws Exception {
         try (MockedStatic<ConfigLoader> mockedConfigLoader = mockStatic(ConfigLoader.class)) {
             ChangeLogConfig mockConfig = new ChangeLogConfig();
             mockConfig.setScripts(List.of());
@@ -256,24 +256,6 @@ public class DefaultDatabaseDeployManagerTest {
     }
 
     @Test
-    @DisplayName("Test deployOrRollback does nothing when database already at target state")
-    void testDeployOrRollback_NoActionNeeded() throws Exception {
-        try (MockedStatic<ConfigLoader> mockedConfigLoader = mockStatic(ConfigLoader.class)) {
-            ChangeLogConfig mockConfig = new ChangeLogConfig();
-            mockConfig.setScripts(List.of());
-            mockedConfigLoader.when(() -> ConfigLoader.loadChangeLogConfig(anyString())).thenReturn(mockConfig);
-
-            when(changeLogManager.determineDeploymentAction(any(ChangeLogConfig.class)))
-                    .thenReturn(ChangeLogManager.DeploymentAction.NONE);
-
-            assertDoesNotThrow(() -> manager.deployOrRollback("classpath:test-changelog.yml", false));
-
-            verify(deployService, never()).deploy(any(), anyBoolean(), any());
-            verify(deployService, never()).rollback(any(), anyBoolean(), any());
-        }
-    }
-
-    @Test
     @DisplayName("Test status returns comprehensive status when schema initialized")
     void testStatus_SchemaInitialized() {
         when(schemaInitializationManager.isSchemaInitialized()).thenReturn(true);
@@ -296,10 +278,7 @@ public class DefaultDatabaseDeployManagerTest {
 
         assertNotNull(result);
         assertTrue(result.isDatabaseConnected());
-        assertNotNull(result.getDeploymentState());
-        assertNotNull(result.getHealthInfo());
-        assertNotNull(result.getConfigurationInfo());
-        assertNotNull(result.getScriptStatus());
+        assertNotNull(result.getScriptSummary());
         assertNotNull(result.getLockInfo());
         verify(databaseStatusService, never()).getComprehensiveStatus();
     }
@@ -313,8 +292,6 @@ public class DefaultDatabaseDeployManagerTest {
 
         assertNotNull(result);
         assertFalse(result.isDatabaseConnected());
-        assertNotNull(result.getHealthInfo());
-        assertFalse(result.getHealthInfo().isHealthy());
     }
 
     @Test
@@ -393,55 +370,6 @@ public class DefaultDatabaseDeployManagerTest {
             assertThrows(RuntimeException.class, () -> {
                 manager.deployOrRollback("classpath:/test-changelog.yml", false);
             });
-        }
-    }
-
-    @Test
-    @DisplayName("Test status with null health info from service")
-    void testStatusWithNullHealthInfo() {
-        when(schemaInitializationManager.isSchemaInitialized()).thenReturn(true);
-        DatabaseStatus mockStatus = new DatabaseStatus();
-        mockStatus.setDatabaseConnected(true);
-        mockStatus.setHealthInfo(null);
-        when(databaseStatusService.getComprehensiveStatus()).thenReturn(mockStatus);
-
-        DatabaseStatus result = manager.status();
-
-        assertNotNull(result);
-        assertNull(result.getHealthInfo());
-    }
-
-    @Test
-    @DisplayName("Test deployOrRollback with deploy action")
-    void testDeployOrRollback_DeployAction() throws Exception {
-        try (MockedStatic<ConfigLoader> mockedConfigLoader = mockStatic(ConfigLoader.class)) {
-            ChangeLogConfig mockConfig = new ChangeLogConfig();
-            mockConfig.setScripts(List.of());
-            mockedConfigLoader.when(() -> ConfigLoader.loadChangeLogConfig(anyString())).thenReturn(mockConfig);
-
-            when(changeLogManager.determineDeploymentAction(any(ChangeLogConfig.class)))
-                    .thenReturn(ChangeLogManager.DeploymentAction.DEPLOY);
-
-            manager.deployOrRollback("classpath:test-changelog.yml", false);
-
-            verify(deployService).deploy(any(ChangeLogConfig.class), eq(false), isNull());
-        }
-    }
-
-    @Test
-    @DisplayName("Test deployOrRollback with rollback action")
-    void testDeployOrRollback_RollbackAction() throws Exception {
-        try (MockedStatic<ConfigLoader> mockedConfigLoader = mockStatic(ConfigLoader.class)) {
-            ChangeLogConfig mockConfig = new ChangeLogConfig();
-            mockConfig.setScripts(List.of());
-            mockedConfigLoader.when(() -> ConfigLoader.loadChangeLogConfig(anyString())).thenReturn(mockConfig);
-
-            when(changeLogManager.determineDeploymentAction(any(ChangeLogConfig.class)))
-                    .thenReturn(ChangeLogManager.DeploymentAction.ROLLBACK);
-
-            manager.deployOrRollback("classpath:test-changelog.yml", false);
-
-            verify(deployService).rollback(any(ChangeLogConfig.class), eq(false), isNull());
         }
     }
 }

@@ -11,6 +11,7 @@ import org.jerish.dbdeploy.script.FileReader;
 import org.jerish.dbdeploy.script.ScriptParameterHandler;
 import org.springframework.stereotype.Service;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -238,7 +239,7 @@ public class ChangeLogManager {
 
         // For classpath paths, keep the prefix and append "scripts"
         if (basePath.startsWith("classpath:")) {
-            return basePath + "/scripts";
+            return basePath + "scripts";
         }
 
         // For file system paths, resolve "scripts" directory
@@ -246,7 +247,7 @@ public class ChangeLogManager {
             return basePath + "scripts";
         }
 
-        return basePath + java.io.File.separator + "scripts";
+        return basePath + File.separator + "scripts";
     }
 
     /**

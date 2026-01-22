@@ -9,6 +9,7 @@ import org.jerish.dbdeploy.config.ChangeLogPathConfig;
 import org.jerish.dbdeploy.entity.ChangeLogConfig;
 import org.jerish.dbdeploy.entity.DatabaseStatus;
 import org.jerish.dbdeploy.entity.ScriptFileContent;
+import org.jerish.dbdeploy.schema.SchemaInitializationManager;
 import org.jerish.dbdeploy.service.DatabaseStatusService;
 import org.jerish.precheck.annotation.EnableDbDeployCheck;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,9 @@ import java.util.stream.Collectors;
  * 1. A deployment is currently in progress (lock acquired by others)
  * 2. The last deployment status is FAILED
  * 3. There are pending changelog scripts not yet applied
+ * <p>
+ * Note: If the database schema is not initialized, the pre-check will be skipped
+ * and a warning will be logged.
  */
 @Slf4j
 @Service
@@ -33,6 +37,7 @@ public class DBStatusPreCheckService {
     private final DatabaseStatusService databaseStatusService;
     private final ChangeLogManager changeLogManager;
     private final ChangeLogPathConfig changeLogPathConfig;
+    private final SchemaInitializationManager schemaInitializationManager;
 
     /**
      * Performs the database status pre-check after bean construction.
@@ -45,6 +50,13 @@ public class DBStatusPreCheckService {
         log.info("Starting database deployment status pre-check...");
 
         try {
+            // Check if database schema is initialized
+            if (!isSchemaInitialized()) {
+                log.warn("Database schema is not initialized. Skipping deployment status pre-check. " +
+                        "Please run the deployment tool to initialize the schema.");
+                return;
+            }
+
             // Get comprehensive status once and reuse it for multiple checks
             DatabaseStatus status = getDatabaseStatus();
 
@@ -61,6 +73,20 @@ public class DBStatusPreCheckService {
         } catch (Exception e) {
             log.error("Database deployment status pre-check failed: {}", e.getMessage());
             throw new IllegalStateException("Database deployment status pre-check failed: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Check if the database schema is initialized.
+     *
+     * @return true if schema is initialized, false otherwise
+     */
+    private boolean isSchemaInitialized() {
+        try {
+            return schemaInitializationManager.isSchemaInitialized();
+        } catch (Exception e) {
+            log.warn("Failed to check schema initialization status: {}", e.getMessage());
+            return false;
         }
     }
 
@@ -117,15 +143,20 @@ public class DBStatusPreCheckService {
         }
 
         try {
-            if (status.getScriptStatus() != null) {
-                List<String> failedScripts = status.getScriptStatus().getFailedScriptNames();
+            if (status.getScriptSummary() != null) {
+                int failedScripts = status.getScriptSummary().getFailedScripts();
 
-                if (failedScripts != null && !failedScripts.isEmpty()) {
+                if (failedScripts > 0) {
+                    List<String> failedScriptNames = status.getScriptSummary().getScripts().stream()
+                            .filter(s -> "FAILED".equals(s.getLatestStatus()))
+                            .map(DatabaseStatus.ScriptStatus::getScriptName)
+                            .toList();
+
                     String message = String.format(
                             "Last deployment has %d failed script(s): %s. " +
                                     "Please resolve the failures before starting the application.",
-                            failedScripts.size(),
-                            String.join(", ", failedScripts)
+                            failedScripts,
+                            String.join(", ", failedScriptNames)
                     );
                     log.error(message);
                     throw new IllegalStateException(message);

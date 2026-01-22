@@ -239,81 +239,103 @@ public class AuditRepositoryTest {
     }
 
     @Test
-    @DisplayName("Test getCurrentDeploymentState returns deployment state")
-    void testGetCurrentDeploymentState_Success() {
-        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class), eq(0)))
-                .thenReturn(5);
-
-        DatabaseStatus.DeploymentStateInfo result = auditRepository.getCurrentDeploymentState();
-
-        assertNotNull(result);
-        assertEquals(5, result.getTotalScripts());
-    }
-
-    @Test
-    @DisplayName("Test getTotalRolledBackScripts returns count")
-    void testGetTotalRolledBackScripts_Success() {
-        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class)))
-                .thenReturn(3);
-
-        int result = auditRepository.getTotalRolledBackScripts();
-
-        assertEquals(3, result);
-    }
-
-    @Test
-    @DisplayName("Test getTotalRolledBackScripts returns 0 on exception")
-    void testGetTotalRolledBackScripts_Exception() {
-        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class)))
-                .thenThrow(new RuntimeException("Database error"));
-
-        int result = auditRepository.getTotalRolledBackScripts();
-
-        assertEquals(0, result);
-    }
-
-    @Test
-    @DisplayName("Test getScriptExecutionHistory returns history")
-    void testGetScriptExecutionHistory_Success() {
+    @DisplayName("Test getScriptSummary returns script summary with latest status")
+    void testGetScriptSummary_Success() {
         List<Map<String, Object>> mockResults = List.of(
-                Map.of("script_name", "script1", "execution_status", "SUCCESS"),
-                Map.of("script_name", "script2", "execution_status", "FAILED")
+                Map.of("script_name", "script1", "latest_status", "SUCCESS"),
+                Map.of("script_name", "script2", "latest_status", "SUCCESS"),
+                Map.of("script_name", "script3", "latest_status", "FAILED"),
+                Map.of("script_name", "script4", "latest_status", "ROLLED_BACK")
         );
         when(jdbcTemplate.queryForList(anyString()))
                 .thenReturn(mockResults);
 
-        List<DatabaseStatus.ScriptExecutionInfo> result = auditRepository.getScriptExecutionHistory();
+        DatabaseStatus.ScriptSummary result = auditRepository.getScriptSummary();
+
+        assertNotNull(result);
+        assertEquals(4, result.getTotalScripts());
+        assertEquals(2, result.getExecutedScripts());
+        assertEquals(1, result.getFailedScripts());
+        assertEquals(1, result.getRolledBackScripts());
+        assertEquals(4, result.getScripts().size());
+    }
+
+    @Test
+    @DisplayName("Test getScriptSummary returns empty summary on exception")
+    void testGetScriptSummary_Exception() {
+        when(jdbcTemplate.queryForList(anyString()))
+                .thenThrow(new RuntimeException("Database error"));
+
+        DatabaseStatus.ScriptSummary result = auditRepository.getScriptSummary();
+
+        assertNotNull(result);
+        assertEquals(0, result.getTotalScripts());
+        assertEquals(0, result.getExecutedScripts());
+        assertEquals(0, result.getFailedScripts());
+        assertEquals(0, result.getRolledBackScripts());
+        assertTrue(result.getScripts().isEmpty());
+    }
+
+    @Test
+    @DisplayName("Test getRecentAuditHistory returns audit history")
+    void testGetRecentAuditHistory_Success() {
+        Map<String, Object> result1 = new java.util.HashMap<>();
+        result1.put("audit_id", 1L);
+        result1.put("script_name", "script1");
+        result1.put("script_checksum", "abc123");
+        result1.put("execution_status", "SUCCESS");
+        result1.put("execution_time", "2024-01-01 10:00:00");
+        result1.put("execution_duration_ms", 100L);
+        result1.put("error_message", null);
+        result1.put("target_nodes", null);
+        result1.put("node_execution_details", null);
+
+        Map<String, Object> result2 = new java.util.HashMap<>();
+        result2.put("audit_id", 2L);
+        result2.put("script_name", "script2");
+        result2.put("script_checksum", "def456");
+        result2.put("execution_status", "FAILED");
+        result2.put("execution_time", "2024-01-01 11:00:00");
+        result2.put("execution_duration_ms", 50L);
+        result2.put("error_message", "Syntax error");
+        result2.put("target_nodes", null);
+        result2.put("node_execution_details", null);
+
+        List<Map<String, Object>> mockResults = List.of(result1, result2);
+        when(jdbcTemplate.queryForList(anyString()))
+                .thenReturn(mockResults);
+
+        List<DatabaseStatus.AuditHistoryEntry> result = auditRepository.getRecentAuditHistory();
 
         assertNotNull(result);
         assertEquals(2, result.size());
+        assertEquals("script1", result.get(0).getScriptName());
+        assertEquals("SUCCESS", result.get(0).getExecutionStatus());
+        assertEquals("abc123", result.get(0).getScriptChecksum());
+        assertEquals(1L, result.get(0).getAuditId());
+        assertEquals("2024-01-01 10:00:00", result.get(0).getExecutionTime());
+        assertEquals(100L, result.get(0).getExecutionDurationMs());
+        assertNull(result.get(0).getErrorMessage());
+
+        assertEquals("script2", result.get(1).getScriptName());
+        assertEquals("FAILED", result.get(1).getExecutionStatus());
+        assertEquals("def456", result.get(1).getScriptChecksum());
+        assertEquals(2L, result.get(1).getAuditId());
+        assertEquals("2024-01-01 11:00:00", result.get(1).getExecutionTime());
+        assertEquals(50L, result.get(1).getExecutionDurationMs());
+        assertEquals("Syntax error", result.get(1).getErrorMessage());
     }
 
     @Test
-    @DisplayName("Test getScriptExecutionHistory returns empty list on exception")
-    void testGetScriptExecutionHistory_Exception() {
+    @DisplayName("Test getRecentAuditHistory returns empty list on exception")
+    void testGetRecentAuditHistory_Exception() {
         when(jdbcTemplate.queryForList(anyString()))
                 .thenThrow(new RuntimeException("Database error"));
 
-        List<DatabaseStatus.ScriptExecutionInfo> result = auditRepository.getScriptExecutionHistory();
+        List<DatabaseStatus.AuditHistoryEntry> result = auditRepository.getRecentAuditHistory();
 
         assertNotNull(result);
         assertTrue(result.isEmpty());
-    }
-
-    @Test
-    @DisplayName("Test getFailedScripts returns failed script details")
-    void testGetFailedScripts_Success() {
-        List<Map<String, Object>> mockResults = List.of(
-                Map.of("script_name", "script1", "error_message", "Syntax error", "execution_time", "2024-01-01 10:00:00")
-        );
-        when(jdbcTemplate.queryForList(anyString()))
-                .thenReturn(mockResults);
-
-        List<DatabaseStatus.FailedScriptInfo> result = auditRepository.getFailedScripts();
-
-        assertNotNull(result);
-        assertEquals(1, result.size());
-        assertEquals("script1", result.get(0).getScriptName());
     }
 
     @Test
@@ -342,81 +364,6 @@ public class AuditRepositoryTest {
         DatabaseStatus.LockInfo result = auditRepository.getCurrentLockStatus();
 
         assertNull(result);
-    }
-
-    @Test
-    @DisplayName("Test getDatabaseHealthInfo returns health info")
-    void testGetDatabaseHealthInfo_Success() {
-        when(jdbcTemplate.queryForObject(anyString(), eq(String.class)))
-                .thenReturn("3.45.1");
-
-        DatabaseStatus.DatabaseHealthInfo result = auditRepository.getDatabaseHealthInfo();
-
-        assertNotNull(result);
-        assertTrue(result.isHealthy());
-        assertEquals("3.45.1", result.getVersion());
-    }
-
-    @Test
-    @DisplayName("Test getDatabaseHealthInfo handles non-SQLite databases")
-    void testGetDatabaseHealthInfo_NonSQLite() {
-        when(jdbcTemplate.queryForObject(anyString(), eq(String.class)))
-                .thenThrow(new RuntimeException("Not SQLite"));
-        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class)))
-                .thenReturn(1);
-
-        DatabaseStatus.DatabaseHealthInfo result = auditRepository.getDatabaseHealthInfo();
-
-        assertNotNull(result);
-        assertTrue(result.isHealthy());
-        assertEquals("Unknown", result.getVersion());
-    }
-
-    @Test
-    @DisplayName("Test getDatabaseHealthInfo returns unhealthy on connection failure")
-    void testGetDatabaseHealthInfo_ConnectionFailed() {
-        when(jdbcTemplate.queryForObject(anyString(), eq(String.class)))
-                .thenThrow(new RuntimeException("Not SQLite"));
-        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class)))
-                .thenThrow(new RuntimeException("Connection failed"));
-
-        DatabaseStatus.DatabaseHealthInfo result = auditRepository.getDatabaseHealthInfo();
-
-        assertNotNull(result);
-        assertFalse(result.isHealthy());
-    }
-
-    @Test
-    @DisplayName("Test getConfigurationInfo returns config info for SQLite")
-    void testGetConfigurationInfo_SQLite() {
-        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class)))
-                .thenReturn(2);
-
-        DatabaseStatus.ConfigurationInfo result = auditRepository.getConfigurationInfo();
-
-        assertNotNull(result);
-        assertTrue(result.isValid());
-    }
-
-    @Test
-    @DisplayName("Test getConfigurationInfo returns invalid when tables missing")
-    void testGetConfigurationInfo_TablesMissing() {
-        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class)))
-                .thenReturn(0);
-
-        DatabaseStatus.ConfigurationInfo result = auditRepository.getConfigurationInfo();
-
-        assertNotNull(result);
-        assertFalse(result.isValid());
-    }
-
-    @Test
-    @DisplayName("Test getRecentDeploymentHistory returns empty list")
-    void testGetRecentDeploymentHistory_Success() {
-        List<DatabaseStatus.DeploymentHistoryEntry> result = auditRepository.getRecentDeploymentHistory();
-
-        assertNotNull(result);
-        assertTrue(result.isEmpty());
     }
 
     @Test

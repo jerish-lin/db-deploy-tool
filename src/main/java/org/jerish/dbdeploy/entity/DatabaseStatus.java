@@ -2,130 +2,63 @@ package org.jerish.dbdeploy.entity;
 
 import lombok.Data;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.List;
-import java.util.Map;
 
 @Data
 public class DatabaseStatus {
     // Basic connection info
     private boolean databaseConnected;
-    private String databaseName;
-    private String databaseVersion;
-    private String databaseUrl;
-    
-    // Deployment state information
-    private DeploymentStateInfo deploymentState;
-    
-    // Script status information
-    private ScriptStatusInfo scriptStatus;
-    
+
+    // Script summary - simple summary of all scripts with latest status
+    private ScriptSummary scriptSummary;
+
+    // Recent execution history (last 10 audit entries from changelog_audit)
+    private List<AuditHistoryEntry> recentAuditHistory;
+
     // Deployment lock information
     private LockInfo lockInfo;
-    
-    // Database health information
-    private DatabaseHealthInfo healthInfo;
-    
-    // Configuration information
-    private ConfigurationInfo configurationInfo;
-    
-    // Recent deployment history (last 10 deployments)
-    private List<DeploymentHistoryEntry> recentDeployments;
-    
-    // Additional metrics
-    private Map<String, Object> additionalMetrics;
-    
+
     @Data
-    public static class DeploymentHistoryEntry {
-        private String tagName;
-        private String description;
-        private String deploymentTime; // String to support parsing from database
-        private String status;
-        private int scriptCount;
-        private String deployedBy;
-        
-        // Helper method to get parsed LocalDateTime
-        public LocalDateTime getParsedDeploymentTime() {
-            if (deploymentTime == null || deploymentTime.isEmpty()) {
-                return null;
-            }
-            try {
-                // Try standard ISO format first
-                return LocalDateTime.parse(deploymentTime);
-            } catch (DateTimeParseException e1) {
-                try {
-                    // Try SQLite datetime format: "YYYY-MM-DD HH:MM:SS"
-                    DateTimeFormatter sqliteFormatter =
-                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-                    return LocalDateTime.parse(deploymentTime, sqliteFormatter);
-                } catch (Exception e2) {
-                    return null;
-                }
-            }
-        }
-    }
-    
-    @Data
-    public static class DeploymentStateInfo {
-        private String currentTag;
-        private String description;
-        private String deploymentTime;
-        private String createdBy;
+    public static class ScriptSummary {
+        // List of all unique scripts with their latest status
+        private List<ScriptStatus> scripts;
+
+        // Summary counts
         private int totalScripts;
-        private int successfulScripts;
-        private int failedScripts;
-        private int rolledBackScripts;
+        private int executedScripts;   // Scripts with SUCCESS status
+        private int failedScripts;      // Scripts with FAILED status
+        private int rolledBackScripts;  // Scripts with ROLLED_BACK status
     }
-    
+
     @Data
-    public static class ScriptExecutionInfo {
+    public static class ScriptStatus {
         private String scriptName;
-        private String executionStatus;
+        private String latestStatus;  // SUCCESS / FAILED / ROLLED_BACK
     }
-    
+
     @Data
-    public static class ScriptStatusInfo {
-        private int totalScripts;
-        private int executedScripts;
-        private int failedScripts;
-        private int rolledBackScripts;
-        private int pendingScripts;
-        private List<String> executedScriptNames;
-        private List<String> failedScriptNames;
-        private List<String> rolledBackScriptNames;
-        private List<String> pendingScriptNames;
-        private List<ScriptExecutionInfo> scriptHistory;
-        private List<FailedScriptInfo> failedScriptDetails;
-    }
-    
-    @Data
-    public static class FailedScriptInfo {
+    public static class AuditHistoryEntry {
+        // Script information
         private String scriptName;
-        private String errorMessage;
+        private String scriptChecksum;
+
+        // Execution audit details
+        private Long auditId;
+        private String executionStatus;  // SUCCESS / FAILED / ROLLED_BACK
         private String executionTime;
+        private Long executionDurationMs;
+        private String errorMessage;
+
+        // Multi-node execution details (if applicable)
+        private List<String> targetNodes;
+        private String nodeExecutionDetails;
     }
-    
+
     @Data
     public static class LockInfo {
         private String lockOwner;
         private String lockAcquiredAt;
         private String lockExpiresAt;
         private boolean active;
-    }
-    
-    @Data
-    public static class DatabaseHealthInfo {
-        private String version;
-        private boolean healthy;
-        private String healthMessage;
-        private long responseTime;
-    }
-    
-    @Data
-    public static class ConfigurationInfo {
-        private boolean valid;
-        private String message;
     }
 }

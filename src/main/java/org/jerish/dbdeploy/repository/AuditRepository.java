@@ -525,91 +525,6 @@ public class AuditRepository {
 
     // ==================== Status and Reporting Operations ====================
 
-    public DatabaseStatus.DeploymentStateInfo getCurrentDeploymentState() {
-        DatabaseStatus.DeploymentStateInfo info = new DatabaseStatus.DeploymentStateInfo();
-        info.setCurrentTag("");
-        info.setDescription("");
-        info.setDeploymentTime("");
-        info.setCreatedBy("");
-
-        String totalSql = "SELECT COUNT(*) FROM schemaflow_changelog_audit";
-        String successSql = "SELECT COUNT(*) FROM schemaflow_changelog_audit WHERE execution_status = 'SUCCESS'";
-        String failedSql = "SELECT COUNT(*) FROM schemaflow_changelog_audit WHERE execution_status = 'FAILED'";
-        String rolledBackSql = "SELECT COUNT(*) FROM schemaflow_changelog_audit WHERE execution_status = 'ROLLED_BACK'";
-
-        try {
-            info.setTotalScripts(dbDeployJdbcTemplate.queryForObject(totalSql, Integer.class, 0));
-            info.setSuccessfulScripts(dbDeployJdbcTemplate.queryForObject(successSql, Integer.class, 0));
-            info.setFailedScripts(dbDeployJdbcTemplate.queryForObject(failedSql, Integer.class, 0));
-            info.setRolledBackScripts(dbDeployJdbcTemplate.queryForObject(rolledBackSql, Integer.class, 0));
-        } catch (Exception e) {
-            log.debug("Error getting deployment state", e);
-        }
-
-        return info;
-    }
-
-    public int getTotalRolledBackScripts() {
-        String sql = "SELECT COUNT(*) FROM schemaflow_changelog_audit WHERE execution_status = 'ROLLED_BACK'";
-        try {
-            Integer totalRolledBack = dbDeployJdbcTemplate.queryForObject(sql, Integer.class);
-            return totalRolledBack != null ? totalRolledBack : 0;
-        } catch (Exception e) {
-            log.debug("Error getting total rolled back count", e);
-            return 0;
-        }
-    }
-
-    public List<DatabaseStatus.ScriptExecutionInfo> getScriptExecutionHistory() {
-        String sql = """
-                SELECT script_name, execution_status
-                FROM script_execution_history
-                ORDER BY execution_time DESC
-                LIMIT 50
-                """;
-
-        try {
-            List<Map<String, Object>> scriptResults = dbDeployJdbcTemplate.queryForList(sql);
-            List<DatabaseStatus.ScriptExecutionInfo> history = new ArrayList<>();
-
-            for (Map<String, Object> row : scriptResults) {
-                DatabaseStatus.ScriptExecutionInfo info = new DatabaseStatus.ScriptExecutionInfo();
-                info.setScriptName((String) row.get("script_name"));
-                info.setExecutionStatus((String) row.get("execution_status"));
-                history.add(info);
-            }
-            return history;
-        } catch (Exception e) {
-            log.error("Error getting script execution history", e);
-            return new ArrayList<>();
-        }
-    }
-
-    public List<DatabaseStatus.FailedScriptInfo> getFailedScripts() {
-        String sql = """
-                SELECT script_name, error_message, execution_time
-                FROM failed_scripts
-                ORDER BY execution_time DESC
-                """;
-
-        try {
-            List<Map<String, Object>> failedResults = dbDeployJdbcTemplate.queryForList(sql);
-            List<DatabaseStatus.FailedScriptInfo> failedScripts = new ArrayList<>();
-
-            for (Map<String, Object> row : failedResults) {
-                DatabaseStatus.FailedScriptInfo info = new DatabaseStatus.FailedScriptInfo();
-                info.setScriptName((String) row.get("script_name"));
-                info.setErrorMessage((String) row.get("error_message"));
-                info.setExecutionTime((String) row.get("execution_time"));
-                failedScripts.add(info);
-            }
-            return failedScripts;
-        } catch (Exception e) {
-            log.error("Error getting failed scripts", e);
-            return new ArrayList<>();
-        }
-    }
-
     public DatabaseStatus.LockInfo getCurrentLockStatus() {
         String sql = """
                 SELECT lock_owner, lock_acquired_at, lock_expires_at, is_active
@@ -636,60 +551,119 @@ public class AuditRepository {
         return null;
     }
 
-    public DatabaseStatus.DatabaseHealthInfo getDatabaseHealthInfo() {
-        DatabaseStatus.DatabaseHealthInfo info = new DatabaseStatus.DatabaseHealthInfo();
+    /**
+     * Get script summary with latest status for all scripts
+     * Returns list of scripts with their latest execution status
+     */
+    public DatabaseStatus.ScriptSummary getScriptSummary() {
+        DatabaseStatus.ScriptSummary summary = new DatabaseStatus.ScriptSummary();
+        List<DatabaseStatus.ScriptStatus> scripts = new ArrayList<>();
+
+        String sql = """
+                SELECT
+                    cs.script_name,
+                    ca.execution_status as latest_status
+                FROM schemaflow_changelog_script cs
+                LEFT JOIN (
+                    SELECT
+                        script_id,
+                        execution_status,
+                        ROW_NUMBER() OVER (PARTITION BY script_id ORDER BY execution_time DESC) as rn
+                    FROM schemaflow_changelog_audit
+                ) ca ON cs.id = ca.script_id AND ca.rn = 1
+                ORDER BY cs.id
+                """;
 
         try {
-            String versionSql = dbDeployJdbcTemplate.queryForObject("SELECT sqlite_version()", String.class);
-            info.setVersion(versionSql);
-            info.setHealthy(true);
-            info.setHealthMessage("Database health check passed");
-        } catch (Exception e) {
-            try {
-                dbDeployJdbcTemplate.queryForObject("SELECT 1", Integer.class);
-                info.setVersion("Unknown");
-                info.setHealthy(true);
-            } catch (Exception ex) {
-                info.setHealthy(false);
-                info.setHealthMessage("Database health check failed");
+            List<Map<String, Object>> results = dbDeployJdbcTemplate.queryForList(sql);
+
+            for (Map<String, Object> row : results) {
+                DatabaseStatus.ScriptStatus status = new DatabaseStatus.ScriptStatus();
+                status.setScriptName((String) row.get("script_name"));
+                status.setLatestStatus((String) row.get("latest_status"));
+                scripts.add(status);
             }
+
+            summary.setScripts(scripts);
+
+            // Calculate summary counts
+            summary.setTotalScripts(scripts.size());
+            summary.setExecutedScripts((int) scripts.stream()
+                    .filter(s -> "SUCCESS".equals(s.getLatestStatus())).count());
+            summary.setFailedScripts((int) scripts.stream()
+                    .filter(s -> "FAILED".equals(s.getLatestStatus())).count());
+            summary.setRolledBackScripts((int) scripts.stream()
+                    .filter(s -> "ROLLED_BACK".equals(s.getLatestStatus())).count());
+
+        } catch (Exception e) {
+            log.error("Error getting script summary", e);
+            summary.setScripts(new ArrayList<>());
+            summary.setTotalScripts(0);
+            summary.setExecutedScripts(0);
+            summary.setFailedScripts(0);
+            summary.setRolledBackScripts(0);
         }
-        return info;
+
+        return summary;
     }
 
-    public DatabaseStatus.ConfigurationInfo getConfigurationInfo() {
-        DatabaseStatus.ConfigurationInfo info = new DatabaseStatus.ConfigurationInfo();
+    /**
+     * Get recent audit history entries (last 10)
+     */
+    public List<DatabaseStatus.AuditHistoryEntry> getRecentAuditHistory() {
+        List<DatabaseStatus.AuditHistoryEntry> history = new ArrayList<>();
+
+        String sql = """
+                SELECT
+                    ca.id as audit_id,
+                    cs.script_name,
+                    cs.script_checksum,
+                    ca.execution_status,
+                    ca.execution_time,
+                    ca.execution_duration_ms,
+                    ca.error_message,
+                    ca.target_nodes,
+                    ca.node_execution_details
+                FROM schemaflow_changelog_audit ca
+                INNER JOIN schemaflow_changelog_script cs ON ca.script_id = cs.id
+                ORDER BY ca.execution_time DESC
+                LIMIT 10
+                """;
 
         try {
-            String tableCheckSql = """
-                    SELECT COUNT(*) as table_count
-                    FROM sqlite_master
-                    WHERE type='table' AND name IN ('schemaflow_changelog_script', 'schemaflow_changelog_audit')
-                    """;
+            List<Map<String, Object>> results = dbDeployJdbcTemplate.queryForList(sql);
 
-            try {
-                Integer tableCount = dbDeployJdbcTemplate.queryForObject(tableCheckSql, Integer.class);
-                info.setValid(tableCount != null && tableCount >= 2);
-                info.setMessage(tableCount != null && tableCount >= 2 ?
-                        "Audit tables present" : "Missing audit tables");
-            } catch (Exception e) {
-                try {
-                    dbDeployJdbcTemplate.queryForObject("SELECT COUNT(*) FROM schemaflow_changelog_script", Integer.class);
-                    info.setValid(true);
-                    info.setMessage("Audit tables accessible");
-                } catch (Exception ex) {
-                    info.setValid(false);
-                    info.setMessage("Audit tables not accessible");
+            for (Map<String, Object> row : results) {
+                DatabaseStatus.AuditHistoryEntry entry = new DatabaseStatus.AuditHistoryEntry();
+                entry.setAuditId(((Number) row.get("audit_id")).longValue());
+                entry.setScriptName((String) row.get("script_name"));
+                entry.setScriptChecksum((String) row.get("script_checksum"));
+                entry.setExecutionStatus((String) row.get("execution_status"));
+                entry.setExecutionTime((String) row.get("execution_time"));
+
+                Object durationMs = row.get("execution_duration_ms");
+                if (durationMs != null) {
+                    entry.setExecutionDurationMs(((Number) durationMs).longValue());
                 }
+
+                entry.setErrorMessage((String) row.get("error_message"));
+
+                // Handle target_nodes (stored as JSON string)
+                String targetNodesStr = (String) row.get("target_nodes");
+                if (targetNodesStr != null && !targetNodesStr.isEmpty()) {
+                    // Parse JSON array - for now, just store as string
+                    // In production, you might want to use a JSON parser
+                    entry.setTargetNodes(List.of(targetNodesStr.split(",")));
+                }
+
+                entry.setNodeExecutionDetails((String) row.get("node_execution_details"));
+
+                history.add(entry);
             }
         } catch (Exception e) {
-            info.setValid(false);
-            info.setMessage("Configuration check failed");
+            log.error("Error getting recent audit history", e);
         }
-        return info;
-    }
 
-    public List<DatabaseStatus.DeploymentHistoryEntry> getRecentDeploymentHistory() {
-        return new ArrayList<>();
+        return history;
     }
 }
