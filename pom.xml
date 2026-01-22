@@ -11,10 +11,10 @@
         <relativePath/>
     </parent>
 
-    <groupId>org.jerish.dbdeploy</groupId>
-    <artifactId>db-deploy-tool</artifactId>
+    <groupId>com.scb.mrp.schemaflow</groupId>
+    <artifactId>schemaflow</artifactId>
     <version>1.0-SNAPSHOT</version>
-    <name>db-deploy-tool</name>
+    <name>schemaflow</name>
     <description>Database Deployment Tool with Spring Boot</description>
 
     <properties>
