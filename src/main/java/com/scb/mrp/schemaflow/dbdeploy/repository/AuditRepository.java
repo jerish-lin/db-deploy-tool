@@ -7,6 +7,7 @@ import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptExecutionStatus;
 import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptMetadata;
 import com.scb.mrp.schemaflow.dbdeploy.model.ChangeLogEntry;
 import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseStatus;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -259,12 +260,23 @@ public class AuditRepository {
             }, keyHolder);
         }
 
-        Number generatedId = keyHolder.getKey();
-        if (generatedId != null) {
-            return generatedId.longValue();
-        } else {
-            throw new RuntimeException("Creating script metadata failed, no ID obtained.");
+        // Try getKey() first (works for SQLite and some PostgreSQL configurations)
+        try {
+            Number generatedId = keyHolder.getKey();
+            if (generatedId != null) {
+                return generatedId.longValue();
+            }
+        } catch (InvalidDataAccessApiUsageException e) {
+            // PostgreSQL may throw this when multiple keys are returned, fall through to getKeys()
         }
+
+        // Fallback to getKeys() for PostgreSQL which returns multiple keys
+        Map<String, Object> keys = keyHolder.getKeys();
+        if (keys != null && keys.get("id") != null) {
+            return ((Number) keys.get("id")).longValue();
+        }
+
+        throw new RuntimeException("Creating script metadata failed, no ID obtained.");
     }
 
     // ==================== Audit Entry Operations ====================
@@ -311,12 +323,23 @@ public class AuditRepository {
             }, keyHolder);
         }
 
-        Number generatedId = keyHolder.getKey();
-        if (generatedId != null) {
-            return generatedId.longValue();
-        } else {
-            throw new RuntimeException("Creating audit entry failed, no ID obtained.");
+        // Try getKey() first (works for SQLite and some PostgreSQL configurations)
+        try {
+            Number generatedId = keyHolder.getKey();
+            if (generatedId != null) {
+                return generatedId.longValue();
+            }
+        } catch (InvalidDataAccessApiUsageException e) {
+            // PostgreSQL may throw this when multiple keys are returned, fall through to getKeys()
         }
+
+        // Fallback to getKeys() for PostgreSQL which returns multiple keys
+        Map<String, Object> keys = keyHolder.getKeys();
+        if (keys != null && keys.get("id") != null) {
+            return ((Number) keys.get("id")).longValue();
+        }
+
+        throw new RuntimeException("Creating audit entry failed, no ID obtained.");
     }
 
     /**
