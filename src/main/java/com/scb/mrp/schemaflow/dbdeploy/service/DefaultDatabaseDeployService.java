@@ -321,14 +321,13 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
                 rollbackEntry.setExecutionDurationMs(0L);
                 rollbackEntry.setRollbackScriptContent(entry.getRollbackScriptContent());
                 rollbackEntry.setRollbackVerifyScriptContent(entry.getRollbackVerifyScriptContent());
-                rollbackEntry.setParentAuditId(entry.getId());
                 rollbackEntry.setCreatedAt(LocalDateTime.now());
                 rollbackEntry.setUpdatedAt(LocalDateTime.now());
 
                 // Copy multi-node fields if applicable
                 rollbackEntry.setTargetNodes(entry.getTargetNodes());
 
-                auditRepository.recordRollbackScriptExecution(rollbackEntry, entry.getId());
+                auditRepository.recordRollbackScriptExecution(rollbackEntry);
 
                 log.info("Script {} rolled back successfully", entry.getScriptName());
             }

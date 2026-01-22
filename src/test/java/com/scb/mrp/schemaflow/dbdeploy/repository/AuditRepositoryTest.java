@@ -120,7 +120,7 @@ public class AuditRepositoryTest {
 
         // The test will fail because getKey() returns null, but we can verify the method was called
         assertThrows(RuntimeException.class, () -> {
-            auditRepository.recordRollbackScriptExecution(entry, 1L);
+            auditRepository.recordRollbackScriptExecution(entry);
         });
 
         // Verify that update was called at least once

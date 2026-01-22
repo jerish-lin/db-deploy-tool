@@ -15,9 +15,6 @@ CREATE INDEX IF NOT EXISTS idx_changelog_audit_execution_time ON schemaflow_chan
 -- Index for filtering by execution status
 CREATE INDEX IF NOT EXISTS idx_changelog_audit_execution_status ON schemaflow_changelog_audit(execution_status);
 
--- Index for parent-child audit relationships (rollback tracking)
-CREATE INDEX IF NOT EXISTS idx_changelog_audit_parent_audit_id ON schemaflow_changelog_audit(parent_audit_id);
-
 -- GIN index for target_nodes array (PostgreSQL-specific, for multi-node queries)
 CREATE INDEX IF NOT EXISTS idx_changelog_audit_target_nodes ON schemaflow_changelog_audit USING GIN(target_nodes);
 

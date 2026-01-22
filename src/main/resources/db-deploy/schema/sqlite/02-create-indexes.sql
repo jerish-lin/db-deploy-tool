@@ -15,9 +15,6 @@ CREATE INDEX IF NOT EXISTS idx_changelog_audit_execution_time ON schemaflow_chan
 -- Index for filtering by execution status
 CREATE INDEX IF NOT EXISTS idx_changelog_audit_execution_status ON schemaflow_changelog_audit(execution_status);
 
--- Index for parent-child audit relationships (rollback tracking)
-CREATE INDEX IF NOT EXISTS idx_changelog_audit_parent_audit_id ON schemaflow_changelog_audit(parent_audit_id);
-
 -- Indexes for schemaflow_deploy_lock table
 CREATE INDEX IF NOT EXISTS idx_deploy_lock_key ON schemaflow_deploy_lock(lock_key);
 CREATE INDEX IF NOT EXISTS idx_deploy_lock_expires ON schemaflow_deploy_lock(lock_expires_at, is_active);

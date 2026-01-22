@@ -100,13 +100,6 @@ public class AuditRepository {
         }
         entry.setErrorMessage(rs.getString("error_message"));
 
-        // Handle parent_audit_id
-        try {
-            entry.setParentAuditId(rs.getObject("parent_audit_id", Long.class));
-        } catch (SQLException e) {
-            entry.setParentAuditId(null);
-        }
-
         // Handle multi-node fields
         try {
             String targetNodesStr = rs.getString("target_nodes");
@@ -165,12 +158,6 @@ public class AuditRepository {
             entry.setExecutionDurationMs(null);
         }
         entry.setErrorMessage(rs.getString("error_message"));
-
-        try {
-            entry.setParentAuditId(rs.getObject("parent_audit_id", Long.class));
-        } catch (SQLException e) {
-            entry.setParentAuditId(null);
-        }
 
         try {
             String targetNodesStr = rs.getString("target_nodes");
@@ -289,9 +276,9 @@ public class AuditRepository {
         String sql = """
                 INSERT INTO schemaflow_changelog_audit (
                     script_id, execution_status, execution_time,
-                    execution_duration_ms, error_message, parent_audit_id,
+                    execution_duration_ms, error_message,
                     target_nodes, node_execution_details, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """;
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
@@ -304,10 +291,9 @@ public class AuditRepository {
                 ps.setString(3, entry.getExecutionTime().toString());
                 ps.setObject(4, entry.getExecutionDurationMs());
                 ps.setString(5, entry.getErrorMessage());
-                ps.setObject(6, entry.getParentAuditId());
-                ps.setString(7, entry.getTargetNodes() != null ? String.join(",", entry.getTargetNodes()) : null);
-                ps.setString(8, entry.getNodeExecutionDetails());
-                ps.setString(9, entry.getCreatedAt().toString());
+                ps.setString(6, entry.getTargetNodes() != null ? String.join(",", entry.getTargetNodes()) : null);
+                ps.setString(7, entry.getNodeExecutionDetails());
+                ps.setString(8, entry.getCreatedAt().toString());
                 return ps;
             }, keyHolder);
         } else {
@@ -318,10 +304,9 @@ public class AuditRepository {
                 ps.setTimestamp(3, Timestamp.valueOf(entry.getExecutionTime()));
                 ps.setObject(4, entry.getExecutionDurationMs());
                 ps.setString(5, entry.getErrorMessage());
-                ps.setObject(6, entry.getParentAuditId());
-                ps.setArray(7, connection.createArrayOf("TEXT", entry.getTargetNodes() != null ? entry.getTargetNodes().toArray() : null));
-                ps.setString(8, entry.getNodeExecutionDetails());
-                ps.setTimestamp(9, Timestamp.valueOf(entry.getCreatedAt()));
+                ps.setArray(6, connection.createArrayOf("TEXT", entry.getTargetNodes() != null ? entry.getTargetNodes().toArray() : null));
+                ps.setString(7, entry.getNodeExecutionDetails());
+                ps.setTimestamp(8, Timestamp.valueOf(entry.getCreatedAt()));
                 return ps;
             }, keyHolder);
         }
@@ -394,7 +379,6 @@ public class AuditRepository {
                     ca.execution_time,
                     ca.execution_duration_ms,
                     ca.error_message,
-                    ca.parent_audit_id,
                     ca.target_nodes,
                     ca.node_execution_details,
                     ca.created_at AS audit_created_at,
@@ -459,7 +443,6 @@ public class AuditRepository {
         auditEntry.setExecutionTime(entry.getExecutionTime());
         auditEntry.setExecutionDurationMs(entry.getExecutionDurationMs());
         auditEntry.setErrorMessage(entry.getErrorMessage());
-        auditEntry.setParentAuditId(entry.getParentAuditId());
         auditEntry.setTargetNodes(entry.getTargetNodes());
         auditEntry.setNodeExecutionDetails(entry.getNodeExecutionDetails());
         auditEntry.setCreatedAt(entry.getCreatedAt() != null ? entry.getCreatedAt() : LocalDateTime.now());
@@ -471,7 +454,7 @@ public class AuditRepository {
     /**
      * Record a rollback script execution as a new audit entry
      */
-    public void recordRollbackScriptExecution(ChangeLogEntry entry, Long parentAuditId) {
+    public void recordRollbackScriptExecution(ChangeLogEntry entry) {
         // Get or create script metadata
         ScriptMetadata metadata = getScriptMetadata(entry.getScriptName());
         if (metadata == null) {
@@ -493,7 +476,6 @@ public class AuditRepository {
         auditEntry.setExecutionTime(entry.getExecutionTime());
         auditEntry.setExecutionDurationMs(entry.getExecutionDurationMs());
         auditEntry.setErrorMessage(entry.getErrorMessage());
-        auditEntry.setParentAuditId(parentAuditId);
         auditEntry.setTargetNodes(entry.getTargetNodes());
         auditEntry.setNodeExecutionDetails(entry.getNodeExecutionDetails());
         auditEntry.setCreatedAt(entry.getCreatedAt() != null ? entry.getCreatedAt() : LocalDateTime.now());

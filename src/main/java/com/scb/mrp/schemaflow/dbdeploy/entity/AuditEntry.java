@@ -19,7 +19,6 @@ public class AuditEntry {
     private LocalDateTime executionTime;
     private Long executionDurationMs;
     private String errorMessage;
-    private Long parentAuditId;
     private LocalDateTime createdAt;
 
     /**

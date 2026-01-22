@@ -22,7 +22,6 @@ public class ChangeLogEntry {
     private LocalDateTime executionTime;
     private Long executionDurationMs;
     private String errorMessage;
-    private Long parentAuditId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

@@ -23,7 +23,6 @@ CREATE TABLE IF NOT EXISTS schemaflow_changelog_audit (
     execution_time DateTime NOT NULL DEFAULT now(),
     execution_duration_ms Nullable(UInt64),
     error_message Nullable(String),
-    parent_audit_id Nullable(UInt64),
     target_nodes Array(String),
     node_execution_details Nullable(String),
     created_at DateTime NOT NULL DEFAULT now()

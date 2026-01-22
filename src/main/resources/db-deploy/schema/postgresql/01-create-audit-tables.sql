@@ -21,12 +21,10 @@ CREATE TABLE IF NOT EXISTS schemaflow_changelog_audit (
     execution_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     execution_duration_ms BIGINT,
     error_message TEXT,
-    parent_audit_id BIGINT,
     target_nodes TEXT[],
     node_execution_details TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_script FOREIGN KEY (script_id) REFERENCES schemaflow_changelog_script(id) ON DELETE CASCADE,
-    CONSTRAINT fk_parent_audit FOREIGN KEY (parent_audit_id) REFERENCES schemaflow_changelog_audit(id)
+    CONSTRAINT fk_script FOREIGN KEY (script_id) REFERENCES schemaflow_changelog_script(id) ON DELETE CASCADE
 );
 
 -- Create schemaflow_deploy_lock table

@@ -21,12 +21,10 @@ CREATE TABLE IF NOT EXISTS schemaflow_changelog_audit (
     execution_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     execution_duration_ms INTEGER,
     error_message TEXT,
-    parent_audit_id INTEGER,
     target_nodes TEXT,
     node_execution_details TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (script_id) REFERENCES schemaflow_changelog_script(id),
-    FOREIGN KEY (parent_audit_id) REFERENCES schemaflow_changelog_audit(id)
+    FOREIGN KEY (script_id) REFERENCES schemaflow_changelog_script(id)
 );
 
 -- Create schemaflow_deploy_lock table

@@ -47,13 +47,15 @@ public class CompatibilityCheckService {
     public void performCompatibilityCheck() {
         log.info("Starting database deployment status pre-check...");
 
+        // Check if database schema is initialized
+        if (!isSchemaInitialized()) {
+            String error = "Database schema is not initialized. Skipping deployment status pre-check. " +
+                    "Please run the deployment tool to initialize the schema.";
+            log.error(error);
+            throw new IllegalStateException(error);
+        }
+
         try {
-            // Check if database schema is initialized
-            if (!isSchemaInitialized()) {
-                log.warn("Database schema is not initialized. Skipping deployment status pre-check. " +
-                        "Please run the deployment tool to initialize the schema.");
-                return;
-            }
 
             // Get comprehensive status once and reuse it for multiple checks
             DatabaseStatus status = getDatabaseStatus();
@@ -83,8 +85,8 @@ public class CompatibilityCheckService {
         try {
             return schemaInitializationManager.isSchemaInitialized();
         } catch (Exception e) {
-            log.warn("Failed to check schema initialization status: {}", e.getMessage());
-            return false;
+            log.error("Failed to check schema initialization status: {}");
+            throw e;
         }
     }
 
@@ -96,8 +98,8 @@ public class CompatibilityCheckService {
         try {
             return databaseStatusService.getComprehensiveStatus();
         } catch (Exception e) {
-            log.warn("Failed to get database status: {}", e.getMessage());
-            return null;
+            log.error("Failed to get database status: {}");
+            throw e;
         }
     }
 
@@ -110,25 +112,17 @@ public class CompatibilityCheckService {
             return;
         }
 
-        try {
-            if (status.getLockInfo() != null && status.getLockInfo().isActive()) {
-                String message = String.format(
-                        "Database deployment is currently in progress (lock is held by: %s). " +
-                                "Application cannot start while a deployment is in progress.",
-                        status.getLockInfo().getLockOwner()
-                );
-                log.error(message);
-                throw new IllegalStateException(message);
-            }
-
-            log.debug("Deployment lock check passed - no deployment in progress.");
-
-        } catch (IllegalStateException e) {
-            throw e; // Re-throw our own exception
-        } catch (Exception e) {
-            log.warn("Failed to check deployment lock status: {}", e.getMessage());
-            // Don't fail the startup if we can't check the lock, just log a warning
+        if (status.getLockInfo() != null && status.getLockInfo().isActive()) {
+            String message = String.format(
+                    "Database deployment is currently in progress (lock is held by: %s). " +
+                            "Application cannot start while a deployment is in progress.",
+                    status.getLockInfo().getLockOwner()
+            );
+            log.error(message);
+            throw new IllegalStateException(message);
         }
+
+        log.debug("Deployment lock check passed - no deployment in progress.");
     }
 
     /**
@@ -140,73 +134,57 @@ public class CompatibilityCheckService {
             return;
         }
 
-        try {
-            if (status.getScriptSummary() != null) {
-                int failedScripts = status.getScriptSummary().getFailedScripts();
+        if (status.getScriptSummary() != null) {
+            int failedScripts = status.getScriptSummary().getFailedScripts();
 
-                if (failedScripts > 0) {
-                    List<String> failedScriptNames = status.getScriptSummary().getScripts().stream()
-                            .filter(s -> "FAILED".equals(s.getLatestStatus()))
-                            .map(DatabaseStatus.ScriptStatus::getScriptName)
-                            .toList();
+            if (failedScripts > 0) {
+                List<String> failedScriptNames = status.getScriptSummary().getScripts().stream()
+                        .filter(s -> "FAILED".equals(s.getLatestStatus()))
+                        .map(DatabaseStatus.ScriptStatus::getScriptName)
+                        .toList();
 
-                    String message = String.format(
-                            "Last deployment has %d failed script(s): %s. " +
-                                    "Please resolve the failures before starting the application.",
-                            failedScripts,
-                            String.join(", ", failedScriptNames)
-                    );
-                    log.error(message);
-                    throw new IllegalStateException(message);
-                }
-
-                log.debug("Last deployment status check passed - no failed scripts.");
+                String message = String.format(
+                        "Last deployment has %d failed script(s): %s. " +
+                                "Please resolve the failures before starting the application.",
+                        failedScripts,
+                        String.join(", ", failedScriptNames)
+                );
+                log.error(message);
+                throw new IllegalStateException(message);
             }
 
-        } catch (IllegalStateException e) {
-            throw e; // Re-throw our own exception
-        } catch (Exception e) {
-            log.warn("Failed to check last deployment status: {}", e.getMessage());
-            // Don't fail the startup if we can't check the status, just log a warning
+            log.debug("Last deployment status check passed - no failed scripts.");
         }
     }
 
     /**
      * Check if there are pending changelog scripts that haven't been applied yet.
      */
-    private void checkPendingChangelogScripts() {
-        try {
-            // Load the changelog configuration
-            ChangeLogConfig changeLogConfig = ConfigLoader.loadChangeLogConfig(changeLogPathConfig.getPath());
+    private void checkPendingChangelogScripts() throws Exception {
+        // Load the changelog configuration
+        ChangeLogConfig changeLogConfig = ConfigLoader.loadChangeLogConfig(changeLogPathConfig.getPath());
 
-            // Use ChangeLogManager to determine pending scripts
-            List<ScriptFileContent> pendingScripts = changeLogManager.determinePendingScripts(
-                    changeLogConfig,
-                    java.util.Map.of()
+        // Use ChangeLogManager to determine pending scripts
+        List<ScriptFileContent> pendingScripts = changeLogManager.determinePendingScripts(
+                changeLogConfig,
+                java.util.Map.of()
+        );
+
+        if (!pendingScripts.isEmpty()) {
+            List<String> pendingScriptNames = pendingScripts.stream()
+                    .map(ScriptFileContent::getName)
+                    .collect(Collectors.toList());
+
+            String message = String.format(
+                    "There are %d pending changelog script(s) not yet applied: %s. " +
+                            "Please run the deployment before starting the application.",
+                    pendingScripts.size(),
+                    String.join(", ", pendingScriptNames)
             );
-
-            if (!pendingScripts.isEmpty()) {
-                List<String> pendingScriptNames = pendingScripts.stream()
-                        .map(ScriptFileContent::getName)
-                        .collect(Collectors.toList());
-
-                String message = String.format(
-                        "There are %d pending changelog script(s) not yet applied: %s. " +
-                                "Please run the deployment before starting the application.",
-                        pendingScripts.size(),
-                        String.join(", ", pendingScriptNames)
-                );
-                log.error(message);
-                throw new IllegalStateException(message);
-            }
-
-            log.debug("Pending changelog check passed - all scripts are up to date.");
-
-        } catch (IllegalStateException e) {
-            throw e; // Re-throw our own exception
-        } catch (Exception e) {
-            log.warn("Failed to check pending changelog scripts: {}", e.getMessage());
-            // Don't fail the startup if we can't check the changelog, just log a warning
+            log.error(message);
+            throw new IllegalStateException(message);
         }
+
+        log.debug("Pending changelog check passed - all scripts are up to date.");
     }
 }
