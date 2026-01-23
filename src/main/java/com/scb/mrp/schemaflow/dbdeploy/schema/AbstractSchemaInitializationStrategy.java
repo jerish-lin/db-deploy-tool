@@ -14,30 +14,11 @@ import java.util.List;
 public abstract class AbstractSchemaInitializationStrategy implements SchemaInitializationStrategy {
 
     @Override
-    public boolean isSchemaInitialized(JdbcTemplate jdbcTemplate) {
-        try {
-            // Check if the main audit table exists (schemaflow_changelog_script)
-            String sql = """
-                    SELECT COUNT(*) FROM information_schema.tables
-                    WHERE table_name = 'schemaflow_changelog_script'
-                    """;
-
-            // For SQLite, use different query
-            if (getSupportedDatabaseType().name().toLowerCase().contains("sqlite")) {
-                sql = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schemaflow_changelog_script'";
-            }
-
-            Integer count = jdbcTemplate.queryForObject(sql, Integer.class);
-            return count != null && count > 0;
-        } catch (Exception e) {
-            log.debug("Error checking schema initialization status", e);
-            return false;
-        }
-    }
+    public abstract boolean isSchemaInitialized(JdbcTemplate jdbcTemplate);
 
     @Override
     public void initializeSchema(JdbcTemplate jdbcTemplate) {
-        log.info("Initializing database schema for {}", getSupportedDatabaseType());
+        log.info("Initializing database schema");
 
         List<String> schemaFiles = getSchemaFiles();
 
@@ -45,7 +26,7 @@ public abstract class AbstractSchemaInitializationStrategy implements SchemaInit
             executeSqlFile(jdbcTemplate, schemaFile);
         }
 
-        log.info("Database schema initialization completed for {}", getSupportedDatabaseType());
+        log.info("Database schema initialization completed");
     }
 
     /**

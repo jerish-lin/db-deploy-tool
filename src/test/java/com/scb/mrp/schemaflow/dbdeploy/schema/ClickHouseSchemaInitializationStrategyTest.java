@@ -1,6 +1,5 @@
 package com.scb.mrp.schemaflow.dbdeploy.schema;
 
-import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -31,12 +30,6 @@ public class ClickHouseSchemaInitializationStrategyTest {
     }
 
     @Test
-    @DisplayName("Test getSupportedDatabaseType returns CLICKHOUSE")
-    void testGetSupportedDatabaseType() {
-        assertEquals(DatabaseType.CLICKHOUSE, strategy.getSupportedDatabaseType());
-    }
-
-    @Test
     @DisplayName("Test getSchemaFilesBasePath returns correct path")
     void testGetSchemaFilesBasePath() {
         assertEquals("db-deploy/schema/clickhouse", strategy.getSchemaFilesBasePath());
@@ -52,7 +45,7 @@ public class ClickHouseSchemaInitializationStrategyTest {
 
         assertTrue(result);
         verify(jdbcTemplate).queryForObject(
-                contains("information_schema.tables"),
+                contains("system.tables"),
                 eq(Integer.class)
         );
     }
@@ -189,7 +182,7 @@ public class ClickHouseSchemaInitializationStrategyTest {
     }
 
     @Test
-    @DisplayName("Test isSchemaInitialized uses information_schema query")
+    @DisplayName("Test isSchemaInitialized uses ClickHouse system.tables query")
     void testIsSchemaInitialized_UsesInformationSchema() {
         when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class)))
                 .thenReturn(1);
@@ -197,7 +190,7 @@ public class ClickHouseSchemaInitializationStrategyTest {
         strategy.isSchemaInitialized(jdbcTemplate);
 
         verify(jdbcTemplate).queryForObject(
-                contains("information_schema.tables"),
+                contains("system.tables"),
                 eq(Integer.class)
         );
     }
@@ -234,11 +227,4 @@ public class ClickHouseSchemaInitializationStrategyTest {
         verify(jdbcTemplate, atLeastOnce()).execute(contains("schemaflow_deploy_lock"));
     }
 
-    @Test
-    @DisplayName("Test getSupportedDatabaseType enum matches")
-    void testGetSupportedDatabaseType_EnumMatch() {
-        DatabaseType type = strategy.getSupportedDatabaseType();
-        assertEquals("clickhouse", type.getScheme().toLowerCase());
-        assertEquals("com.clickhouse.jdbc.ClickHouseDriver", type.getDriverClass());
     }
-}

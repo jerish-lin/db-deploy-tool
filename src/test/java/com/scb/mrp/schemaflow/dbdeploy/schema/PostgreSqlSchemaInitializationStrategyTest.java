@@ -1,6 +1,5 @@
 package com.scb.mrp.schemaflow.dbdeploy.schema;
 
-import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,12 +27,6 @@ public class PostgreSqlSchemaInitializationStrategyTest {
     @BeforeEach
     void setUp() {
         strategy = new PostgreSqlSchemaInitializationStrategy();
-    }
-
-    @Test
-    @DisplayName("Test getSupportedDatabaseType returns POSTGRESQL")
-    void testGetSupportedDatabaseType() {
-        assertEquals(DatabaseType.POSTGRESQL, strategy.getSupportedDatabaseType());
     }
 
     @Test

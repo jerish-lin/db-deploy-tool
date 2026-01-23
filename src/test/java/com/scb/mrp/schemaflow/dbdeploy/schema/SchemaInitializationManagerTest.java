@@ -1,6 +1,5 @@
 package com.scb.mrp.schemaflow.dbdeploy.schema;
 
-import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -11,12 +10,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.util.HashMap;
-import java.util.Map;
-
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
 /**
@@ -31,34 +25,13 @@ public class SchemaInitializationManagerTest {
     private JdbcTemplate jdbcTemplate;
 
     @Mock
-    private DataSource dataSource;
-
-    @Mock
-    private Connection connection;
-
-    @Mock
-    private DatabaseMetaData metaData;
-
-    @Mock
     private SchemaInitializationStrategy strategy;
 
     private SchemaInitializationManager schemaInitializationManager;
 
     @BeforeEach
-    public void setUp() throws Exception {
-        // Mock the JDBC chain
-        when(jdbcTemplate.getDataSource()).thenReturn(dataSource);
-        when(dataSource.getConnection()).thenReturn(connection);
-        when(connection.getMetaData()).thenReturn(metaData);
-        when(metaData.getURL()).thenReturn("jdbc:sqlite:test.db");
-
-        // Create the manager manually
-        Map<DatabaseType, SchemaInitializationStrategy> strategyMap = new HashMap<>();
-        strategyMap.put(DatabaseType.SQLITE, strategy);
-
-        schemaInitializationManager = new SchemaInitializationManager(strategyMap, jdbcTemplate);
-
-        when(strategy.getSupportedDatabaseType()).thenReturn(DatabaseType.SQLITE);
+    public void setUp() {
+        schemaInitializationManager = new SchemaInitializationManager(strategy, jdbcTemplate);
     }
 
     @Test

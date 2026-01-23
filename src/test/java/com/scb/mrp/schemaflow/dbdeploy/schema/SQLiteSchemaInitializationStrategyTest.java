@@ -1,6 +1,5 @@
 package com.scb.mrp.schemaflow.dbdeploy.schema;
 
-import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,12 +27,6 @@ public class SQLiteSchemaInitializationStrategyTest {
     @BeforeEach
     void setUp() {
         strategy = new SQLiteSchemaInitializationStrategy();
-    }
-
-    @Test
-    @DisplayName("Test getSupportedDatabaseType returns SQLITE")
-    void testGetSupportedDatabaseType() {
-        assertEquals(DatabaseType.SQLITE, strategy.getSupportedDatabaseType());
     }
 
     @Test

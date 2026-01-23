@@ -1,17 +1,32 @@
 package com.scb.mrp.schemaflow.dbdeploy.schema;
 
-import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseType;
+import com.scb.mrp.schemaflow.dbdeploy.database.ConditionalOnDatabaseDriver;
+import com.scb.mrp.schemaflow.dbdeploy.database.DatabaseType;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 /**
  * PostgreSQL-specific schema initialization strategy.
  */
+@Slf4j
 @Component
+@ConditionalOnDatabaseDriver(DatabaseType.POSTGRESQL)
 public class PostgreSqlSchemaInitializationStrategy extends AbstractSchemaInitializationStrategy {
 
     @Override
-    public DatabaseType getSupportedDatabaseType() {
-        return DatabaseType.POSTGRESQL;
+    public boolean isSchemaInitialized(JdbcTemplate jdbcTemplate) {
+        try {
+            String sql = """
+                    SELECT COUNT(*) FROM information_schema.tables
+                    WHERE table_name = 'schemaflow_changelog_script'
+                    """;
+            Integer count = jdbcTemplate.queryForObject(sql, Integer.class);
+            return count != null && count > 0;
+        } catch (Exception e) {
+            log.debug("Error checking schema initialization status", e);
+            return false;
+        }
     }
 
     @Override
