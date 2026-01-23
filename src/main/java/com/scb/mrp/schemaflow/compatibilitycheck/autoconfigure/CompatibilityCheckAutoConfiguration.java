@@ -5,7 +5,9 @@ import com.scb.mrp.schemaflow.dbdeploy.changelog.ChangeLogManager;
 import com.scb.mrp.schemaflow.dbdeploy.config.ChangeLogPathConfig;
 import com.scb.mrp.schemaflow.dbdeploy.config.DatabaseConnectionConfig;
 import com.scb.mrp.schemaflow.dbdeploy.config.DatasourceConfiguration;
-import com.scb.mrp.schemaflow.dbdeploy.repository.AuditRepository;
+import com.scb.mrp.schemaflow.dbdeploy.repository.ClickHouseAuditRepository;
+import com.scb.mrp.schemaflow.dbdeploy.repository.PostgreSQLAuditRepository;
+import com.scb.mrp.schemaflow.dbdeploy.repository.SQLiteAuditRepository;
 import com.scb.mrp.schemaflow.dbdeploy.schema.ClickHouseSchemaInitializationStrategy;
 import com.scb.mrp.schemaflow.dbdeploy.schema.PostgreSqlSchemaInitializationStrategy;
 import com.scb.mrp.schemaflow.dbdeploy.schema.SQLiteSchemaInitializationStrategy;
@@ -25,7 +27,6 @@ import org.springframework.context.annotation.Import;
         FileReader.class,
         ScriptParameterHandler.class,
 
-        AuditRepository.class,
         ChangeLogManager.class,
         DatabaseStatusService.class,
         CompatibilityCheckService.class,
@@ -33,8 +34,11 @@ import org.springframework.context.annotation.Import;
         PostgreSqlSchemaInitializationStrategy.class,
         SQLiteSchemaInitializationStrategy.class,
         ClickHouseSchemaInitializationStrategy.class,
-        SchemaInitializationManager.class
+        SchemaInitializationManager.class,
 
+        ClickHouseAuditRepository.class,
+        PostgreSQLAuditRepository.class,
+        SQLiteAuditRepository.class
 })
 public class CompatibilityCheckAutoConfiguration {
 }

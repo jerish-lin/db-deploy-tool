@@ -1,5 +1,4 @@
--- SQLite Schema for SchemaFlow (Refactored)
--- Separated script metadata from audit history
+-- SQLite Schema for SchemaFlow
 
 -- Create schemaflow_changelog_script table - stores script metadata (immutable)
 CREATE TABLE IF NOT EXISTS schemaflow_changelog_script (

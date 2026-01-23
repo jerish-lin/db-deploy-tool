@@ -1,11 +1,5 @@
--- SQLite Indexes for SchemaFlow (Refactored)
--- Optimized for status queries and audit history retrieval
+-- SQLite Indexes for SchemaFlow
 
--- Indexes for schemaflow_changelog_script table
-CREATE INDEX IF NOT EXISTS idx_changelog_script_name ON schemaflow_changelog_script(script_name);
-CREATE INDEX IF NOT EXISTS idx_changelog_script_checksum ON schemaflow_changelog_script(script_checksum);
-
--- Indexes for schemaflow_changelog_audit table
 -- Primary index for script status queries (getScriptSummary)
 CREATE INDEX IF NOT EXISTS idx_changelog_audit_script_time ON schemaflow_changelog_audit(script_id, execution_time DESC);
 
@@ -16,5 +10,4 @@ CREATE INDEX IF NOT EXISTS idx_changelog_audit_execution_time ON schemaflow_chan
 CREATE INDEX IF NOT EXISTS idx_changelog_audit_execution_status ON schemaflow_changelog_audit(execution_status);
 
 -- Indexes for schemaflow_deploy_lock table
-CREATE INDEX IF NOT EXISTS idx_deploy_lock_key ON schemaflow_deploy_lock(lock_key);
 CREATE INDEX IF NOT EXISTS idx_deploy_lock_expires ON schemaflow_deploy_lock(lock_expires_at, is_active);

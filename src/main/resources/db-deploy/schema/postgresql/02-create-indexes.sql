@@ -1,11 +1,5 @@
--- PostgreSQL Indexes for SchemaFlow (Refactored)
--- Optimized for status queries and audit history retrieval
+-- PostgreSQL Indexes for SchemaFlow
 
--- Indexes for schemaflow_changelog_script table
-CREATE INDEX IF NOT EXISTS idx_changelog_script_name ON schemaflow_changelog_script(script_name);
-CREATE INDEX IF NOT EXISTS idx_changelog_script_checksum ON schemaflow_changelog_script(script_checksum);
-
--- Indexes for schemaflow_changelog_audit table
 -- Primary index for script status queries (getScriptSummary)
 CREATE INDEX IF NOT EXISTS idx_changelog_audit_script_time ON schemaflow_changelog_audit(script_id, execution_time DESC);
 
@@ -15,9 +9,5 @@ CREATE INDEX IF NOT EXISTS idx_changelog_audit_execution_time ON schemaflow_chan
 -- Index for filtering by execution status
 CREATE INDEX IF NOT EXISTS idx_changelog_audit_execution_status ON schemaflow_changelog_audit(execution_status);
 
--- GIN index for target_nodes array (PostgreSQL-specific, for multi-node queries)
-CREATE INDEX IF NOT EXISTS idx_changelog_audit_target_nodes ON schemaflow_changelog_audit USING GIN(target_nodes);
-
 -- Indexes for schemaflow_deploy_lock table
-CREATE INDEX IF NOT EXISTS idx_deploy_lock_key ON schemaflow_deploy_lock(lock_key);
 CREATE INDEX IF NOT EXISTS idx_deploy_lock_expires ON schemaflow_deploy_lock(lock_expires_at, is_active);
