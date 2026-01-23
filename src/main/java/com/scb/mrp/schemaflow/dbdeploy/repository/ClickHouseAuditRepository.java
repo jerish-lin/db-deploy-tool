@@ -31,27 +31,6 @@ public class ClickHouseAuditRepository extends AbstractAuditRepository {
     }
 
     @Override
-    protected void handleMultiNodeFields(ResultSet rs, ChangeLogAuditEntry entry) throws SQLException {
-        // targetNodes is no longer in ScriptAuditEntry, it's in ScriptMetadata
-        // This method is kept for compatibility but does nothing
-    }
-
-    @Override
-    protected String getCreateScriptMetadataSql() {
-        return """
-                INSERT INTO schemaflow_changelog_script (
-                    script_name, script_checksum,
-                    rollback_script_content, rollback_verify_script_content, target_nodes, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?)
-                """;
-    }
-
-    @Override
-    protected String getSelectScriptMetadataSql() {
-        return "SELECT id FROM schemaflow_changelog_script WHERE script_name = ?";
-    }
-
-    @Override
     protected void setSaveScriptMetadataParameters(ChangeLogScript metadata, String sql, KeyHolder keyHolder) {
         dbDeployJdbcTemplate.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS);
@@ -62,32 +41,6 @@ public class ClickHouseAuditRepository extends AbstractAuditRepository {
             String nodesArray = metadata.getTargetNodes() != null ? "['" + String.join("','", metadata.getTargetNodes()) + "']" : "[]";
             ps.setString(5, nodesArray);
             ps.setTimestamp(6, Timestamp.valueOf(metadata.getCreatedAt() != null ? metadata.getCreatedAt() : LocalDateTime.now()));
-            return ps;
-        }, keyHolder);
-    }
-
-    @Override
-    protected String getRecordAuditEntrySql() {
-        return """
-                INSERT INTO schemaflow_changelog_audit (
-                    script_id, execution_status, execution_time,
-                    execution_duration_ms, error_message,
-                    node_execution_details, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                """;
-    }
-
-    @Override
-    protected void setRecordAuditEntryParameters(ChangeLogAuditEntry entry, String sql, KeyHolder keyHolder) {
-        dbDeployJdbcTemplate.update(connection -> {
-            PreparedStatement ps = connection.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS);
-            ps.setLong(1, entry.getScriptId());
-            ps.setString(2, entry.getExecutionStatus().getValue());
-            ps.setTimestamp(3, Timestamp.valueOf(entry.getExecutionTime()));
-            ps.setObject(4, entry.getExecutionDurationMs());
-            ps.setString(5, entry.getErrorMessage());
-            ps.setString(6, entry.getNodeExecutionDetails());
-            ps.setTimestamp(7, Timestamp.valueOf(entry.getCreatedAt()));
             return ps;
         }, keyHolder);
     }

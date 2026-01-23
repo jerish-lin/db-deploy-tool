@@ -11,8 +11,7 @@ CREATE TABLE IF NOT EXISTS schemaflow_changelog_script (
     target_nodes Array(String),
     created_at DateTime NOT NULL DEFAULT now()
 ) ENGINE = MergeTree()
-ORDER BY (id)
-UNIQUE KEY script_name;
+ORDER BY (id);
 
 -- Create schemaflow_changelog_audit table - stores execution history (append-only)
 CREATE TABLE IF NOT EXISTS schemaflow_changelog_audit (

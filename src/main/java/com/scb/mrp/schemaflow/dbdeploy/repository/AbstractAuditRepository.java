@@ -32,86 +32,6 @@ public abstract class AbstractAuditRepository implements AuditRepository {
     }
 
     /**
-     * RowMapper for ScriptMetadata
-     */
-    protected final RowMapper<ChangeLogScript> scriptMetadataRowMapper = (ResultSet rs, int rowNum) -> {
-        ChangeLogScript metadata = new ChangeLogScript();
-        metadata.setId(rs.getLong("id"));
-        metadata.setScriptName(rs.getString("script_name"));
-        metadata.setScriptChecksum(rs.getString("script_checksum"));
-        metadata.setRollbackScriptContent(rs.getString("rollback_script_content"));
-        metadata.setRollbackVerifyScriptContent(rs.getString("rollback_verify_script_content"));
-
-        // Handle target_nodes field
-        metadata.setTargetNodes(parseTargetNodes(rs.getObject("target_nodes")));
-
-        // Handle created_at timestamp
-        String createdAtStr = rs.getString("created_at");
-        if (createdAtStr != null) {
-            try {
-                metadata.setCreatedAt(LocalDateTime.parse(createdAtStr));
-            } catch (Exception e) {
-                metadata.setCreatedAt(LocalDateTime.now());
-            }
-        } else {
-            metadata.setCreatedAt(LocalDateTime.now());
-        }
-
-        return metadata;
-    };
-
-    /**
-     * RowMapper for AuditEntry
-     */
-    protected final RowMapper<ChangeLogAuditEntry> auditEntryRowMapper = (ResultSet rs, int rowNum) -> {
-        ChangeLogAuditEntry entry = new ChangeLogAuditEntry();
-        entry.setId(rs.getLong("id"));
-        entry.setScriptId(rs.getLong("script_id"));
-        entry.setExecutionStatus(ScriptExecutionStatus.fromValue(rs.getString("execution_status")));
-
-        // Handle execution_time timestamp
-        String executionTimeStr = rs.getString("execution_time");
-        if (executionTimeStr != null) {
-            try {
-                entry.setExecutionTime(LocalDateTime.parse(executionTimeStr));
-            } catch (Exception e) {
-                entry.setExecutionTime(LocalDateTime.now());
-            }
-        } else {
-            entry.setExecutionTime(LocalDateTime.now());
-        }
-
-        try {
-            entry.setExecutionDurationMs(rs.getObject("execution_duration_ms", Long.class));
-        } catch (SQLException e) {
-            entry.setExecutionDurationMs(null);
-        }
-        entry.setErrorMessage(rs.getString("error_message"));
-
-        // Handle multi-node fields - to be implemented by subclasses
-        handleMultiNodeFields(rs, entry);
-
-        // Handle created_at timestamp
-        String createdAtStr = rs.getString("created_at");
-        if (createdAtStr != null) {
-            try {
-                entry.setCreatedAt(LocalDateTime.parse(createdAtStr));
-            } catch (Exception e) {
-                entry.setCreatedAt(LocalDateTime.now());
-            }
-        } else {
-            entry.setCreatedAt(LocalDateTime.now());
-        }
-
-        return entry;
-    };
-
-    /**
-     * Handle multi-node fields for AuditEntry - to be implemented by subclasses
-     */
-    protected abstract void handleMultiNodeFields(ResultSet rs, ChangeLogAuditEntry entry) throws SQLException;
-
-    /**
      * Parse timestamp from Object to LocalDateTime
      */
     protected LocalDateTime parseTimestamp(Object timestampObj) {
@@ -192,18 +112,6 @@ public abstract class AbstractAuditRepository implements AuditRepository {
 
     @Override
     public Long createScriptMetadata(ChangeLogScript metadata) {
-        // First, try to find existing script by name
-        String selectSql = getSelectScriptMetadataSql();
-        List<Long> existingIds = dbDeployJdbcTemplate.query(selectSql,
-                (rs, rowNum) -> rs.getLong("id"),
-                metadata.getScriptName());
-
-        if (!existingIds.isEmpty()) {
-            // Script already exists, return its ID
-            return existingIds.get(0);
-        }
-
-        // Script doesn't exist, create it
         String sql = getCreateScriptMetadataSql();
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
@@ -212,15 +120,14 @@ public abstract class AbstractAuditRepository implements AuditRepository {
         return extractGeneratedKeyId(keyHolder);
     }
 
-    /**
-     * Get SQL for saving script metadata - to be implemented by subclasses
-     */
-    protected abstract String getCreateScriptMetadataSql();
-
-    /**
-     * Get SQL for selecting script metadata by name - to be implemented by subclasses
-     */
-    protected abstract String getSelectScriptMetadataSql();
+    protected String getCreateScriptMetadataSql() {
+        return """
+                INSERT INTO schemaflow_changelog_script (
+                    script_name, script_checksum,
+                    rollback_script_content, rollback_verify_script_content, target_nodes, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """;
+    }
 
     /**
      * Set parameters for saving script metadata - to be implemented by subclasses
@@ -230,24 +137,27 @@ public abstract class AbstractAuditRepository implements AuditRepository {
     // ==================== Audit Entry Operations ====================
 
     @Override
-    public Long createScriptAuditEntry(ChangeLogAuditEntry entry) {
+    public void createScriptAuditEntry(ChangeLogAuditEntry entry) {
         String sql = getRecordAuditEntrySql();
-
-        KeyHolder keyHolder = new GeneratedKeyHolder();
-        setRecordAuditEntryParameters(entry, sql, keyHolder);
-
-        return extractGeneratedKeyId(keyHolder);
+        dbDeployJdbcTemplate.update(sql,
+                entry.getScriptId(),
+                entry.getExecutionStatus().getValue(),
+                entry.getExecutionTime().toString(),
+                entry.getExecutionDurationMs(),
+                entry.getErrorMessage(),
+                entry.getNodeExecutionDetails(),
+                entry.getCreatedAt().toString());
     }
 
-    /**
-     * Get SQL for recording audit entry - to be implemented by subclasses
-     */
-    protected abstract String getRecordAuditEntrySql();
-
-    /**
-     * Set parameters for recording audit entry - to be implemented by subclasses
-     */
-    protected abstract void setRecordAuditEntryParameters(ChangeLogAuditEntry entry, String sql, KeyHolder keyHolder);
+    protected String getRecordAuditEntrySql() {
+        return """
+                INSERT INTO schemaflow_changelog_audit (
+                    script_id, execution_status, execution_time,
+                    execution_duration_ms, error_message,
+                    node_execution_details, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """;
+    }
 
     // ==================== Lock Operations ====================
     @Override
@@ -319,16 +229,27 @@ public abstract class AbstractAuditRepository implements AuditRepository {
                         ROW_NUMBER() OVER (PARTITION BY script_id ORDER BY execution_time DESC) as rn
                     FROM schemaflow_changelog_audit
                 ) ca ON cs.id = ca.script_id AND ca.rn = 1
-                ORDER BY cs.id
+                ORDER BY cs.id ASC
                 """;
 
         try {
             List<Map<String, Object>> results = dbDeployJdbcTemplate.queryForList(sql);
 
+            // Track seen script names to only show the latest entry for each script
+            java.util.Set<String> seenScriptNames = new java.util.HashSet<>();
+
             for (Map<String, Object> row : results) {
+                String scriptName = (String) row.get("script_name");
+                
+                // Skip if we've already seen this script name (show only the latest)
+                if (seenScriptNames.contains(scriptName)) {
+                    continue;
+                }
+                seenScriptNames.add(scriptName);
+
                 DatabaseStatus.ChangeLogScriptStatus status = new DatabaseStatus.ChangeLogScriptStatus();
                 status.setId(((Number) row.get("id")).longValue());
-                status.setScriptName((String) row.get("script_name"));
+                status.setScriptName(scriptName);
                 status.setScriptChecksum((String) row.get("script_checksum"));
                 status.setRollbackScriptContent((String) row.get("rollback_script_content"));
                 status.setRollbackVerifyScriptContent((String) row.get("rollback_verify_script_content"));
@@ -378,8 +299,8 @@ public abstract class AbstractAuditRepository implements AuditRepository {
                     ca.node_execution_details
                 FROM schemaflow_changelog_audit ca
                 INNER JOIN schemaflow_changelog_script cs ON ca.script_id = cs.id
-                ORDER BY ca.execution_time DESC
-                LIMIT 10
+                ORDER BY ca.id DESC
+                LIMIT 100
                 """;
 
         try {

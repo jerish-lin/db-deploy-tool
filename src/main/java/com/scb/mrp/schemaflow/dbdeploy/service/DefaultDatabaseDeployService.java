@@ -194,7 +194,7 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
     private void recordScriptExecutionWithNewTransaction(ChangeLogScript metadata, ChangeLogAuditEntry auditEntry) {
         Long scriptId = auditRepository.createScriptMetadata(metadata);
         auditEntry.setScriptId(scriptId);
-        Long auditId = auditRepository.createScriptAuditEntry(auditEntry);
+        auditRepository.createScriptAuditEntry(auditEntry);
     }
 
     /**

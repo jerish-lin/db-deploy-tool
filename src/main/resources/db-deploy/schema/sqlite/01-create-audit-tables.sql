@@ -4,7 +4,7 @@
 -- Create schemaflow_changelog_script table - stores script metadata (immutable)
 CREATE TABLE IF NOT EXISTS schemaflow_changelog_script (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    script_name TEXT NOT NULL UNIQUE,
+    script_name TEXT NOT NULL,
     script_checksum TEXT NOT NULL,
     rollback_script_content TEXT,
     rollback_verify_script_content TEXT,

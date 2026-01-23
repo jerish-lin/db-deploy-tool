@@ -34,7 +34,7 @@ public interface AuditRepository {
     /**
      * Record script execution as a new audit entry
      */
-    Long createScriptAuditEntry(ChangeLogAuditEntry entry);
+    void createScriptAuditEntry(ChangeLogAuditEntry entry);
 
     /**
      * Get current lock status
