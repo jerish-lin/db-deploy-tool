@@ -1,9 +1,6 @@
 package com.scb.mrp.schemaflow.dbdeploy.changelog;
 
-import com.scb.mrp.schemaflow.dbdeploy.entity.ChangeLogConfig;
-import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptConfig;
-import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptFileContent;
-import com.scb.mrp.schemaflow.dbdeploy.model.ChangeLogEntry;
+import com.scb.mrp.schemaflow.dbdeploy.entity.*;
 import com.scb.mrp.schemaflow.dbdeploy.repository.AuditRepository;
 import com.scb.mrp.schemaflow.dbdeploy.script.FileReader;
 import com.scb.mrp.schemaflow.dbdeploy.script.ScriptParameterHandler;
@@ -122,16 +119,18 @@ public class ChangeLogManager {
      * @param changeLogConfig The changelog configuration
      * @param parameters      Map of parameter names to values for placeholder replacement
      * @return List of ScriptFileContent for scripts that need to be executed
-     * @throws IOException if script files cannot be loaded
+     * @throws IOException           if script files cannot be loaded
+     * @throws IllegalStateException if the latest script has failed status
      */
     public List<ScriptFileContent> determinePendingScripts(ChangeLogConfig changeLogConfig, Map<String, String> parameters) throws IOException {
         // Load all script contents with parameter replacement
         List<ScriptFileContent> allScripts = loadScriptContent(changeLogConfig, parameters);
 
-        // Get executed scripts from database
-        Set<String> executedScriptNames = auditRepository.getAllExecutedScripts().stream()
-                .map(entry -> entry.getScriptName())
-                .collect(Collectors.toSet());
+        // Get script summary from database
+        DatabaseStatus.ScriptSummary scriptSummary = auditRepository.getScriptSummary();
+
+        // Get executed script names
+        Set<String> executedScriptNames = new HashSet<>(scriptSummary.getSuccessScriptNames());
 
         // Filter out scripts that have already been executed
         return allScripts.stream()
@@ -149,6 +148,20 @@ public class ChangeLogManager {
     }
 
     /**
+     * Get script names from change log configuration
+     *
+     * @param changeLogConfig The changelog configuration
+     * @return List of script names
+     */
+    private List<String> getChangeLogScriptNames(ChangeLogConfig changeLogConfig) {
+        return Optional.ofNullable(changeLogConfig)
+                .map(config -> config.getScripts())
+                .map(scripts -> scripts.stream()
+                        .map(ScriptConfig::getName).toList())
+                .orElse(List.of());
+    }
+
+    /**
      * Determine what deployment action is needed based on comparing the changelog with database state.
      * Returns DEPLOY if there are scripts in changelog that are not executed.
      * Returns ROLLBACK if there are scripts executed that are not in changelog.
@@ -159,17 +172,11 @@ public class ChangeLogManager {
      */
     public DeploymentAction determineDeploymentAction(ChangeLogConfig changeLogConfig) {
         // Get script names from current changelog
-        final List<String> currentScriptNames = Optional.ofNullable(changeLogConfig)
-                .map(config -> config.getScripts())
-                .map(scripts -> scripts.stream()
-                        .map(ScriptConfig::getName).toList())
-                .orElse(List.of());
+        List<String> currentScriptNames = getChangeLogScriptNames(changeLogConfig);
 
         // Get executed scripts from database
-        List<ChangeLogEntry> executedChangeLog = auditRepository.getAllExecutedScripts();
-        Set<String> executedScriptNames = executedChangeLog.stream()
-                .map(ChangeLogEntry::getScriptName)
-                .collect(Collectors.toSet());
+        DatabaseStatus.ScriptSummary scriptSummary = auditRepository.getScriptSummary();
+        Set<String> executedScriptNames = new HashSet<>(scriptSummary.getSuccessScriptNames());
 
         // Check if there are scripts in changelog that are not executed (need deploy)
         boolean needDeploy = currentScriptNames.stream()
@@ -195,34 +202,30 @@ public class ChangeLogManager {
 
     /**
      * Compare the changelog with database changelog to determine which scripts need to be rolled back.
-     * Returns scripts that are in the database but not in the current changelog.
+     * Returns scripts that have SUCCESS or FAILED status in the database but are not in the current changelog.
+     * Scripts with ROLLED_BACK status are ignored.
      * Results are returned in reversed order so scripts are rolled back in reverse execution order.
      *
      * @param changeLogConfig The changelog configuration
-     * @return List of ChangeLogEntry objects that need to be rolled back (in reversed execution order)
+     * @return List of ScriptMetadata objects that need to be rolled back (in reversed execution order)
      */
-    public List<ChangeLogEntry> determineRollbackScripts(ChangeLogConfig changeLogConfig) {
+    public List<ScriptMetadata> determineRollbackScripts(ChangeLogConfig changeLogConfig) {
         // Get script names from current changelog
-        final List<String> currentScriptNames = Optional.ofNullable(changeLogConfig)
-                .map(config -> config.getScripts())
-                .map(scripts -> scripts.stream()
-                        .map(ScriptConfig::getName).toList())
-                .orElse(List.of());
+        List<String> currentScriptNames = getChangeLogScriptNames(changeLogConfig);
 
-        // Get executed scripts from database
-        List<ChangeLogEntry> executedChangeLog = auditRepository.getAllExecutedScripts();
+        // Get script summary from database
+        DatabaseStatus.ScriptSummary scriptSummary = auditRepository.getScriptSummary();
 
-        // Find scripts that are executed but not in current changelog (need rollback)
+        // Find scripts that have SUCCESS or FAILED status but are not in current changelog (need rollback)
+        // Scripts with ROLLED_BACK status are ignored
+        List<ScriptMetadata> rollbackScripts = scriptSummary.getSuccessAndFailedScripts().stream()
+                .filter(status -> !currentScriptNames.contains(status.getScriptName()))
+                .map(DatabaseStatus.ScriptStatus::toScriptMetadata)
+                .collect(Collectors.toList());
+
         // Return in reversed order so scripts are rolled back in reverse execution order
-        return executedChangeLog.stream()
-                .filter(changlog -> !currentScriptNames.contains(changlog.getScriptName()))
-                .collect(Collectors.collectingAndThen(
-                        Collectors.toList(),
-                        list -> {
-                            Collections.reverse(list);
-                            return list;
-                        }
-                ));
+        Collections.reverse(rollbackScripts);
+        return rollbackScripts;
     }
 
     /**
@@ -278,6 +281,6 @@ public class ChangeLogManager {
             return basePath + scriptPath;
         }
 
-        return basePath + java.io.File.separator + scriptPath;
+        return basePath + File.separator + scriptPath;
     }
 }

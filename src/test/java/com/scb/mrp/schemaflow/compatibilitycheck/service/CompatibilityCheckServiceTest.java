@@ -123,11 +123,21 @@ public class CompatibilityCheckServiceTest {
         scriptSummary.setFailedScripts(2);
 
         DatabaseStatus.ScriptStatus scriptStatus1 = new DatabaseStatus.ScriptStatus();
+        scriptStatus1.setId(1L);
         scriptStatus1.setScriptName("script1");
+        scriptStatus1.setScriptChecksum("abc123");
+        scriptStatus1.setRollbackScriptContent("DROP TABLE test1;");
+        scriptStatus1.setRollbackVerifyScriptContent("SELECT COUNT(*) FROM test1;");
+        scriptStatus1.setCreatedAt(java.time.LocalDateTime.now());
         scriptStatus1.setLatestStatus("FAILED");
 
         DatabaseStatus.ScriptStatus scriptStatus2 = new DatabaseStatus.ScriptStatus();
+        scriptStatus2.setId(2L);
         scriptStatus2.setScriptName("script2");
+        scriptStatus2.setScriptChecksum("def456");
+        scriptStatus2.setRollbackScriptContent("DROP TABLE test2;");
+        scriptStatus2.setRollbackVerifyScriptContent("SELECT COUNT(*) FROM test2;");
+        scriptStatus2.setCreatedAt(java.time.LocalDateTime.now());
         scriptStatus2.setLatestStatus("FAILED");
 
         scriptSummary.setScripts(List.of(scriptStatus1, scriptStatus2));

@@ -84,7 +84,12 @@ public class DatabaseStatusServiceTest {
         summary.setRolledBackScripts(0);
 
         DatabaseStatus.ScriptStatus failedScript = new DatabaseStatus.ScriptStatus();
+        failedScript.setId(1L);
         failedScript.setScriptName("failed-script.sql");
+        failedScript.setScriptChecksum("abc123");
+        failedScript.setRollbackScriptContent("DROP TABLE test;");
+        failedScript.setRollbackVerifyScriptContent("SELECT COUNT(*) FROM test;");
+        failedScript.setCreatedAt(java.time.LocalDateTime.now());
         failedScript.setLatestStatus("FAILED");
         summary.setScripts(new ArrayList<>(java.util.List.of(failedScript)));
 
@@ -99,5 +104,12 @@ public class DatabaseStatusServiceTest {
         assertFalse(status.getScriptSummary().getScripts().isEmpty());
         assertTrue(status.getScriptSummary().getScripts().stream()
                 .anyMatch(s -> "FAILED".equals(s.getLatestStatus()) && "failed-script.sql".equals(s.getScriptName())));
+        // Verify ScriptMetadata fields are populated
+        DatabaseStatus.ScriptStatus scriptStatus = status.getScriptSummary().getScripts().get(0);
+        assertEquals(1L, scriptStatus.getId());
+        assertEquals("abc123", scriptStatus.getScriptChecksum());
+        assertEquals("DROP TABLE test;", scriptStatus.getRollbackScriptContent());
+        assertEquals("SELECT COUNT(*) FROM test;", scriptStatus.getRollbackVerifyScriptContent());
+        assertNotNull(scriptStatus.getCreatedAt());
     }
 }

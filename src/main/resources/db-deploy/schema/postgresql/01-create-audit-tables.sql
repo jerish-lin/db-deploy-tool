@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS schemaflow_changelog_script (
     script_checksum VARCHAR(64) NOT NULL,
     rollback_script_content TEXT,
     rollback_verify_script_content TEXT,
+    target_nodes TEXT[],
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -19,7 +20,6 @@ CREATE TABLE IF NOT EXISTS schemaflow_changelog_audit (
     execution_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     execution_duration_ms BIGINT,
     error_message TEXT,
-    target_nodes TEXT[],
     node_execution_details TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_script FOREIGN KEY (script_id) REFERENCES schemaflow_changelog_script(id) ON DELETE CASCADE

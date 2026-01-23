@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS schemaflow_changelog_script (
     script_checksum String NOT NULL,
     rollback_script_content Nullable(String),
     rollback_verify_script_content Nullable(String),
+    target_nodes Array(String),
     created_at DateTime NOT NULL DEFAULT now()
 ) ENGINE = MergeTree()
 ORDER BY (id)
@@ -21,7 +22,6 @@ CREATE TABLE IF NOT EXISTS schemaflow_changelog_audit (
     execution_time DateTime NOT NULL DEFAULT now(),
     execution_duration_ms Nullable(UInt64),
     error_message Nullable(String),
-    target_nodes Array(String),
     node_execution_details Nullable(String),
     created_at DateTime NOT NULL DEFAULT now()
 ) ENGINE = MergeTree()

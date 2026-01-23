@@ -1,10 +1,7 @@
 package com.scb.mrp.schemaflow.dbdeploy.service;
 
 import com.scb.mrp.schemaflow.dbdeploy.changelog.ChangeLogManager;
-import com.scb.mrp.schemaflow.dbdeploy.entity.ChangeLogConfig;
-import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptConfig;
-import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptExecutionStatus;
-import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptFileContent;
+import com.scb.mrp.schemaflow.dbdeploy.entity.*;
 import com.scb.mrp.schemaflow.dbdeploy.model.ChangeLogEntry;
 import com.scb.mrp.schemaflow.dbdeploy.repository.AuditRepository;
 import com.scb.mrp.schemaflow.dbdeploy.script.ScriptExecutionManager;
@@ -256,7 +253,7 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
             // Use ChangeLogManager to determine which scripts need to be rolled back
             // The rollback content is already saved in the database with parameters replaced,
             // so no need to replace parameters again
-            List<ChangeLogEntry> scriptsToRollback = changeLogManager.determineRollbackScripts(changeLogConfig);
+            List<ScriptMetadata> scriptsToRollback = changeLogManager.determineRollbackScripts(changeLogConfig);
 
             if (scriptsToRollback.isEmpty()) {
                 log.info("No scripts to rollback. Database is already at the target state");
@@ -266,20 +263,20 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
             log.info("Found {} scripts to rollback", scriptsToRollback.size());
 
             // Execute rollback scripts in reverse order (already handled by ChangeLogManager)
-            for (ChangeLogEntry entry : scriptsToRollback) {
+            for (ScriptMetadata metadata : scriptsToRollback) {
                 if (dryRun) {
-                    log.info("[DRY RUN] Would rollback script: {}", entry.getScriptName());
+                    log.info("[DRY RUN] Would rollback script: {}", metadata.getScriptName());
                     continue;
                 }
 
-                log.info("Rolling back script: {}", entry.getScriptName());
+                log.info("Rolling back script: {}", metadata.getScriptName());
 
                 // Execute rollback script if available
-                if (entry.getRollbackScriptContent() != null && !entry.getRollbackScriptContent().isEmpty()) {
+                if (metadata.getRollbackScriptContent() != null && !metadata.getRollbackScriptContent().isEmpty()) {
                     // Check if this was a multi-node script (targetNodes is not null)
-                    if (entry.getTargetNodes() != null && !entry.getTargetNodes().isEmpty()) {
+                    if (metadata.getTargetNodes() != null && !metadata.getTargetNodes().isEmpty()) {
                         // Execute rollback on all target nodes
-                        List<String> targetNodes = entry.getTargetNodes();
+                        List<String> targetNodes = metadata.getTargetNodes();
                         if (targetNodes.contains("ALL")) {
                             // Execute on all configured nodes
                             targetNodes = new ArrayList<>(nodeJdbcTemplateMap.keySet());
@@ -288,10 +285,10 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
                         log.info("Executing multi-node rollback on {} nodes: {}", targetNodes.size(), targetNodes);
                         ScriptExecutionManager.MultiNodeExecutionResult rollbackResult =
                                 scriptExecutionManager.executeAndVerifyOnMultipleNodes(
-                                        entry.getRollbackScriptContent(),
-                                        entry.getRollbackVerifyScriptContent(),
+                                        metadata.getRollbackScriptContent(),
+                                        metadata.getRollbackVerifyScriptContent(),
                                         targetNodes,
-                                        entry.getScriptName());
+                                        metadata.getScriptName());
 
                         if (!rollbackResult.isSuccess()) {
                             throw new RuntimeException("Multi-node rollback failed: " + rollbackResult.getErrorMessage());
@@ -300,36 +297,36 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
                         // Single-node rollback
                         ScriptExecutor.ScriptExecutionResult result =
                                 scriptExecutionManager.executeAndVerify(
-                                        entry.getRollbackScriptContent(),
-                                        entry.getRollbackVerifyScriptContent(),
-                                        entry.getScriptName());
+                                        metadata.getRollbackScriptContent(),
+                                        metadata.getRollbackVerifyScriptContent(),
+                                        metadata.getScriptName());
 
                         if (!result.isSuccess()) {
                             throw new RuntimeException("Rollback execution failed: " + result.getErrorMessage());
                         }
                     }
                 } else {
-                    log.warn("No rollback script available for: {}", entry.getScriptName());
+                    log.warn("No rollback script available for: {}", metadata.getScriptName());
                 }
 
                 // Record the rollback as a new audit entry
                 ChangeLogEntry rollbackEntry = new ChangeLogEntry();
-                rollbackEntry.setScriptName(entry.getScriptName());
-                rollbackEntry.setScriptChecksum(entry.getScriptChecksum());
+                rollbackEntry.setScriptName(metadata.getScriptName());
+                rollbackEntry.setScriptChecksum(metadata.getScriptChecksum());
                 rollbackEntry.setExecutionStatus(ScriptExecutionStatus.ROLLED_BACK);
                 rollbackEntry.setExecutionTime(LocalDateTime.now());
                 rollbackEntry.setExecutionDurationMs(0L);
-                rollbackEntry.setRollbackScriptContent(entry.getRollbackScriptContent());
-                rollbackEntry.setRollbackVerifyScriptContent(entry.getRollbackVerifyScriptContent());
+                rollbackEntry.setRollbackScriptContent(metadata.getRollbackScriptContent());
+                rollbackEntry.setRollbackVerifyScriptContent(metadata.getRollbackVerifyScriptContent());
                 rollbackEntry.setCreatedAt(LocalDateTime.now());
                 rollbackEntry.setUpdatedAt(LocalDateTime.now());
 
                 // Copy multi-node fields if applicable
-                rollbackEntry.setTargetNodes(entry.getTargetNodes());
+                rollbackEntry.setTargetNodes(metadata.getTargetNodes());
 
                 auditRepository.recordRollbackScriptExecution(rollbackEntry);
 
-                log.info("Script {} rolled back successfully", entry.getScriptName());
+                log.info("Script {} rolled back successfully", metadata.getScriptName());
             }
 
             log.info("Rollback completed successfully");

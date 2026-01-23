@@ -2,8 +2,6 @@ package com.scb.mrp.schemaflow.dbdeploy.integration.autorollback;
 
 import com.scb.mrp.schemaflow.dbdeploy.config.DeploymentConfig;
 import com.scb.mrp.schemaflow.dbdeploy.integration.SQLiteDeployTestBase;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,20 +18,6 @@ public class SQLiteAutoRollbackTest extends SQLiteDeployTestBase {
 
     @Autowired
     private DeploymentConfig deploymentConfig;
-
-    private boolean originalEnableAutoRollback;
-
-    @BeforeEach
-    public void saveOriginalConfig() {
-        // Save the original value before each test
-        originalEnableAutoRollback = deploymentConfig.isEnableAutoRollback();
-    }
-
-    @AfterEach
-    public void restoreOriginalConfig() {
-        // Restore the original value after each test
-        deploymentConfig.setEnableAutoRollback(originalEnableAutoRollback);
-    }
 
     @Test
     @DisplayName("Test deployOrRollback with enableAutoRollback enabled")

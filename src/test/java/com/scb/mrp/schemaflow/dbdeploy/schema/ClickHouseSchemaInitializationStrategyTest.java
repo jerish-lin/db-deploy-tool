@@ -227,4 +227,4 @@ public class ClickHouseSchemaInitializationStrategyTest {
         verify(jdbcTemplate, atLeastOnce()).execute(contains("schemaflow_deploy_lock"));
     }
 
-    }
+}

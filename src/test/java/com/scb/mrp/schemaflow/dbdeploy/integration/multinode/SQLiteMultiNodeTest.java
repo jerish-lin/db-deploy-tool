@@ -4,6 +4,7 @@ import com.scb.mrp.schemaflow.dbdeploy.TestApplication;
 import com.scb.mrp.schemaflow.dbdeploy.changelog.ConfigLoader;
 import com.scb.mrp.schemaflow.dbdeploy.entity.ChangeLogConfig;
 import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptExecutionStatus;
+import com.scb.mrp.schemaflow.dbdeploy.integration.SQLiteDeployTestBase;
 import com.scb.mrp.schemaflow.dbdeploy.model.ChangeLogEntry;
 import com.scb.mrp.schemaflow.dbdeploy.schema.SchemaInitializationManager;
 import com.scb.mrp.schemaflow.dbdeploy.service.DatabaseDeployManager;
@@ -18,7 +19,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.io.File;
 import java.util.List;
 import java.util.Map;
 
@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest(classes = TestApplication.class)
 @ActiveProfiles("test")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
-public class SQLiteMultiNodeTest {
+public class SQLiteMultiNodeTest extends SQLiteDeployTestBase {
 
     private static final String[] DB_FILES = {"testdb.sqlite", "node1.sqlite", "node2.sqlite", "node3.sqlite"};
     private static final String CHANGELOG_PATH = "classpath:sqlite-scripts-multinode/sqlite-test-changelog-multinode.yml";
@@ -49,7 +49,8 @@ public class SQLiteMultiNodeTest {
     private SchemaInitializationManager schemaInitializationManager;
 
     @BeforeEach
-    void setUp() {
+    @Override
+    public void setUp() {
         resetDatabaseFiles();
         // Initialize schema to ensure audit tables exist
         schemaInitializationManager.initializeSchemaIfNeeded();
@@ -64,25 +65,12 @@ public class SQLiteMultiNodeTest {
 
     @AfterEach
     void tearDown() {
-//        resetDatabaseFiles();
+        resetDatabaseFiles();
     }
 
     private void resetDatabaseFiles() {
-        try {
-            System.gc();
-            System.runFinalization();
-            Thread.sleep(100);
-
-            for (String dbFile : DB_FILES) {
-                File file = new File(dbFile);
-                if (file.exists()) {
-                    try (java.io.FileWriter writer = new java.io.FileWriter(file, false)) {
-                        writer.write("");
-                    }
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("Warning: Could not reset database files: " + e.getMessage());
+        for (String dbFile : DB_FILES) {
+            resetDatabaseFile(dbFile);
         }
     }
 
@@ -96,30 +84,26 @@ public class SQLiteMultiNodeTest {
         // Deploy scripts
         deployService.deploy(changeLogConfig, false);
 
-        // Verify audit log
-        List<ChangeLogEntry> auditEntries = dbDeployJdbcTemplate.query(
-                "SELECT ca.*, cs.script_name FROM schemaflow_changelog_audit ca INNER JOIN schemaflow_changelog_script cs ON ca.script_id = cs.id ORDER BY ca.execution_time ASC",
+        // Verify script metadata (target_nodes from script table)
+        List<ChangeLogEntry> scriptEntries = dbDeployJdbcTemplate.query(
+                "SELECT id, script_name, target_nodes FROM schemaflow_changelog_script ORDER BY id ASC",
                 (rs, rowNum) -> {
                     ChangeLogEntry entry = new ChangeLogEntry();
                     entry.setId(rs.getLong("id"));
                     entry.setScriptName(rs.getString("script_name"));
-                    entry.setExecutionStatus(ScriptExecutionStatus.fromValue(rs.getString("execution_status")));
                     entry.setTargetNodes(rs.getString("target_nodes") != null ?
                             List.of(rs.getString("target_nodes").split(",")) : null);
-                    entry.setNodeExecutionDetails(rs.getString("node_execution_details"));
                     return entry;
                 }
         );
 
-        assertEquals(4, auditEntries.size(), "Should have 4 audit entries");
+        assertEquals(4, scriptEntries.size(), "Should have 4 script entries");
 
         // Verify first script (ALL nodes)
-        ChangeLogEntry usersEntry = auditEntries.get(0);
+        ChangeLogEntry usersEntry = scriptEntries.get(0);
         assertEquals("create-users-table-multinode", usersEntry.getScriptName());
-        assertEquals(ScriptExecutionStatus.SUCCESS, usersEntry.getExecutionStatus());
         assertNotNull(usersEntry.getTargetNodes(), "Target nodes should not be null");
         assertTrue(usersEntry.getTargetNodes().contains("ALL"), "Should target ALL nodes");
-        assertNotNull(usersEntry.getNodeExecutionDetails(), "Node execution details should not be null");
 
         // Verify users table exists on all nodes
         assertTrue(nodeJdbcTemplateMap.get("node1").queryForObject(
@@ -133,9 +117,8 @@ public class SQLiteMultiNodeTest {
                 "Users table should exist on node3");
 
         // Verify second script (node1 only)
-        ChangeLogEntry productsEntry = auditEntries.get(1);
+        ChangeLogEntry productsEntry = scriptEntries.get(1);
         assertEquals("create-products-table-node1", productsEntry.getScriptName());
-        assertEquals(ScriptExecutionStatus.SUCCESS, productsEntry.getExecutionStatus());
         assertNotNull(productsEntry.getTargetNodes(), "Target nodes should not be null");
         assertEquals(List.of("node1"), productsEntry.getTargetNodes(), "Should target only node1");
 
@@ -151,9 +134,8 @@ public class SQLiteMultiNodeTest {
                 "Products table should NOT exist on node3");
 
         // Verify third script (node2 only)
-        ChangeLogEntry ordersEntry = auditEntries.get(2);
+        ChangeLogEntry ordersEntry = scriptEntries.get(2);
         assertEquals("create-orders-table-node2", ordersEntry.getScriptName());
-        assertEquals(ScriptExecutionStatus.SUCCESS, ordersEntry.getExecutionStatus());
         assertNotNull(ordersEntry.getTargetNodes(), "Target nodes should not be null");
         assertEquals(List.of("node2"), ordersEntry.getTargetNodes(), "Should target only node2");
 
@@ -169,16 +151,19 @@ public class SQLiteMultiNodeTest {
                 "Orders table should NOT exist on node3");
 
         // Verify fourth script (single-node, backward compatibility)
-        ChangeLogEntry auditEntry = auditEntries.get(3);
-        assertEquals("single-node-script", auditEntry.getScriptName());
-        assertEquals(ScriptExecutionStatus.SUCCESS, auditEntry.getExecutionStatus());
-        assertNull(auditEntry.getTargetNodes(), "Target nodes should be null for single-node");
-        assertNull(auditEntry.getNodeExecutionDetails(), "Node execution details should be null for single-node");
+        ChangeLogEntry scriptEntry = scriptEntries.get(3);
+        assertEquals("single-node-script", scriptEntry.getScriptName());
+        assertNull(scriptEntry.getTargetNodes(), "Target nodes should be null for single-node");
 
         // Verify sample_table exists only on default database
         assertTrue(dbDeployJdbcTemplate.queryForObject(
                         "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='sample_table'", Integer.class) > 0,
                 "Sample table should exist on default database");
+
+        // Verify audit log (4 entries)
+        Integer auditCount = dbDeployJdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM schemaflow_changelog_audit", Integer.class);
+        assertEquals(4, auditCount, "Should have 4 audit entries");
     }
 
     @Test

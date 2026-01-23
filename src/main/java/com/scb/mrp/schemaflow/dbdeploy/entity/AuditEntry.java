@@ -4,7 +4,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 /**
  * Entity representing audit entry stored in changelog_audit table.
@@ -20,13 +19,6 @@ public class AuditEntry {
     private Long executionDurationMs;
     private String errorMessage;
     private LocalDateTime createdAt;
-
-    /**
-     * List of target node names for multi-node execution.
-     * Null for single-node execution.
-     * Contains "ALL" if script was executed on all configured nodes.
-     */
-    private List<String> targetNodes;
 
     /**
      * JSON string containing per-node execution details.

@@ -1,8 +1,10 @@
 package com.scb.mrp.schemaflow.dbdeploy.entity;
 
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Data
 public class DatabaseStatus {
@@ -28,12 +30,64 @@ public class DatabaseStatus {
         private int executedScripts;   // Scripts with SUCCESS status
         private int failedScripts;      // Scripts with FAILED status
         private int rolledBackScripts;  // Scripts with ROLLED_BACK status
+
+        /**
+         * Get all successfully executed script names
+         */
+        public List<String> getSuccessScriptNames() {
+            if (scripts == null) {
+                return List.of();
+            }
+            return scripts.stream()
+                    .filter(s -> "SUCCESS".equals(s.getLatestStatus()))
+                    .map(ScriptStatus::getScriptName)
+                    .collect(Collectors.toList());
+        }
+
+        /**
+         * Get all successfully executed script names
+         */
+        public List<ScriptStatus> getSuccessAndFailedScripts() {
+            if (scripts == null) {
+                return List.of();
+            }
+            return scripts.stream()
+                    .filter(s -> "SUCCESS".equals(s.getLatestStatus()) || "FAILED".equals(s.getLatestStatus()))
+                    .collect(Collectors.toList());
+        }
     }
 
     @Data
-    public static class ScriptStatus {
-        private String scriptName;
+    @EqualsAndHashCode(callSuper = false)
+    public static class ScriptStatus extends ScriptMetadata {
         private String latestStatus;  // SUCCESS / FAILED / ROLLED_BACK
+
+        public ScriptStatus() {
+            super();
+        }
+
+        public ScriptStatus(String scriptName, String scriptChecksum, String latestStatus) {
+            super(scriptName, scriptChecksum);
+            this.latestStatus = latestStatus;
+        }
+
+        /**
+         * Convert this ScriptStatus to a ScriptMetadata object.
+         * This copies all the inherited ScriptMetadata fields.
+         *
+         * @return ScriptMetadata object with the same field values
+         */
+        public ScriptMetadata toScriptMetadata() {
+            ScriptMetadata metadata = new ScriptMetadata();
+            metadata.setId(this.getId());
+            metadata.setScriptName(this.getScriptName());
+            metadata.setScriptChecksum(this.getScriptChecksum());
+            metadata.setRollbackScriptContent(this.getRollbackScriptContent());
+            metadata.setRollbackVerifyScriptContent(this.getRollbackVerifyScriptContent());
+            metadata.setCreatedAt(this.getCreatedAt());
+            metadata.setTargetNodes(this.getTargetNodes());
+            return metadata;
+        }
     }
 
     @Data
