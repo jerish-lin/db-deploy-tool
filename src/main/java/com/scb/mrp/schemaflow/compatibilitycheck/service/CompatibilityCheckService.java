@@ -5,6 +5,7 @@ import com.scb.mrp.schemaflow.dbdeploy.changelog.ConfigLoader;
 import com.scb.mrp.schemaflow.dbdeploy.config.ChangeLogPathConfig;
 import com.scb.mrp.schemaflow.dbdeploy.entity.ChangeLogConfig;
 import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseStatus;
+import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptExecutionStatus;
 import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptFileContent;
 import com.scb.mrp.schemaflow.dbdeploy.schema.SchemaInitializationManager;
 import com.scb.mrp.schemaflow.dbdeploy.service.DatabaseStatusService;
@@ -139,8 +140,7 @@ public class CompatibilityCheckService {
 
             if (failedScripts > 0) {
                 List<String> failedScriptNames = status.getScriptSummary().getScripts().stream()
-                        .filter(s -> "FAILED".equals(s.getLatestStatus()))
-                        .map(DatabaseStatus.ScriptStatus::getScriptName)
+                                    .filter(s -> ScriptExecutionStatus.FAILED.equals(s.getLatestStatus()))                        .map(DatabaseStatus.ScriptStatus::getScriptName)
                         .toList();
 
                 String message = String.format(

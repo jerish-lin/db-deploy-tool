@@ -1,6 +1,7 @@
 package com.scb.mrp.schemaflow.dbdeploy.service;
 
 import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseStatus;
+import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptExecutionStatus;
 import com.scb.mrp.schemaflow.dbdeploy.repository.AuditRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -90,7 +91,7 @@ public class DatabaseStatusServiceTest {
         failedScript.setRollbackScriptContent("DROP TABLE test;");
         failedScript.setRollbackVerifyScriptContent("SELECT COUNT(*) FROM test;");
         failedScript.setCreatedAt(java.time.LocalDateTime.now());
-        failedScript.setLatestStatus("FAILED");
+        failedScript.setLatestStatus(ScriptExecutionStatus.FAILED);
         summary.setScripts(new ArrayList<>(java.util.List.of(failedScript)));
 
         when(auditRepository.getScriptSummary()).thenReturn(summary);
@@ -103,7 +104,7 @@ public class DatabaseStatusServiceTest {
         assertEquals(1, status.getScriptSummary().getFailedScripts());
         assertFalse(status.getScriptSummary().getScripts().isEmpty());
         assertTrue(status.getScriptSummary().getScripts().stream()
-                .anyMatch(s -> "FAILED".equals(s.getLatestStatus()) && "failed-script.sql".equals(s.getScriptName())));
+                .anyMatch(s -> ScriptExecutionStatus.FAILED.equals(s.getLatestStatus()) && "failed-script.sql".equals(s.getScriptName())));
         // Verify ScriptMetadata fields are populated
         DatabaseStatus.ScriptStatus scriptStatus = status.getScriptSummary().getScripts().get(0);
         assertEquals(1L, scriptStatus.getId());

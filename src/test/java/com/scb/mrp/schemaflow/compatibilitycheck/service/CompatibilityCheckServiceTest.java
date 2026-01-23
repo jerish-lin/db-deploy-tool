@@ -5,6 +5,7 @@ import com.scb.mrp.schemaflow.dbdeploy.changelog.ConfigLoader;
 import com.scb.mrp.schemaflow.dbdeploy.config.ChangeLogPathConfig;
 import com.scb.mrp.schemaflow.dbdeploy.entity.ChangeLogConfig;
 import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseStatus;
+import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptExecutionStatus;
 import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptFileContent;
 import com.scb.mrp.schemaflow.dbdeploy.schema.SchemaInitializationManager;
 import com.scb.mrp.schemaflow.dbdeploy.service.DatabaseStatusService;
@@ -129,7 +130,7 @@ public class CompatibilityCheckServiceTest {
         scriptStatus1.setRollbackScriptContent("DROP TABLE test1;");
         scriptStatus1.setRollbackVerifyScriptContent("SELECT COUNT(*) FROM test1;");
         scriptStatus1.setCreatedAt(java.time.LocalDateTime.now());
-        scriptStatus1.setLatestStatus("FAILED");
+        scriptStatus1.setLatestStatus(ScriptExecutionStatus.FAILED);
 
         DatabaseStatus.ScriptStatus scriptStatus2 = new DatabaseStatus.ScriptStatus();
         scriptStatus2.setId(2L);
@@ -138,7 +139,7 @@ public class CompatibilityCheckServiceTest {
         scriptStatus2.setRollbackScriptContent("DROP TABLE test2;");
         scriptStatus2.setRollbackVerifyScriptContent("SELECT COUNT(*) FROM test2;");
         scriptStatus2.setCreatedAt(java.time.LocalDateTime.now());
-        scriptStatus2.setLatestStatus("FAILED");
+        scriptStatus2.setLatestStatus(ScriptExecutionStatus.FAILED);
 
         scriptSummary.setScripts(List.of(scriptStatus1, scriptStatus2));
         status.setScriptSummary(scriptSummary);

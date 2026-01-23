@@ -447,7 +447,7 @@ public abstract class AbstractAuditRepository implements AuditRepository {
                 status.setRollbackVerifyScriptContent((String) row.get("rollback_verify_script_content"));
                 status.setTargetNodes(parseTargetNodes(row.get("target_nodes")));
                 status.setCreatedAt(parseTimestamp(row.get("created_at")));
-                status.setLatestStatus((String) row.get("latest_status"));
+                status.setLatestStatus(ScriptExecutionStatus.fromValue((String) row.get("latest_status")));
                 scripts.add(status);
             }
 
@@ -456,11 +456,11 @@ public abstract class AbstractAuditRepository implements AuditRepository {
             // Calculate summary counts
             summary.setTotalScripts(scripts.size());
             summary.setExecutedScripts((int) scripts.stream()
-                    .filter(s -> "SUCCESS".equals(s.getLatestStatus())).count());
+                    .filter(s -> ScriptExecutionStatus.SUCCESS.equals(s.getLatestStatus())).count());
             summary.setFailedScripts((int) scripts.stream()
-                    .filter(s -> "FAILED".equals(s.getLatestStatus())).count());
+                    .filter(s -> ScriptExecutionStatus.FAILED.equals(s.getLatestStatus())).count());
             summary.setRolledBackScripts((int) scripts.stream()
-                    .filter(s -> "ROLLED_BACK".equals(s.getLatestStatus())).count());
+                    .filter(s -> ScriptExecutionStatus.ROLLED_BACK.equals(s.getLatestStatus())).count());
 
         } catch (Exception e) {
             log.error("Error getting script summary", e);
@@ -503,7 +503,7 @@ public abstract class AbstractAuditRepository implements AuditRepository {
                 entry.setAuditId(((Number) row.get("audit_id")).longValue());
                 entry.setScriptName((String) row.get("script_name"));
                 entry.setScriptChecksum((String) row.get("script_checksum"));
-                entry.setExecutionStatus((String) row.get("execution_status"));
+                entry.setExecutionStatus(ScriptExecutionStatus.fromValue((String) row.get("execution_status")));
                 entry.setExecutionTime((String) row.get("execution_time"));
 
                 Object durationMs = row.get("execution_duration_ms");

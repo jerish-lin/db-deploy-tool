@@ -1,6 +1,9 @@
 package com.scb.mrp.schemaflow.dbdeploy.entity;
 
+import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptExecutionStatus;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.extern.slf4j.Slf4j;
 import lombok.EqualsAndHashCode;
 
 import java.util.List;
@@ -39,7 +42,7 @@ public class DatabaseStatus {
                 return List.of();
             }
             return scripts.stream()
-                    .filter(s -> "SUCCESS".equals(s.getLatestStatus()))
+                    .filter(s -> ScriptExecutionStatus.SUCCESS.equals(s.getLatestStatus()))
                     .map(ScriptStatus::getScriptName)
                     .collect(Collectors.toList());
         }
@@ -52,7 +55,7 @@ public class DatabaseStatus {
                 return List.of();
             }
             return scripts.stream()
-                    .filter(s -> "SUCCESS".equals(s.getLatestStatus()) || "FAILED".equals(s.getLatestStatus()))
+                    .filter(s -> ScriptExecutionStatus.SUCCESS.equals(s.getLatestStatus()) || ScriptExecutionStatus.FAILED.equals(s.getLatestStatus()))
                     .collect(Collectors.toList());
         }
     }
@@ -60,13 +63,13 @@ public class DatabaseStatus {
     @Data
     @EqualsAndHashCode(callSuper = false)
     public static class ScriptStatus extends ScriptMetadata {
-        private String latestStatus;  // SUCCESS / FAILED / ROLLED_BACK
+        private ScriptExecutionStatus latestStatus;  // SUCCESS / FAILED / ROLLED_BACK
 
         public ScriptStatus() {
             super();
         }
 
-        public ScriptStatus(String scriptName, String scriptChecksum, String latestStatus) {
+        public ScriptStatus(String scriptName, String scriptChecksum, ScriptExecutionStatus latestStatus) {
             super(scriptName, scriptChecksum);
             this.latestStatus = latestStatus;
         }
@@ -98,7 +101,7 @@ public class DatabaseStatus {
 
         // Execution audit details
         private Long auditId;
-        private String executionStatus;  // SUCCESS / FAILED / ROLLED_BACK
+        private ScriptExecutionStatus executionStatus;  // SUCCESS / FAILED / ROLLED_BACK
         private String executionTime;
         private Long executionDurationMs;
         private String errorMessage;

@@ -1,6 +1,7 @@
 package com.scb.mrp.schemaflow.dbdeploy.integration.status;
 
 import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseStatus;
+import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptExecutionStatus;
 import com.scb.mrp.schemaflow.dbdeploy.integration.SQLiteDeployTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -87,7 +88,7 @@ public class SQLiteStatusTest extends SQLiteDeployTestBase {
 
         // Verify all scripts have SUCCESS status
         for (DatabaseStatus.ScriptStatus scriptStatus : status.getScriptSummary().getScripts()) {
-            assertEquals("SUCCESS", scriptStatus.getLatestStatus(),
+            assertEquals(ScriptExecutionStatus.SUCCESS, scriptStatus.getLatestStatus(),
                     "All scripts should have SUCCESS status after successful deployment");
         }
 
@@ -102,7 +103,7 @@ public class SQLiteStatusTest extends SQLiteDeployTestBase {
 
         // Verify all audit entries have SUCCESS status
         for (DatabaseStatus.AuditHistoryEntry entry : status.getRecentAuditHistory()) {
-            assertEquals("SUCCESS", entry.getExecutionStatus(),
+            assertEquals(ScriptExecutionStatus.SUCCESS, entry.getExecutionStatus(),
                     "All audit entries should have SUCCESS status after successful deployment");
             assertNotNull(entry.getAuditId(), "Audit ID should not be null");
             assertNotNull(entry.getScriptName(), "Script name should not be null");
@@ -170,10 +171,10 @@ public class SQLiteStatusTest extends SQLiteDeployTestBase {
 
         // Count entries by status
         long successCount = status.getRecentAuditHistory().stream()
-                .filter(e -> "SUCCESS".equals(e.getExecutionStatus()))
+                .filter(e -> ScriptExecutionStatus.SUCCESS.equals(e.getExecutionStatus()))
                 .count();
         long rolledBackCount = status.getRecentAuditHistory().stream()
-                .filter(e -> "ROLLED_BACK".equals(e.getExecutionStatus()))
+                .filter(e -> ScriptExecutionStatus.ROLLED_BACK.equals(e.getExecutionStatus()))
                 .count();
 
         assertTrue(successCount > 0, "Should have SUCCESS entries");
@@ -257,21 +258,21 @@ public class SQLiteStatusTest extends SQLiteDeployTestBase {
 
         // Verify failed scripts in the list
         long failedScriptCount = status.getScriptSummary().getScripts().stream()
-                .filter(s -> "FAILED".equals(s.getLatestStatus()))
+                .filter(s -> ScriptExecutionStatus.FAILED.equals(s.getLatestStatus()))
                 .count();
         assertTrue(failedScriptCount > 0,
                 "Failed scripts count should be > 0 after failed deployment");
 
         // Verify recent audit history contains failed entries
         long failedAuditCount = status.getRecentAuditHistory().stream()
-                .filter(e -> "FAILED".equals(e.getExecutionStatus()))
+                .filter(e -> ScriptExecutionStatus.FAILED.equals(e.getExecutionStatus()))
                 .count();
         assertTrue(failedAuditCount > 0,
                 "Failed audit entries should be > 0 after failed deployment");
 
         // Verify failed audit entries have error messages
         status.getRecentAuditHistory().stream()
-                .filter(e -> "FAILED".equals(e.getExecutionStatus()))
+                .filter(e -> ScriptExecutionStatus.FAILED.equals(e.getExecutionStatus()))
                 .forEach(entry -> {
                     assertNotNull(entry.getErrorMessage(), "Failed entries should have error messages");
                     assertNotNull(entry.getAuditId(), "Failed entries should have audit IDs");
@@ -297,19 +298,19 @@ public class SQLiteStatusTest extends SQLiteDeployTestBase {
 
         assertEquals(status.getScriptSummary().getExecutedScripts(),
                 (int) status.getScriptSummary().getScripts().stream()
-                        .filter(s -> "SUCCESS".equals(s.getLatestStatus()))
+                        .filter(s -> ScriptExecutionStatus.SUCCESS.equals(s.getLatestStatus()))
                         .count(),
                 "Executed scripts should match SUCCESS status count");
 
         assertEquals(status.getScriptSummary().getFailedScripts(),
                 (int) status.getScriptSummary().getScripts().stream()
-                        .filter(s -> "FAILED".equals(s.getLatestStatus()))
+                        .filter(s -> ScriptExecutionStatus.FAILED.equals(s.getLatestStatus()))
                         .count(),
                 "Failed scripts should match FAILED status count");
 
         assertEquals(status.getScriptSummary().getRolledBackScripts(),
                 (int) status.getScriptSummary().getScripts().stream()
-                        .filter(s -> "ROLLED_BACK".equals(s.getLatestStatus()))
+                        .filter(s -> ScriptExecutionStatus.ROLLED_BACK.equals(s.getLatestStatus()))
                         .count(),
                 "Rolled back scripts should match ROLLED_BACK status count");
     }
