@@ -130,7 +130,8 @@ public class ChangeLogManager {
         DatabaseStatus.ScriptSummary scriptSummary = auditRepository.getScriptSummary();
 
         // Get executed script names
-        Set<String> executedScriptNames = new HashSet<>(scriptSummary.getSuccessScriptNames());
+        List<String> executedScriptNames = scriptSummary.getSuccessScripts()
+                .stream().map(DatabaseStatus.ChangeLogScriptStatus::getScriptName).toList();
 
         // Filter out scripts that have already been executed
         return allScripts.stream()
@@ -176,28 +177,42 @@ public class ChangeLogManager {
 
         // Get executed scripts from database
         DatabaseStatus.ScriptSummary scriptSummary = auditRepository.getScriptSummary();
-        Set<String> executedScriptNames = new HashSet<>(scriptSummary.getSuccessScriptNames());
+        List<DatabaseStatus.ChangeLogScriptStatus> executedScriptNames = scriptSummary.getSuccessAndFailedScripts();
 
-        // Check if there are scripts in changelog that are not executed (need deploy)
-        boolean needDeploy = currentScriptNames.stream()
-                .anyMatch(scriptName -> !executedScriptNames.contains(scriptName));
-
-        // Check if there are scripts executed that are not in changelog (need rollback)
-        boolean needRollback = executedScriptNames.stream()
-                .anyMatch(scriptName -> !currentScriptNames.contains(scriptName));
-
-        if (needDeploy && needRollback) {
-            // Both deploy and rollback needed - this is an ambiguous state
-            // Return NONE to indicate manual intervention is required
-            log.warn("Both deployment and rollback are needed. Database state is ambiguous.");
-            return DeploymentAction.NONE;
-        } else if (needDeploy) {
-            return DeploymentAction.DEPLOY;
-        } else if (needRollback) {
+        if (isNeedRollback(executedScriptNames, currentScriptNames)) {
             return DeploymentAction.ROLLBACK;
-        } else {
+        }
+
+        if (isLastExecutedScriptFailed(executedScriptNames)) {
+            log.error("Last deployment is failed, Please resolve the failures before deploy new changes.");
             return DeploymentAction.NONE;
         }
+
+        if(isNeedDeploy(currentScriptNames, executedScriptNames)){
+            return DeploymentAction.DEPLOY;
+        }
+
+        log.info("No new changes to deploy.");
+        return DeploymentAction.NONE;
+    }
+
+    private static boolean isNeedRollback(List<DatabaseStatus.ChangeLogScriptStatus> executedScriptNames, List<String> currentScriptNames) {
+        return executedScriptNames.stream()
+                .anyMatch(script -> !currentScriptNames.contains(script.getScriptName()));
+    }
+
+    private boolean isLastExecutedScriptFailed(List<DatabaseStatus.ChangeLogScriptStatus> executedScriptNames) {
+        if (executedScriptNames.isEmpty()){
+            return false;
+        }
+
+        DatabaseStatus.ChangeLogScriptStatus lastExecutedScript = executedScriptNames.get(executedScriptNames.size() - 1);
+        return ScriptExecutionStatus.FAILED.equals(lastExecutedScript.getLatestStatus());
+    }
+
+    private static boolean isNeedDeploy(List<String> currentScriptNames, List<DatabaseStatus.ChangeLogScriptStatus> executedScriptNames) {
+        return currentScriptNames.stream()
+                .anyMatch(scriptName -> !executedScriptNames.contains(scriptName));
     }
 
     /**

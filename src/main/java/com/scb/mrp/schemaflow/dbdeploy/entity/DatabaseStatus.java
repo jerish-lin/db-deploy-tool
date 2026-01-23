@@ -35,13 +35,12 @@ public class DatabaseStatus {
         /**
          * Get all successfully executed script names
          */
-        public List<String> getSuccessScriptNames() {
+        public List<ChangeLogScriptStatus> getSuccessScripts() {
             if (scripts == null) {
                 return List.of();
             }
             return scripts.stream()
                     .filter(s -> ScriptExecutionStatus.SUCCESS.equals(s.getLatestStatus()))
-                    .map(ChangeLogScriptStatus::getScriptName)
                     .collect(Collectors.toList());
         }
 

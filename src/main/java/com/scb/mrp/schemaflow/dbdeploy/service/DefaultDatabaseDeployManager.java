@@ -99,7 +99,7 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
                     rollback(changeLogConfigPath, dryRun);
                     break;
                 case NONE:
-                    log.info("Database is already at the target state. No action needed.");
+                    log.info("Database is error states or already at the target state. No action will be taken.");
                     break;
             }
 
