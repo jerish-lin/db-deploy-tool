@@ -5,7 +5,6 @@ import com.scb.mrp.schemaflow.dbdeploy.changelog.ConfigLoader;
 import com.scb.mrp.schemaflow.dbdeploy.config.DeploymentConfig;
 import com.scb.mrp.schemaflow.dbdeploy.entity.ChangeLogConfig;
 import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseStatus;
-import com.scb.mrp.schemaflow.dbdeploy.model.ChangeLogEntry;
 import com.scb.mrp.schemaflow.dbdeploy.repository.AuditRepository;
 import com.scb.mrp.schemaflow.dbdeploy.schema.SchemaInitializationManager;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,9 +49,6 @@ public class DefaultDatabaseDeployManagerTest {
 
     @Mock
     private ChangeLogConfig changeLogConfig;
-
-    @Mock
-    private ChangeLogEntry changeLogEntry;
 
     private DefaultDatabaseDeployManager manager;
 

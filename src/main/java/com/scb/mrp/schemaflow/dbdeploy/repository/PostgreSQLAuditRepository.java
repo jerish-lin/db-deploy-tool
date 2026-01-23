@@ -2,10 +2,9 @@ package com.scb.mrp.schemaflow.dbdeploy.repository;
 
 import com.scb.mrp.schemaflow.dbdeploy.database.ConditionalOnDatabaseDriver;
 import com.scb.mrp.schemaflow.dbdeploy.database.DatabaseType;
-import com.scb.mrp.schemaflow.dbdeploy.entity.AuditEntry;
+import com.scb.mrp.schemaflow.dbdeploy.entity.ChangeLogAuditEntry;
+import com.scb.mrp.schemaflow.dbdeploy.entity.ChangeLogScript;
 import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseStatus;
-import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptMetadata;
-import com.scb.mrp.schemaflow.dbdeploy.model.ChangeLogEntry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.KeyHolder;
@@ -32,30 +31,13 @@ public class PostgreSQLAuditRepository extends AbstractAuditRepository {
     }
 
     @Override
-    protected void handleMultiNodeFields(ResultSet rs, AuditEntry entry) throws SQLException {
-        // targetNodes is no longer in AuditEntry, it's in ScriptMetadata
+    protected void handleMultiNodeFields(ResultSet rs, ChangeLogAuditEntry entry) throws SQLException {
+        // targetNodes is no longer in ScriptAuditEntry, it's in ScriptMetadata
         // This method is kept for compatibility but does nothing
     }
 
     @Override
-    protected void handleMultiNodeFieldsForChangeLog(ResultSet rs, ChangeLogEntry entry) throws SQLException {
-        try {
-            String targetNodesStr = rs.getString("target_nodes");
-            if (targetNodesStr != null && !targetNodesStr.isEmpty()) {
-                // PostgreSQL stores as array, need to convert from string representation
-                // Array format: {node1,node2,node3}
-                String cleaned = targetNodesStr.substring(1, targetNodesStr.length() - 1);
-                entry.setTargetNodes(List.of(cleaned.split(",")));
-            } else {
-                entry.setTargetNodes(null);
-            }
-        } catch (SQLException e) {
-            entry.setTargetNodes(null);
-        }
-    }
-
-    @Override
-    protected String getSaveScriptMetadataSql() {
+    protected String getCreateScriptMetadataSql() {
         return """
                 INSERT INTO schemaflow_changelog_script (
                     script_name, script_checksum,
@@ -65,7 +47,12 @@ public class PostgreSQLAuditRepository extends AbstractAuditRepository {
     }
 
     @Override
-    protected void setSaveScriptMetadataParameters(ScriptMetadata metadata, String sql, KeyHolder keyHolder) {
+    protected String getSelectScriptMetadataSql() {
+        return "SELECT id FROM schemaflow_changelog_script WHERE script_name = ?";
+    }
+
+    @Override
+    protected void setSaveScriptMetadataParameters(ChangeLogScript metadata, String sql, KeyHolder keyHolder) {
         dbDeployJdbcTemplate.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS);
             ps.setString(1, metadata.getScriptName());
@@ -90,7 +77,7 @@ public class PostgreSQLAuditRepository extends AbstractAuditRepository {
     }
 
     @Override
-    protected void setRecordAuditEntryParameters(AuditEntry entry, String sql, KeyHolder keyHolder) {
+    protected void setRecordAuditEntryParameters(ChangeLogAuditEntry entry, String sql, KeyHolder keyHolder) {
         dbDeployJdbcTemplate.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS);
             ps.setLong(1, entry.getScriptId());

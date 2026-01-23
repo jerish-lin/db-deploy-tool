@@ -209,7 +209,7 @@ public class ChangeLogManager {
      * @param changeLogConfig The changelog configuration
      * @return List of ScriptMetadata objects that need to be rolled back (in reversed execution order)
      */
-    public List<ScriptMetadata> determineRollbackScripts(ChangeLogConfig changeLogConfig) {
+    public List<ChangeLogScript> determineRollbackScripts(ChangeLogConfig changeLogConfig) {
         // Get script names from current changelog
         List<String> currentScriptNames = getChangeLogScriptNames(changeLogConfig);
 
@@ -218,9 +218,9 @@ public class ChangeLogManager {
 
         // Find scripts that have SUCCESS or FAILED status but are not in current changelog (need rollback)
         // Scripts with ROLLED_BACK status are ignored
-        List<ScriptMetadata> rollbackScripts = scriptSummary.getSuccessAndFailedScripts().stream()
+        List<ChangeLogScript> rollbackScripts = scriptSummary.getSuccessAndFailedScripts().stream()
                 .filter(status -> !currentScriptNames.contains(status.getScriptName()))
-                .map(DatabaseStatus.ScriptStatus::toScriptMetadata)
+                .map(DatabaseStatus.ChangeLogScriptStatus::toScriptMetadata)
                 .collect(Collectors.toList());
 
         // Return in reversed order so scripts are rolled back in reverse execution order

@@ -2,7 +2,6 @@ package com.scb.mrp.schemaflow.dbdeploy.service;
 
 import com.scb.mrp.schemaflow.dbdeploy.changelog.ChangeLogManager;
 import com.scb.mrp.schemaflow.dbdeploy.entity.*;
-import com.scb.mrp.schemaflow.dbdeploy.model.ChangeLogEntry;
 import com.scb.mrp.schemaflow.dbdeploy.repository.AuditRepository;
 import com.scb.mrp.schemaflow.dbdeploy.script.ScriptExecutionManager;
 import com.scb.mrp.schemaflow.dbdeploy.script.ScriptExecutor;
@@ -28,7 +27,7 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
     private final AuditRepository auditRepository;
     private final ChangeLogManager changeLogManager;
     private final ScriptExecutionManager scriptExecutionManager;
-    private final ScriptExecutor scriptExecutorV2;
+    private final ScriptExecutor scriptExecutor;
 
     @Autowired
     @Qualifier("nodeJdbcTemplateMap")
@@ -40,12 +39,12 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
             AuditRepository auditRepository,
             ChangeLogManager changeLogManager,
             ScriptExecutionManager scriptExecutionManager,
-            ScriptExecutor scriptExecutorV2) {
+            ScriptExecutor scriptExecutor) {
         this.jdbcTemplate = jdbcTemplate;
         this.auditRepository = auditRepository;
         this.changeLogManager = changeLogManager;
         this.scriptExecutionManager = scriptExecutionManager;
-        this.scriptExecutorV2 = scriptExecutorV2;
+        this.scriptExecutor = scriptExecutor;
     }
 
     @Override
@@ -104,18 +103,27 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
     }
 
     private void executeScriptWithAudit(ScriptFileContent script, ScriptConfig scriptConfig) throws Exception {
-        ChangeLogEntry entry = new ChangeLogEntry();
-        entry.setScriptName(script.getName());
-        entry.setRollbackScriptContent(script.getRollbackContent());
-        entry.setRollbackVerifyScriptContent(script.getRollbackVerificationContent());
-        entry.setExecutionStatus(ScriptExecutionStatus.SUCCESS);
-        entry.setExecutionTime(LocalDateTime.now());
-        entry.setCreatedAt(LocalDateTime.now());
-        entry.setUpdatedAt(LocalDateTime.now());
+        // Create script metadata
+        ChangeLogScript metadata = new ChangeLogScript();
+        metadata.setScriptName(script.getName());
+        metadata.setRollbackScriptContent(script.getRollbackContent());
+        metadata.setRollbackVerifyScriptContent(script.getRollbackVerificationContent());
+        metadata.setCreatedAt(LocalDateTime.now());
 
         // Calculate checksum from the script content
-        String checksum = scriptExecutorV2.calculateChecksum(script.getApplyContent());
-        entry.setScriptChecksum(checksum);
+        String checksum = scriptExecutor.calculateChecksum(script.getApplyContent());
+        metadata.setScriptChecksum(checksum);
+
+        // Store target nodes if multi-node
+        if (scriptConfig != null && scriptConfig.isMultiNode()) {
+            metadata.setTargetNodes(scriptConfig.getNodes());
+        }
+
+        // Create audit entry
+        ChangeLogAuditEntry auditEntry = new ChangeLogAuditEntry();
+        auditEntry.setExecutionStatus(ScriptExecutionStatus.SUCCESS);
+        auditEntry.setExecutionTime(LocalDateTime.now());
+        auditEntry.setCreatedAt(LocalDateTime.now());
 
         ScriptExecutor.ScriptExecutionResult result = null;
         ScriptExecutionManager.MultiNodeExecutionResult multiNodeResult = null;
@@ -125,9 +133,6 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
         try {
             // Check if this is a multi-node script
             if (scriptConfig != null && scriptConfig.isMultiNode()) {
-                // Store the original target nodes from the script config
-                entry.setTargetNodes(scriptConfig.getNodes());
-
                 // Resolve target nodes for execution
                 List<String> executionTargetNodes = determineTargetNodes(scriptConfig);
 
@@ -139,15 +144,15 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
                         script.getName());
 
                 if (multiNodeResult.isSuccess()) {
-                    entry.setExecutionDurationMs(multiNodeResult.getDuration());
-                    entry.setNodeExecutionDetails(
+                    auditEntry.setExecutionDurationMs(multiNodeResult.getDuration());
+                    auditEntry.setNodeExecutionDetails(
                             serializeNodeResults(multiNodeResult.getNodeResults(), executionTargetNodes));
                     success = true;
                     log.info("Multi-node script {} executed successfully on {} nodes",
                             script.getName(), executionTargetNodes.size());
                 } else {
                     errorMessage = multiNodeResult.getErrorMessage();
-                    entry.setNodeExecutionDetails(
+                    auditEntry.setNodeExecutionDetails(
                             serializeNodeResults(multiNodeResult.getNodeResults(), executionTargetNodes));
                 }
             } else {
@@ -158,7 +163,7 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
                         script.getName());
 
                 if (result.isSuccess()) {
-                    entry.setExecutionDurationMs(result.getDuration());
+                    auditEntry.setExecutionDurationMs(result.getDuration());
                     success = true;
                     log.info("Script {} executed and verified successfully", script.getName());
                 } else {
@@ -171,22 +176,25 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
 
         // Record audit result in a separate transaction
         if (!success) {
-            entry.setExecutionStatus(ScriptExecutionStatus.FAILED);
-            entry.setErrorMessage(errorMessage);
-            recordScriptExecutionWithNewTransaction(entry);
+            auditEntry.setExecutionStatus(ScriptExecutionStatus.FAILED);
+            auditEntry.setErrorMessage(errorMessage);
+            recordScriptExecutionWithNewTransaction(metadata, auditEntry);
             throw new RuntimeException("Script execution failed: " + errorMessage);
         } else {
-            recordScriptExecutionWithNewTransaction(entry);
+            recordScriptExecutionWithNewTransaction(metadata, auditEntry);
         }
     }
 
     /**
      * Record script execution in a new transaction to ensure audit records are committed
      * even when the script execution transaction is rolled back.
+     * Uses createScriptMetadata and createScriptAuditEntry directly.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    private void recordScriptExecutionWithNewTransaction(ChangeLogEntry entry) {
-        auditRepository.recordScriptExecution(entry);
+    private void recordScriptExecutionWithNewTransaction(ChangeLogScript metadata, ChangeLogAuditEntry auditEntry) {
+        Long scriptId = auditRepository.createScriptMetadata(metadata);
+        auditEntry.setScriptId(scriptId);
+        Long auditId = auditRepository.createScriptAuditEntry(auditEntry);
     }
 
     /**
@@ -253,7 +261,7 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
             // Use ChangeLogManager to determine which scripts need to be rolled back
             // The rollback content is already saved in the database with parameters replaced,
             // so no need to replace parameters again
-            List<ScriptMetadata> scriptsToRollback = changeLogManager.determineRollbackScripts(changeLogConfig);
+            List<ChangeLogScript> scriptsToRollback = changeLogManager.determineRollbackScripts(changeLogConfig);
 
             if (scriptsToRollback.isEmpty()) {
                 log.info("No scripts to rollback. Database is already at the target state");
@@ -263,7 +271,7 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
             log.info("Found {} scripts to rollback", scriptsToRollback.size());
 
             // Execute rollback scripts in reverse order (already handled by ChangeLogManager)
-            for (ScriptMetadata metadata : scriptsToRollback) {
+            for (ChangeLogScript metadata : scriptsToRollback) {
                 if (dryRun) {
                     log.info("[DRY RUN] Would rollback script: {}", metadata.getScriptName());
                     continue;
@@ -309,22 +317,16 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
                     log.warn("No rollback script available for: {}", metadata.getScriptName());
                 }
 
-                // Record the rollback as a new audit entry
-                ChangeLogEntry rollbackEntry = new ChangeLogEntry();
-                rollbackEntry.setScriptName(metadata.getScriptName());
-                rollbackEntry.setScriptChecksum(metadata.getScriptChecksum());
-                rollbackEntry.setExecutionStatus(ScriptExecutionStatus.ROLLED_BACK);
-                rollbackEntry.setExecutionTime(LocalDateTime.now());
-                rollbackEntry.setExecutionDurationMs(0L);
-                rollbackEntry.setRollbackScriptContent(metadata.getRollbackScriptContent());
-                rollbackEntry.setRollbackVerifyScriptContent(metadata.getRollbackVerifyScriptContent());
-                rollbackEntry.setCreatedAt(LocalDateTime.now());
-                rollbackEntry.setUpdatedAt(LocalDateTime.now());
+                // Create audit entry
+                ChangeLogAuditEntry changeLogAuditEntry = new ChangeLogAuditEntry();
+                changeLogAuditEntry.setScriptId(metadata.getId());
+                changeLogAuditEntry.setExecutionStatus(ScriptExecutionStatus.ROLLED_BACK);
+                changeLogAuditEntry.setExecutionTime(LocalDateTime.now());
+                changeLogAuditEntry.setExecutionDurationMs(0L);
+                changeLogAuditEntry.setNodeExecutionDetails(null);
+                changeLogAuditEntry.setCreatedAt(LocalDateTime.now());
 
-                // Copy multi-node fields if applicable
-                rollbackEntry.setTargetNodes(metadata.getTargetNodes());
-
-                auditRepository.recordRollbackScriptExecution(rollbackEntry);
+                auditRepository.createScriptAuditEntry(changeLogAuditEntry);
 
                 log.info("Script {} rolled back successfully", metadata.getScriptName());
             }

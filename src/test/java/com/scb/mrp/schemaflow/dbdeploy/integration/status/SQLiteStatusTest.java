@@ -87,7 +87,7 @@ public class SQLiteStatusTest extends SQLiteDeployTestBase {
                 "Scripts list size should be 4");
 
         // Verify all scripts have SUCCESS status
-        for (DatabaseStatus.ScriptStatus scriptStatus : status.getScriptSummary().getScripts()) {
+        for (DatabaseStatus.ChangeLogScriptStatus scriptStatus : status.getScriptSummary().getScripts()) {
             assertEquals(ScriptExecutionStatus.SUCCESS, scriptStatus.getLatestStatus(),
                     "All scripts should have SUCCESS status after successful deployment");
         }

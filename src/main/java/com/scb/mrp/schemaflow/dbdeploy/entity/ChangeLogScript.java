@@ -12,7 +12,7 @@ import java.util.List;
  */
 @Data
 @NoArgsConstructor
-public class ScriptMetadata {
+public class ChangeLogScript {
     private Long id;
     private String scriptName;
     private String scriptChecksum;
@@ -27,7 +27,7 @@ public class ScriptMetadata {
      */
     private List<String> targetNodes;
 
-    public ScriptMetadata(String scriptName, String scriptChecksum) {
+    public ChangeLogScript(String scriptName, String scriptChecksum) {
         this.scriptName = scriptName;
         this.scriptChecksum = scriptChecksum;
     }

@@ -26,7 +26,7 @@ public class DatabaseStatusPrinter {
 
             if (summary.getScripts() != null && !summary.getScripts().isEmpty()) {
                 log.info("Script Status:");
-                for (DatabaseStatus.ScriptStatus scriptStatus : summary.getScripts()) {
+                for (DatabaseStatus.ChangeLogScriptStatus scriptStatus : summary.getScripts()) {
                     log.info("  - {}: {}", scriptStatus.getScriptName(), scriptStatus.getLatestStatus());
                 }
             }

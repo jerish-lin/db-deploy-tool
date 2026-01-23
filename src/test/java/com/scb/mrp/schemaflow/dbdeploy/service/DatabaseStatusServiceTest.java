@@ -84,7 +84,7 @@ public class DatabaseStatusServiceTest {
         summary.setFailedScripts(1);
         summary.setRolledBackScripts(0);
 
-        DatabaseStatus.ScriptStatus failedScript = new DatabaseStatus.ScriptStatus();
+        DatabaseStatus.ChangeLogScriptStatus failedScript = new DatabaseStatus.ChangeLogScriptStatus();
         failedScript.setId(1L);
         failedScript.setScriptName("failed-script.sql");
         failedScript.setScriptChecksum("abc123");
@@ -106,7 +106,7 @@ public class DatabaseStatusServiceTest {
         assertTrue(status.getScriptSummary().getScripts().stream()
                 .anyMatch(s -> ScriptExecutionStatus.FAILED.equals(s.getLatestStatus()) && "failed-script.sql".equals(s.getScriptName())));
         // Verify ScriptMetadata fields are populated
-        DatabaseStatus.ScriptStatus scriptStatus = status.getScriptSummary().getScripts().get(0);
+        DatabaseStatus.ChangeLogScriptStatus scriptStatus = status.getScriptSummary().getScripts().get(0);
         assertEquals(1L, scriptStatus.getId());
         assertEquals("abc123", scriptStatus.getScriptChecksum());
         assertEquals("DROP TABLE test;", scriptStatus.getRollbackScriptContent());

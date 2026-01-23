@@ -140,7 +140,7 @@ public class CompatibilityCheckService {
 
             if (failedScripts > 0) {
                 List<String> failedScriptNames = status.getScriptSummary().getScripts().stream()
-                                    .filter(s -> ScriptExecutionStatus.FAILED.equals(s.getLatestStatus()))                        .map(DatabaseStatus.ScriptStatus::getScriptName)
+                        .filter(s -> ScriptExecutionStatus.FAILED.equals(s.getLatestStatus())).map(DatabaseStatus.ChangeLogScriptStatus::getScriptName)
                         .toList();
 
                 String message = String.format(

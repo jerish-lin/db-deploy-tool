@@ -1,9 +1,8 @@
 package com.scb.mrp.schemaflow.dbdeploy.repository;
 
-import com.scb.mrp.schemaflow.dbdeploy.entity.AuditEntry;
+import com.scb.mrp.schemaflow.dbdeploy.entity.ChangeLogAuditEntry;
+import com.scb.mrp.schemaflow.dbdeploy.entity.ChangeLogScript;
 import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseStatus;
-import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptMetadata;
-import com.scb.mrp.schemaflow.dbdeploy.model.ChangeLogEntry;
 
 import java.util.List;
 
@@ -30,23 +29,12 @@ public interface AuditRepository {
      * Insert or update script metadata
      * Returns the script ID
      */
-    Long saveScriptMetadata(ScriptMetadata metadata);
+    Long createScriptMetadata(ChangeLogScript metadata);
 
     /**
      * Record script execution as a new audit entry
      */
-    Long recordAuditEntry(AuditEntry entry);
-
-    /**
-     * Record a complete script execution (metadata + audit entry)
-     * This is used for backward compatibility with existing code
-     */
-    void recordScriptExecution(ChangeLogEntry entry);
-
-    /**
-     * Record a rollback script execution as a new audit entry
-     */
-    void recordRollbackScriptExecution(ChangeLogEntry entry);
+    Long createScriptAuditEntry(ChangeLogAuditEntry entry);
 
     /**
      * Get current lock status

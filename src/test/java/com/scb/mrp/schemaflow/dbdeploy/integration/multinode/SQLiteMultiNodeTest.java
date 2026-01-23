@@ -3,9 +3,9 @@ package com.scb.mrp.schemaflow.dbdeploy.integration.multinode;
 import com.scb.mrp.schemaflow.dbdeploy.TestApplication;
 import com.scb.mrp.schemaflow.dbdeploy.changelog.ConfigLoader;
 import com.scb.mrp.schemaflow.dbdeploy.entity.ChangeLogConfig;
+import com.scb.mrp.schemaflow.dbdeploy.entity.ChangeLogScript;
 import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptExecutionStatus;
 import com.scb.mrp.schemaflow.dbdeploy.integration.SQLiteDeployTestBase;
-import com.scb.mrp.schemaflow.dbdeploy.model.ChangeLogEntry;
 import com.scb.mrp.schemaflow.dbdeploy.schema.SchemaInitializationManager;
 import com.scb.mrp.schemaflow.dbdeploy.service.DatabaseDeployManager;
 import com.scb.mrp.schemaflow.dbdeploy.service.DatabaseDeployService;
@@ -85,10 +85,10 @@ public class SQLiteMultiNodeTest extends SQLiteDeployTestBase {
         deployService.deploy(changeLogConfig, false);
 
         // Verify script metadata (target_nodes from script table)
-        List<ChangeLogEntry> scriptEntries = dbDeployJdbcTemplate.query(
+        List<ChangeLogScript> scriptEntries = dbDeployJdbcTemplate.query(
                 "SELECT id, script_name, target_nodes FROM schemaflow_changelog_script ORDER BY id ASC",
                 (rs, rowNum) -> {
-                    ChangeLogEntry entry = new ChangeLogEntry();
+                    ChangeLogScript entry = new ChangeLogScript();
                     entry.setId(rs.getLong("id"));
                     entry.setScriptName(rs.getString("script_name"));
                     entry.setTargetNodes(rs.getString("target_nodes") != null ?
@@ -100,7 +100,7 @@ public class SQLiteMultiNodeTest extends SQLiteDeployTestBase {
         assertEquals(4, scriptEntries.size(), "Should have 4 script entries");
 
         // Verify first script (ALL nodes)
-        ChangeLogEntry usersEntry = scriptEntries.get(0);
+        ChangeLogScript usersEntry = scriptEntries.get(0);
         assertEquals("create-users-table-multinode", usersEntry.getScriptName());
         assertNotNull(usersEntry.getTargetNodes(), "Target nodes should not be null");
         assertTrue(usersEntry.getTargetNodes().contains("ALL"), "Should target ALL nodes");
@@ -117,7 +117,7 @@ public class SQLiteMultiNodeTest extends SQLiteDeployTestBase {
                 "Users table should exist on node3");
 
         // Verify second script (node1 only)
-        ChangeLogEntry productsEntry = scriptEntries.get(1);
+        ChangeLogScript productsEntry = scriptEntries.get(1);
         assertEquals("create-products-table-node1", productsEntry.getScriptName());
         assertNotNull(productsEntry.getTargetNodes(), "Target nodes should not be null");
         assertEquals(List.of("node1"), productsEntry.getTargetNodes(), "Should target only node1");
@@ -134,7 +134,7 @@ public class SQLiteMultiNodeTest extends SQLiteDeployTestBase {
                 "Products table should NOT exist on node3");
 
         // Verify third script (node2 only)
-        ChangeLogEntry ordersEntry = scriptEntries.get(2);
+        ChangeLogScript ordersEntry = scriptEntries.get(2);
         assertEquals("create-orders-table-node2", ordersEntry.getScriptName());
         assertNotNull(ordersEntry.getTargetNodes(), "Target nodes should not be null");
         assertEquals(List.of("node2"), ordersEntry.getTargetNodes(), "Should target only node2");
@@ -151,7 +151,7 @@ public class SQLiteMultiNodeTest extends SQLiteDeployTestBase {
                 "Orders table should NOT exist on node3");
 
         // Verify fourth script (single-node, backward compatibility)
-        ChangeLogEntry scriptEntry = scriptEntries.get(3);
+        ChangeLogScript scriptEntry = scriptEntries.get(3);
         assertEquals("single-node-script", scriptEntry.getScriptName());
         assertNull(scriptEntry.getTargetNodes(), "Target nodes should be null for single-node");
 
@@ -213,10 +213,10 @@ public class SQLiteMultiNodeTest extends SQLiteDeployTestBase {
         deployService.deploy(changeLogConfig, false);
 
         // Get the multi-node script entry
-        ChangeLogEntry multiNodeEntry = dbDeployJdbcTemplate.queryForObject(
+        ScriptExecutionEntry multiNodeEntry = dbDeployJdbcTemplate.queryForObject(
                 "SELECT ca.*, cs.script_name FROM schemaflow_changelog_audit ca INNER JOIN schemaflow_changelog_script cs ON ca.script_id = cs.id WHERE cs.script_name = 'create-users-table-multinode'",
                 (rs, rowNum) -> {
-                    ChangeLogEntry entry = new ChangeLogEntry();
+                    ScriptExecutionEntry entry = new ScriptExecutionEntry();
                     entry.setScriptName(rs.getString("script_name"));
                     entry.setExecutionStatus(ScriptExecutionStatus.fromValue(rs.getString("execution_status")));
                     entry.setNodeExecutionDetails(rs.getString("node_execution_details"));

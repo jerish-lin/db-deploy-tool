@@ -123,7 +123,7 @@ public class CompatibilityCheckServiceTest {
         DatabaseStatus.ScriptSummary scriptSummary = new DatabaseStatus.ScriptSummary();
         scriptSummary.setFailedScripts(2);
 
-        DatabaseStatus.ScriptStatus scriptStatus1 = new DatabaseStatus.ScriptStatus();
+        DatabaseStatus.ChangeLogScriptStatus scriptStatus1 = new DatabaseStatus.ChangeLogScriptStatus();
         scriptStatus1.setId(1L);
         scriptStatus1.setScriptName("script1");
         scriptStatus1.setScriptChecksum("abc123");
@@ -132,7 +132,7 @@ public class CompatibilityCheckServiceTest {
         scriptStatus1.setCreatedAt(java.time.LocalDateTime.now());
         scriptStatus1.setLatestStatus(ScriptExecutionStatus.FAILED);
 
-        DatabaseStatus.ScriptStatus scriptStatus2 = new DatabaseStatus.ScriptStatus();
+        DatabaseStatus.ChangeLogScriptStatus scriptStatus2 = new DatabaseStatus.ChangeLogScriptStatus();
         scriptStatus2.setId(2L);
         scriptStatus2.setScriptName("script2");
         scriptStatus2.setScriptChecksum("def456");

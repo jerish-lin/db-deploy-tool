@@ -1,9 +1,6 @@
 package com.scb.mrp.schemaflow.dbdeploy.entity;
 
-import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptExecutionStatus;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.extern.slf4j.Slf4j;
 import lombok.EqualsAndHashCode;
 
 import java.util.List;
@@ -26,7 +23,7 @@ public class DatabaseStatus {
     @Data
     public static class ScriptSummary {
         // List of all unique scripts with their latest status
-        private List<ScriptStatus> scripts;
+        private List<ChangeLogScriptStatus> scripts;
 
         // Summary counts
         private int totalScripts;
@@ -43,14 +40,14 @@ public class DatabaseStatus {
             }
             return scripts.stream()
                     .filter(s -> ScriptExecutionStatus.SUCCESS.equals(s.getLatestStatus()))
-                    .map(ScriptStatus::getScriptName)
+                    .map(ChangeLogScriptStatus::getScriptName)
                     .collect(Collectors.toList());
         }
 
         /**
          * Get all successfully executed script names
          */
-        public List<ScriptStatus> getSuccessAndFailedScripts() {
+        public List<ChangeLogScriptStatus> getSuccessAndFailedScripts() {
             if (scripts == null) {
                 return List.of();
             }
@@ -62,14 +59,14 @@ public class DatabaseStatus {
 
     @Data
     @EqualsAndHashCode(callSuper = false)
-    public static class ScriptStatus extends ScriptMetadata {
+    public static class ChangeLogScriptStatus extends ChangeLogScript {
         private ScriptExecutionStatus latestStatus;  // SUCCESS / FAILED / ROLLED_BACK
 
-        public ScriptStatus() {
+        public ChangeLogScriptStatus() {
             super();
         }
 
-        public ScriptStatus(String scriptName, String scriptChecksum, ScriptExecutionStatus latestStatus) {
+        public ChangeLogScriptStatus(String scriptName, String scriptChecksum, ScriptExecutionStatus latestStatus) {
             super(scriptName, scriptChecksum);
             this.latestStatus = latestStatus;
         }
@@ -80,8 +77,8 @@ public class DatabaseStatus {
          *
          * @return ScriptMetadata object with the same field values
          */
-        public ScriptMetadata toScriptMetadata() {
-            ScriptMetadata metadata = new ScriptMetadata();
+        public ChangeLogScript toScriptMetadata() {
+            ChangeLogScript metadata = new ChangeLogScript();
             metadata.setId(this.getId());
             metadata.setScriptName(this.getScriptName());
             metadata.setScriptChecksum(this.getScriptChecksum());

@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
  */
 @Data
 @NoArgsConstructor
-public class AuditEntry {
+public class ChangeLogAuditEntry {
     private Long id;
     private Long scriptId;
     private ScriptExecutionStatus executionStatus;
@@ -30,7 +30,7 @@ public class AuditEntry {
     /**
      * Convenience constructor for creating a new audit entry
      */
-    public AuditEntry(Long scriptId, ScriptExecutionStatus executionStatus) {
+    public ChangeLogAuditEntry(Long scriptId, ScriptExecutionStatus executionStatus) {
         this.scriptId = scriptId;
         this.executionStatus = executionStatus;
         this.executionTime = LocalDateTime.now();
