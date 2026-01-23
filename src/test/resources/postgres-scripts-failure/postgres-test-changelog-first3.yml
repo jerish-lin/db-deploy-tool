@@ -1,0 +1,4 @@
+scripts:
+  - feature-12346/feature-12346-create-users-table
+  - feature-12347-create-orders-table
+  - feature-12348/feature-12348-insert-sample-users

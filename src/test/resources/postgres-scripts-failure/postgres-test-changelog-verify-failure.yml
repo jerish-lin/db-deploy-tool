@@ -1,0 +1,4 @@
+scripts:
+  - feature-12346/feature-12346-create-users-table
+  - feature-12347-create-orders-table
+  - verify-failure/feature-12350-create-user-orders-view
