@@ -5,14 +5,9 @@ import com.scb.mrp.schemaflow.dbdeploy.entity.ChangeLogScript;
 import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseStatus;
 import com.scb.mrp.schemaflow.dbdeploy.entity.ScriptExecutionStatus;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
-import org.springframework.jdbc.support.KeyHolder;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,110 +26,27 @@ public abstract class AbstractAuditRepository implements AuditRepository {
         this.dbDeployJdbcTemplate = dbDeployJdbcTemplate;
     }
 
-    /**
-     * Parse timestamp from Object to LocalDateTime
-     */
-    protected LocalDateTime parseTimestamp(Object timestampObj) {
-        if (timestampObj == null) {
-            return LocalDateTime.now();
-        }
-        String timestampStr = timestampObj.toString();
-        if (timestampStr != null) {
-            try {
-                return LocalDateTime.parse(timestampStr);
-            } catch (Exception e) {
-                return LocalDateTime.now();
-            }
-        }
-        return LocalDateTime.now();
-    }
-
-    /**
-     * Parse target nodes from database result.
-     * Can be Array (PostgreSQL), comma-separated string (SQLite/ClickHouse), or null.
-     *
-     * @param targetNodesObj The target nodes object from database
-     * @return List of target node names, or null if not applicable
-     */
-    protected List<String> parseTargetNodes(Object targetNodesObj) {
-        if (targetNodesObj == null) {
-            return null;
-        }
-
-        // PostgreSQL returns Array
-        if (targetNodesObj instanceof java.sql.Array) {
-            try {
-                java.sql.Array array = (java.sql.Array) targetNodesObj;
-                Object[] arrayData = (Object[]) array.getArray();
-                if (arrayData == null || arrayData.length == 0) {
-                    return null;
-                }
-                List<String> nodes = new ArrayList<>();
-                for (Object item : arrayData) {
-                    if (item != null) {
-                        nodes.add(item.toString());
-                    }
-                }
-                return nodes.isEmpty() ? null : nodes;
-            } catch (SQLException e) {
-                log.warn("Failed to parse target nodes array", e);
-                return null;
-            }
-        }
-
-        // For SQLite and ClickHouse, target nodes might be stored as comma-separated string
-        String targetNodesStr = targetNodesObj.toString();
-        if (targetNodesStr == null || targetNodesStr.trim().isEmpty()) {
-            return null;
-        }
-
-        // Try to parse as comma-separated string
-        try {
-            String[] nodes = targetNodesStr.split(",");
-            if (nodes == null || nodes.length == 0) {
-                return null;
-            }
-            List<String> result = new ArrayList<>();
-            for (String node : nodes) {
-                String trimmed = node.trim();
-                if (!trimmed.isEmpty()) {
-                    result.add(trimmed);
-                }
-            }
-            return result.isEmpty() ? null : result;
-        } catch (Exception e) {
-            log.warn("Failed to parse target nodes string: {}", targetNodesStr, e);
-            return null;
-        }
-    }
-
-    // ==================== Script Metadata Operations ====================
-
     @Override
     public Long createScriptMetadata(ChangeLogScript metadata) {
         String sql = getCreateScriptMetadataSql();
+        return dbDeployJdbcTemplate.queryForObject(sql, Long.class,
+                metadata.getScriptName(),
+                metadata.getScriptChecksum(),
+                metadata.getRollbackScriptContent(),
+                metadata.getRollbackVerifyScriptContent(),
+                metadata.getTargetNodes() != null ? String.join(",", metadata.getTargetNodes()) : null,
+                prepareTimestamp(metadata.getCreatedAt()));
 
-        KeyHolder keyHolder = new GeneratedKeyHolder();
-        setSaveScriptMetadataParameters(metadata, sql, keyHolder);
-
-        return extractGeneratedKeyId(keyHolder);
     }
 
-    protected String getCreateScriptMetadataSql() {
+    private String getCreateScriptMetadataSql() {
         return """
                 INSERT INTO schemaflow_changelog_script (
                     script_name, script_checksum,
                     rollback_script_content, rollback_verify_script_content, target_nodes, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?) RETURNING id
                 """;
     }
-
-    /**
-     * Set parameters for saving script metadata - to be implemented by subclasses
-     */
-    protected abstract void setSaveScriptMetadataParameters(ChangeLogScript metadata, String sql, KeyHolder keyHolder);
-
-    // ==================== Audit Entry Operations ====================
 
     @Override
     public void createScriptAuditEntry(ChangeLogAuditEntry entry) {
@@ -142,11 +54,18 @@ public abstract class AbstractAuditRepository implements AuditRepository {
         dbDeployJdbcTemplate.update(sql,
                 entry.getScriptId(),
                 entry.getExecutionStatus().getValue(),
-                entry.getExecutionTime().toString(),
+                prepareTimestamp(entry.getExecutionTime()),
                 entry.getExecutionDurationMs(),
                 entry.getErrorMessage(),
                 entry.getNodeExecutionDetails(),
-                entry.getCreatedAt().toString());
+                prepareTimestamp(entry.getCreatedAt()));
+    }
+
+    protected Object prepareTimestamp(LocalDateTime dateTime) {
+        if (dateTime == null) {
+            return Timestamp.valueOf(LocalDateTime.now());
+        }
+        return Timestamp.valueOf(dateTime);
     }
 
     protected String getRecordAuditEntrySql() {
@@ -166,16 +85,13 @@ public abstract class AbstractAuditRepository implements AuditRepository {
         return dbDeployJdbcTemplate.update(sql, lockKey, lockOwner) > 0;
     }
 
+    protected abstract String getAcquireLockSql(int timeoutMinutes);
+
     @Override
     public void releaseLock(String lockKey, String lockOwner) {
         String sql = "DELETE FROM schemaflow_deploy_lock WHERE lock_key = ? AND lock_owner = ?";
         dbDeployJdbcTemplate.update(sql, lockKey, lockOwner);
     }
-
-    /**
-     * Get SQL for acquiring lock - to be implemented by subclasses
-     */
-    protected abstract String getAcquireLockSql(int timeoutMinutes);
 
     // ==================== Status and Reporting Operations ====================
 
@@ -282,6 +198,19 @@ public abstract class AbstractAuditRepository implements AuditRepository {
         return summary;
     }
 
+    private List<String> parseTargetNodes(Object targetNodesObj) {
+        if (targetNodesObj == null) {
+            return null;
+        }
+
+        String targetNodesStr = targetNodesObj.toString();
+        if (targetNodesStr == null || targetNodesStr.trim().isEmpty()) {
+            return null;
+        }
+
+        return List.of(targetNodesStr.split(","));
+    }
+
     @Override
     public List<DatabaseStatus.AuditHistoryEntry> getRecentAuditHistory() {
         List<DatabaseStatus.AuditHistoryEntry> history = new ArrayList<>();
@@ -312,7 +241,7 @@ public abstract class AbstractAuditRepository implements AuditRepository {
                 entry.setScriptName((String) row.get("script_name"));
                 entry.setScriptChecksum((String) row.get("script_checksum"));
                 entry.setExecutionStatus(ScriptExecutionStatus.fromValue((String) row.get("execution_status")));
-                entry.setExecutionTime((String) row.get("execution_time"));
+                entry.setExecutionTime(parseTimestamp(row.get("execution_time")));
 
                 Object durationMs = row.get("execution_duration_ms");
                 if (durationMs != null) {
@@ -321,8 +250,8 @@ public abstract class AbstractAuditRepository implements AuditRepository {
 
                 entry.setErrorMessage((String) row.get("error_message"));
 
-                // Handle target_nodes from script table - to be implemented by subclasses
-                handleTargetNodesForAuditHistory(row, entry);
+                // Handle target_nodes from script table (stored as comma-separated string)
+                entry.setTargetNodes(parseTargetNodes(row.get("target_nodes")));
 
                 entry.setNodeExecutionDetails((String) row.get("node_execution_details"));
 
@@ -335,31 +264,26 @@ public abstract class AbstractAuditRepository implements AuditRepository {
         return history;
     }
 
-    /**
-     * Handle target_nodes for audit history (from script table) - to be implemented by subclasses
-     */
-    protected abstract void handleTargetNodesForAuditHistory(Map<String, Object> row, DatabaseStatus.AuditHistoryEntry entry);
-
-    /**
-     * Extract generated key ID from KeyHolder
-     */
-    protected Long extractGeneratedKeyId(KeyHolder keyHolder) {
-        // Try getKey() first (works for SQLite and some PostgreSQL configurations)
+    protected LocalDateTime parseTimestamp(Object timestampObj) {
+        // PostgreSQL: Parse from Timestamp
+        if (timestampObj == null) {
+            return LocalDateTime.now();
+        }
+        if (timestampObj instanceof Timestamp) {
+            return parseLocalDateTime((Timestamp) timestampObj);
+        }
+        // Fallback: try to parse as string
         try {
-            Number generatedId = keyHolder.getKey();
-            if (generatedId != null) {
-                return generatedId.longValue();
-            }
-        } catch (InvalidDataAccessApiUsageException e) {
-            // PostgreSQL may throw this when multiple keys are returned, fall through to getKeys()
+            return LocalDateTime.parse(timestampObj.toString());
+        } catch (Exception e) {
+            return LocalDateTime.now();
         }
+    }
 
-        // Fallback to getKeys() for PostgreSQL which returns multiple keys
-        Map<String, Object> keys = keyHolder.getKeys();
-        if (keys != null && keys.get("id") != null) {
-            return ((Number) keys.get("id")).longValue();
+    private LocalDateTime parseLocalDateTime(Timestamp timestamp) {
+        if (timestamp == null) {
+            return LocalDateTime.now();
         }
-
-        throw new RuntimeException("Creating record failed, no ID obtained.");
+        return timestamp.toLocalDateTime();
     }
 }

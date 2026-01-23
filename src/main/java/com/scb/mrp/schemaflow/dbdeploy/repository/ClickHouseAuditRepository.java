@@ -4,19 +4,11 @@ import com.scb.mrp.schemaflow.dbdeploy.database.ConditionalOnDatabaseDriver;
 import com.scb.mrp.schemaflow.dbdeploy.database.DatabaseType;
 import com.scb.mrp.schemaflow.dbdeploy.entity.ChangeLogAuditEntry;
 import com.scb.mrp.schemaflow.dbdeploy.entity.ChangeLogScript;
-import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
 
 /**
  * ClickHouse-specific implementation of AuditRepository.
@@ -31,18 +23,57 @@ public class ClickHouseAuditRepository extends AbstractAuditRepository {
     }
 
     @Override
-    protected void setSaveScriptMetadataParameters(ChangeLogScript metadata, String sql, KeyHolder keyHolder) {
-        dbDeployJdbcTemplate.update(connection -> {
-            PreparedStatement ps = connection.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS);
-            ps.setString(1, metadata.getScriptName());
-            ps.setString(2, metadata.getScriptChecksum());
-            ps.setString(3, metadata.getRollbackScriptContent());
-            ps.setString(4, metadata.getRollbackVerifyScriptContent());
-            String nodesArray = metadata.getTargetNodes() != null ? "['" + String.join("','", metadata.getTargetNodes()) + "']" : "[]";
-            ps.setString(5, nodesArray);
-            ps.setTimestamp(6, Timestamp.valueOf(metadata.getCreatedAt() != null ? metadata.getCreatedAt() : LocalDateTime.now()));
-            return ps;
-        }, keyHolder);
+    public Long createScriptMetadata(ChangeLogScript metadata) {
+        String sql = getCreateScriptMetadataSql();
+        // ClickHouse requires explicit ID value, now temporarily using time mills, need to be refactored.
+        Long id = System.currentTimeMillis();
+        dbDeployJdbcTemplate.queryForObject(sql, Long.class,
+                metadata.getScriptName(),
+                metadata.getScriptChecksum(),
+                metadata.getRollbackScriptContent(),
+                metadata.getRollbackVerifyScriptContent(),
+                metadata.getTargetNodes() != null ? String.join(",", metadata.getTargetNodes()) : null,
+                (Timestamp) prepareTimestamp(metadata.getCreatedAt()),
+                id);
+        return id;
+
+    }
+
+    private String getCreateScriptMetadataSql() {
+        // TODO need to add id.
+        return """
+                INSERT INTO schemaflow_changelog_script (
+                    script_name, script_checksum,
+                    rollback_script_content, rollback_verify_script_content, target_nodes, created_at, id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """;
+    }
+
+    @Override
+    public void createScriptAuditEntry(ChangeLogAuditEntry entry) {
+        String sql = getRecordAuditEntrySql();
+        // ClickHouse requires explicit ID value, now temporarily using time mills, need to be refactored.
+        Long id = System.currentTimeMillis();
+        dbDeployJdbcTemplate.update(sql,
+                entry.getScriptId(),
+                entry.getExecutionStatus().getValue(),
+                prepareTimestamp(entry.getExecutionTime()),
+                entry.getExecutionDurationMs(),
+                entry.getErrorMessage(),
+                entry.getNodeExecutionDetails(),
+                prepareTimestamp(entry.getCreatedAt()),
+                id);
+    }
+
+
+    protected String getRecordAuditEntrySql() {
+        return """
+                INSERT INTO schemaflow_changelog_audit (
+                    script_id, execution_status, execution_time,
+                    execution_duration_ms, error_message,
+                    node_execution_details, created_at, id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """;
     }
 
     @Override
@@ -50,19 +81,5 @@ public class ClickHouseAuditRepository extends AbstractAuditRepository {
         return String.format(
                 "INSERT INTO schemaflow_deploy_lock (lock_key, lock_owner, lock_expires_at, is_active) " +
                         "VALUES (?, ?, now() + INTERVAL %d MINUTE, 1)", timeoutMinutes);
-    }
-
-    @Override
-    protected void handleTargetNodesForAuditHistory(Map<String, Object> row, DatabaseStatus.AuditHistoryEntry entry) {
-        // Handle target_nodes from script table (stored as array)
-        Object targetNodesObj = row.get("target_nodes");
-        if (targetNodesObj != null && targetNodesObj instanceof String) {
-            String targetNodesStr = (String) targetNodesObj;
-            if (!targetNodesStr.isEmpty()) {
-                // ClickHouse array format: ['node1','node2','node3']
-                String cleaned = targetNodesStr.substring(1, targetNodesStr.length() - 1).replaceAll("'", "");
-                entry.setTargetNodes(List.of(cleaned.split(",")));
-            }
-        }
     }
 }

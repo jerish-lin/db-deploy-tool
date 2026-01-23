@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS schemaflow_changelog_script (
     script_checksum String NOT NULL,
     rollback_script_content Nullable(String),
     rollback_verify_script_content Nullable(String),
-    target_nodes Array(String),
+    target_nodes String,
     created_at DateTime NOT NULL DEFAULT now()
 ) ENGINE = MergeTree()
 ORDER BY (id);

@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS schemaflow_changelog_script (
     script_checksum VARCHAR(64) NOT NULL,
     rollback_script_content TEXT,
     rollback_verify_script_content TEXT,
-    target_nodes TEXT[],
+    target_nodes TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

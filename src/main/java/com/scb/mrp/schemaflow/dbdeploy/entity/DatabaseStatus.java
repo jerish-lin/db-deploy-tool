@@ -3,6 +3,7 @@ package com.scb.mrp.schemaflow.dbdeploy.entity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -99,7 +100,7 @@ public class DatabaseStatus {
         // Execution audit details
         private Long auditId;
         private ScriptExecutionStatus executionStatus;  // SUCCESS / FAILED / ROLLED_BACK
-        private String executionTime;
+        private LocalDateTime executionTime;
         private Long executionDurationMs;
         private String errorMessage;
 
