@@ -15,7 +15,7 @@ import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 
 @SpringBootApplication(exclude = {DataSourceAutoConfiguration.class})
 @Slf4j
-public class DatabaseDeployTool implements CommandLineRunner {
+public class SchemaFlowCommand implements CommandLineRunner {
     @Autowired
     private DatabaseDeployManager deployManager;
     @Autowired
@@ -25,7 +25,7 @@ public class DatabaseDeployTool implements CommandLineRunner {
 
     public static void main(String[] args) {
         try {
-            SpringApplication app = new SpringApplication(DatabaseDeployTool.class);
+            SpringApplication app = new SpringApplication(SchemaFlowCommand.class);
             app.setWebApplicationType(WebApplicationType.NONE);
             System.exit(SpringApplication.exit(app.run(args)));
         } catch (Exception e) {

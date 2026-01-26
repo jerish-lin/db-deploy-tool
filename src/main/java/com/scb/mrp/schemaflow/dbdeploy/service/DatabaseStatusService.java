@@ -23,8 +23,6 @@ public class DatabaseStatusService {
      */
     public DatabaseStatus getComprehensiveStatus() {
         DatabaseStatus status = new DatabaseStatus();
-        // Basic connection info
-        status.setDatabaseConnected(true);
 
         // Query script summary
         populateScriptSummary(status);

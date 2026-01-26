@@ -59,7 +59,6 @@ public class CompatibilityCheckServiceTest {
     void testPreCheckPasses() throws Exception {
         // Setup mocks
         DatabaseStatus status = new DatabaseStatus();
-        status.setDatabaseConnected(true);
 
         DatabaseStatus.LockInfo lockInfo = new DatabaseStatus.LockInfo();
         lockInfo.setActive(false);
@@ -92,7 +91,6 @@ public class CompatibilityCheckServiceTest {
     @DisplayName("Test pre-check fails when deployment is in progress")
     void testPreCheckFailsWhenDeploymentInProgress() {
         DatabaseStatus status = new DatabaseStatus();
-        status.setDatabaseConnected(true);
 
         DatabaseStatus.LockInfo lockInfo = new DatabaseStatus.LockInfo();
         lockInfo.setActive(true);
@@ -114,7 +112,6 @@ public class CompatibilityCheckServiceTest {
     @DisplayName("Test pre-check fails when last deployment has failed scripts")
     void testPreCheckFailsWhenLastDeploymentFailed() throws Exception {
         DatabaseStatus status = new DatabaseStatus();
-        status.setDatabaseConnected(true);
 
         DatabaseStatus.LockInfo lockInfo = new DatabaseStatus.LockInfo();
         lockInfo.setActive(false);
@@ -167,7 +164,6 @@ public class CompatibilityCheckServiceTest {
     @DisplayName("Test pre-check fails when there are pending changelog scripts")
     void testPreCheckFailsWhenPendingChangelogScripts() throws Exception {
         DatabaseStatus status = new DatabaseStatus();
-        status.setDatabaseConnected(true);
 
         DatabaseStatus.LockInfo lockInfo = new DatabaseStatus.LockInfo();
         lockInfo.setActive(false);
@@ -235,7 +231,6 @@ public class CompatibilityCheckServiceTest {
     @DisplayName("Test pre-check passes when changelog is empty")
     void testPreCheckPassesWhenChangelogIsEmpty() throws Exception {
         DatabaseStatus status = new DatabaseStatus();
-        status.setDatabaseConnected(true);
 
         DatabaseStatus.LockInfo lockInfo = new DatabaseStatus.LockInfo();
         lockInfo.setActive(false);
@@ -263,7 +258,6 @@ public class CompatibilityCheckServiceTest {
     @DisplayName("Test pre-check handles null script summary gracefully")
     void testPreCheckHandlesNullScriptSummary() throws Exception {
         DatabaseStatus status = new DatabaseStatus();
-        status.setDatabaseConnected(true);
 
         DatabaseStatus.LockInfo lockInfo = new DatabaseStatus.LockInfo();
         lockInfo.setActive(false);
@@ -288,7 +282,6 @@ public class CompatibilityCheckServiceTest {
     @DisplayName("Test pre-check handles null lock info gracefully")
     void testPreCheckHandlesNullLockInfo() throws Exception {
         DatabaseStatus status = new DatabaseStatus();
-        status.setDatabaseConnected(true);
 
         status.setLockInfo(null);
 

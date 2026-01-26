@@ -1,5 +1,8 @@
 package com.scb.mrp.schemaflow.dbdeploy.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.scb.mrp.schemaflow.dbdeploy.entity.DatabaseStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -8,49 +11,22 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class DatabaseStatusPrinter {
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    {
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    }
+
     public void printStatus(DatabaseStatus status) {
-        if (!status.isDatabaseConnected()) {
-            log.error("Database is not connected or accessible");
-            return;
+        try {
+            String jsonStatus = objectMapper.writeValueAsString(status);
+            log.info("=== Database Deployment Status ===");
+            log.info("\n{}", jsonStatus);
+            log.info("=== End Status ===");
+        } catch (Exception e) {
+            log.error("Failed to serialize database status to JSON", e);
         }
-
-        log.info("=== Database Deployment Status ===");
-
-        // Print script summary
-        if (status.getScriptSummary() != null) {
-            DatabaseStatus.ScriptSummary summary = status.getScriptSummary();
-            log.info("Total Scripts: {}", summary.getTotalScripts());
-            log.info("Executed Scripts: {}", summary.getExecutedScripts());
-            log.info("Failed Scripts: {}", summary.getFailedScripts());
-            log.info("Rolled Back Scripts: {}", summary.getRolledBackScripts());
-
-            if (summary.getScripts() != null && !summary.getScripts().isEmpty()) {
-                log.info("Script Status:");
-                for (DatabaseStatus.ChangeLogScriptStatus scriptStatus : summary.getScripts()) {
-                    log.info("  - {}: {}", scriptStatus.getScriptName(), scriptStatus.getLatestStatus());
-                }
-            }
-        }
-
-        // Print recent audit history
-        if (status.getRecentAuditHistory() != null && !status.getRecentAuditHistory().isEmpty()) {
-            log.info("Recent Audit History (last 10):");
-            for (DatabaseStatus.AuditHistoryEntry entry : status.getRecentAuditHistory()) {
-                log.info("  - [{}] {} at {}",
-                        entry.getExecutionStatus(),
-                        entry.getScriptName(),
-                        entry.getExecutionTime());
-                if (entry.getErrorMessage() != null && !entry.getErrorMessage().isEmpty()) {
-                    log.info("    Error: {}", entry.getErrorMessage());
-                }
-            }
-        }
-
-        // Print lock info
-        if (status.getLockInfo() != null && status.getLockInfo().isActive()) {
-            log.info("Deployment Lock: ACTIVE (held by: {})", status.getLockInfo().getLockOwner());
-        }
-
-        log.info("=== End Status ===");
     }
 }

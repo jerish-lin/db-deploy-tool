@@ -26,7 +26,6 @@ public class SQLiteStatusTest extends SQLiteDeployTestBase {
 
         // Verify basic connection info
         assertNotNull(status, "Status should not be null");
-        assertTrue(status.isDatabaseConnected(), "Database should be connected");
 
         // Verify script summary
         assertNotNull(status.getScriptSummary(), "Script summary should not be null");
@@ -67,7 +66,6 @@ public class SQLiteStatusTest extends SQLiteDeployTestBase {
 
         // Verify basic connection info
         assertNotNull(status, "Status should not be null");
-        assertTrue(status.isDatabaseConnected(), "Database should be connected");
 
         // Verify script summary - should have 4 scripts
         assertNotNull(status.getScriptSummary(), "Script summary should not be null");
@@ -137,7 +135,6 @@ public class SQLiteStatusTest extends SQLiteDeployTestBase {
 
         // Verify basic connection info
         assertNotNull(status, "Status should not be null");
-        assertTrue(status.isDatabaseConnected(), "Database should be connected");
 
         // Verify script summary - should have 5 total scripts (4 from v1 + 1 from v2)
         assertNotNull(status.getScriptSummary(), "Script summary should not be null");
@@ -206,9 +203,6 @@ public class SQLiteStatusTest extends SQLiteDeployTestBase {
         // Verify all status fields are populated
         assertNotNull(status, "Status should not be null");
 
-        // Basic connection info
-        assertTrue(status.isDatabaseConnected(), "Database should be connected");
-
         // All nested objects should not be null
         assertNotNull(status.getScriptSummary(), "Script summary should not be null");
         assertNotNull(status.getLockInfo(), "Lock info should not be null");
@@ -244,8 +238,6 @@ public class SQLiteStatusTest extends SQLiteDeployTestBase {
         assertNotNull(status, "Status should not be null");
 
         // Basic connection info
-        assertTrue(status.isDatabaseConnected(), "Database should be connected");
-
         // All nested objects should not be null
         assertNotNull(status.getScriptSummary(), "Script summary should not be null");
         assertNotNull(status.getLockInfo(), "Lock info should not be null");

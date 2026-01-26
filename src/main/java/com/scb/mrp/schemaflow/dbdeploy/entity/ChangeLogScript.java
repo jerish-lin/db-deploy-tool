@@ -1,5 +1,6 @@
 package com.scb.mrp.schemaflow.dbdeploy.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -16,7 +17,9 @@ public class ChangeLogScript {
     private Long id;
     private String scriptName;
     private String scriptChecksum;
+    @JsonIgnore
     private String rollbackScriptContent;
+    @JsonIgnore
     private String rollbackVerifyScriptContent;
     private LocalDateTime createdAt;
 

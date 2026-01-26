@@ -118,7 +118,6 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
             if (!schemaInitializationManager.isSchemaInitialized()) {
                 log.info("Database schema not initialized - returning empty status");
                 DatabaseStatus status = new DatabaseStatus();
-                status.setDatabaseConnected(true);
 
                 // Create empty sub-objects
                 DatabaseStatus.ScriptSummary scriptSummary = new DatabaseStatus.ScriptSummary();
@@ -142,7 +141,6 @@ public class DefaultDatabaseDeployManager implements DatabaseDeployManager {
         } catch (Exception e) {
             log.warn("Failed to get database status", e);
             DatabaseStatus status = new DatabaseStatus();
-            status.setDatabaseConnected(false);
 
             return status;
         }

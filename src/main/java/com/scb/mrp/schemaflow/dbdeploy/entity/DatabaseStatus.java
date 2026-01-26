@@ -1,5 +1,6 @@
 package com.scb.mrp.schemaflow.dbdeploy.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -9,17 +10,14 @@ import java.util.stream.Collectors;
 
 @Data
 public class DatabaseStatus {
-    // Basic connection info
-    private boolean databaseConnected;
+    // Deployment lock information
+    private LockInfo lockInfo;
 
     // Script summary - simple summary of all scripts with latest status
     private ScriptSummary scriptSummary;
 
     // Recent execution history (last 10 audit entries from changelog_audit)
     private List<AuditHistoryEntry> recentAuditHistory;
-
-    // Deployment lock information
-    private LockInfo lockInfo;
 
     @Data
     public static class ScriptSummary {
@@ -35,6 +33,7 @@ public class DatabaseStatus {
         /**
          * Get all successfully executed script names
          */
+        @JsonIgnore
         public List<ChangeLogScriptStatus> getSuccessScripts() {
             if (scripts == null) {
                 return List.of();
@@ -47,6 +46,7 @@ public class DatabaseStatus {
         /**
          * Get all successfully executed script names
          */
+        @JsonIgnore
         public List<ChangeLogScriptStatus> getSuccessAndFailedScripts() {
             if (scripts == null) {
                 return List.of();

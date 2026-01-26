@@ -47,7 +47,6 @@ public class DatabaseStatusServiceTest {
         DatabaseStatus status = service.getComprehensiveStatus();
 
         assertNotNull(status);
-        assertTrue(status.isDatabaseConnected());
         assertNotNull(status.getScriptSummary());
         assertNotNull(status.getLockInfo());
         assertNotNull(status.getRecentAuditHistory());

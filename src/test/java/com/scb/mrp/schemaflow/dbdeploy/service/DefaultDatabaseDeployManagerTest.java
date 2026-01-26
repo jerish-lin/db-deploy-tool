@@ -256,7 +256,6 @@ public class DefaultDatabaseDeployManagerTest {
     void testStatus_SchemaInitialized() {
         when(schemaInitializationManager.isSchemaInitialized()).thenReturn(true);
         DatabaseStatus mockStatus = new DatabaseStatus();
-        mockStatus.setDatabaseConnected(true);
         when(databaseStatusService.getComprehensiveStatus()).thenReturn(mockStatus);
 
         DatabaseStatus result = manager.status();
@@ -273,7 +272,6 @@ public class DefaultDatabaseDeployManagerTest {
         DatabaseStatus result = manager.status();
 
         assertNotNull(result);
-        assertTrue(result.isDatabaseConnected());
         assertNotNull(result.getScriptSummary());
         assertNotNull(result.getLockInfo());
         verify(databaseStatusService, never()).getComprehensiveStatus();
@@ -287,7 +285,6 @@ public class DefaultDatabaseDeployManagerTest {
         DatabaseStatus result = manager.status();
 
         assertNotNull(result);
-        assertFalse(result.isDatabaseConnected());
     }
 
     @Test
