@@ -65,7 +65,7 @@ public class SQLiteMultiNodeTest extends SQLiteDeployTestBase {
 
     @AfterEach
     void tearDown() {
-        resetDatabaseFiles();
+//        resetDatabaseFiles();
     }
 
     private void resetDatabaseFiles() {
@@ -234,6 +234,94 @@ public class SQLiteMultiNodeTest extends SQLiteDeployTestBase {
         assertTrue(nodeDetails.contains("node2"), "Should contain node2 details");
         assertTrue(nodeDetails.contains("node3"), "Should contain node3 details");
         assertTrue(nodeDetails.contains("\"success\":true"), "Should indicate success for all nodes");
+    }
+
+    @Test
+    void testMultiNodeRollbackFailure() throws Exception {
+        // Deploy scripts
+        ChangeLogConfig changeLogConfig = ConfigLoader.loadChangeLogConfig(CHANGELOG_PATH);
+        deployService.deploy(changeLogConfig, false);
+
+        // Verify deployment - users table exists on all nodes
+        assertTrue(nodeJdbcTemplateMap.get("node1").queryForObject(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'", Integer.class) > 0,
+                "Users table should exist on node1");
+        assertTrue(nodeJdbcTemplateMap.get("node2").queryForObject(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'", Integer.class) > 0,
+                "Users table should exist on node2");
+        assertTrue(nodeJdbcTemplateMap.get("node3").queryForObject(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'", Integer.class) > 0,
+                "Users table should exist on node3");
+
+        // Get the script_id for create-users-table-multinode
+        Long scriptId = dbDeployJdbcTemplate.queryForObject(
+                "SELECT id FROM schemaflow_changelog_script WHERE script_name='create-users-table-multinode'",
+                Long.class);
+        assertNotNull(scriptId, "Script ID should not be null");
+
+        // Simulate a multi-node rollback failure by modifying the rollback script content to invalid SQL
+        String invalidRollbackSql = "DROP TABLE non_existent_table; -- This will fail on all nodes";
+        dbDeployJdbcTemplate.update(
+                "UPDATE schemaflow_changelog_script SET rollback_script_content = ? WHERE id = ?",
+                invalidRollbackSql, scriptId);
+
+        // Try to rollback to empty state
+        ChangeLogConfig emptyConfig = ConfigLoader.loadChangeLogConfig(
+                "classpath:sqlite-scripts-multinode/sqlite-test-changelog-multinode-empty.yml");
+
+        // Rollback should fail
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            deployService.rollback(emptyConfig, false);
+        }, "Rollback should throw RuntimeException when rollback script fails");
+
+        assertTrue(exception.getMessage().contains("Rollback execution failed"),
+                "Exception message should indicate rollback execution failed");
+
+        // Verify ROLLBACK_FAILED status is recorded in audit log
+        Integer rollbackFailedCount = dbDeployJdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM schemaflow_changelog_audit WHERE execution_status='ROLLBACK_FAILED'",
+                Integer.class);
+        assertTrue(rollbackFailedCount != null && rollbackFailedCount == 1,
+                "Should have exactly 1 ROLLBACK_FAILED entry in audit log");
+
+        // Verify the error message is recorded
+        String errorMessage = dbDeployJdbcTemplate.queryForObject(
+                "SELECT error_message FROM schemaflow_changelog_audit WHERE execution_status='ROLLBACK_FAILED'",
+                String.class);
+        assertNotNull(errorMessage, "Error message should be recorded");
+        assertTrue(errorMessage.length() > 0, "Error message should not be empty");
+
+        // Verify that users table still exists on all nodes (rollback failed, so tables should remain)
+        assertTrue(nodeJdbcTemplateMap.get("node1").queryForObject(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'", Integer.class) > 0,
+                "Users table should still exist on node1 after failed rollback");
+        assertTrue(nodeJdbcTemplateMap.get("node2").queryForObject(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'", Integer.class) > 0,
+                "Users table should still exist on node2 after failed rollback");
+        assertTrue(nodeJdbcTemplateMap.get("node3").queryForObject(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'", Integer.class) > 0,
+                "Users table should still exist on node3 after failed rollback");
+
+        // Verify that create-users-table-multinode script has ROLLBACK_FAILED as latest status
+        Integer latestStatusCount = dbDeployJdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM schemaflow_changelog_audit ca " +
+                        "WHERE ca.script_id = ? " +
+                        "AND ca.id = (SELECT MAX(ca2.id) FROM schemaflow_changelog_audit ca2 WHERE ca2.script_id = ?) " +
+                        "AND ca.execution_status='ROLLBACK_FAILED'",
+                Integer.class, scriptId, scriptId);
+        assertTrue(latestStatusCount != null && latestStatusCount == 1,
+                "create-users-table-multinode script should have ROLLBACK_FAILED as latest status");
+
+        // Verify node execution details are recorded for the failed rollback
+        String nodeExecutionDetails = dbDeployJdbcTemplate.queryForObject(
+                "SELECT node_execution_details FROM schemaflow_changelog_audit " +
+                        "WHERE execution_status='ROLLBACK_FAILED'",
+                String.class);
+        assertNotNull(nodeExecutionDetails, "Node execution details should be recorded for failed multi-node rollback");
+        assertTrue(nodeExecutionDetails.contains("node1"), "Should contain node1 details");
+        assertTrue(nodeExecutionDetails.contains("node2"), "Should contain node2 details");
+        assertTrue(nodeExecutionDetails.contains("node3"), "Should contain node3 details");
+        assertTrue(nodeExecutionDetails.contains("\"success\":false"), "Should indicate failure for nodes");
     }
 }
 

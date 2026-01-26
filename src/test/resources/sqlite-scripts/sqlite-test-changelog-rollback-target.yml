@@ -1,0 +1,4 @@
+scripts:
+  - feature-12346/feature-12346-create-employees-table
+  - feature-12347-create-departments-table
+  - feature-12348/feature-12348-insert-sample-data

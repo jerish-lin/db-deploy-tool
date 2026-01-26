@@ -279,54 +279,75 @@ public class DefaultDatabaseDeployService implements DatabaseDeployService {
 
                 log.info("Rolling back script: {}", metadata.getScriptName());
 
-                // Execute rollback script if available
-                if (metadata.getRollbackScriptContent() != null && !metadata.getRollbackScriptContent().isEmpty()) {
-                    // Check if this was a multi-node script (targetNodes is not null)
-                    if (metadata.getTargetNodes() != null && !metadata.getTargetNodes().isEmpty()) {
-                        // Execute rollback on all target nodes
-                        List<String> targetNodes = metadata.getTargetNodes();
-                        if (targetNodes.contains("ALL")) {
-                            // Execute on all configured nodes
-                            targetNodes = new ArrayList<>(nodeJdbcTemplateMap.keySet());
-                        }
-
-                        log.info("Executing multi-node rollback on {} nodes: {}", targetNodes.size(), targetNodes);
-                        ScriptExecutionManager.MultiNodeExecutionResult rollbackResult =
-                                scriptExecutionManager.executeAndVerifyOnMultipleNodes(
-                                        metadata.getRollbackScriptContent(),
-                                        metadata.getRollbackVerifyScriptContent(),
-                                        targetNodes,
-                                        metadata.getScriptName());
-
-                        if (!rollbackResult.isSuccess()) {
-                            throw new RuntimeException("Multi-node rollback failed: " + rollbackResult.getErrorMessage());
-                        }
-                    } else {
-                        // Single-node rollback
-                        ScriptExecutor.ScriptExecutionResult result =
-                                scriptExecutionManager.executeAndVerify(
-                                        metadata.getRollbackScriptContent(),
-                                        metadata.getRollbackVerifyScriptContent(),
-                                        metadata.getScriptName());
-
-                        if (!result.isSuccess()) {
-                            throw new RuntimeException("Rollback execution failed: " + result.getErrorMessage());
-                        }
-                    }
-                } else {
-                    log.warn("No rollback script available for: {}", metadata.getScriptName());
-                }
-
                 // Create audit entry
                 ChangeLogAuditEntry changeLogAuditEntry = new ChangeLogAuditEntry();
                 changeLogAuditEntry.setScriptId(metadata.getId());
-                changeLogAuditEntry.setExecutionStatus(ScriptExecutionStatus.ROLLED_BACK);
                 changeLogAuditEntry.setExecutionTime(LocalDateTime.now());
                 changeLogAuditEntry.setExecutionDurationMs(0L);
                 changeLogAuditEntry.setNodeExecutionDetails(null);
                 changeLogAuditEntry.setCreatedAt(LocalDateTime.now());
 
+                ScriptExecutionStatus rollbackStatus = ScriptExecutionStatus.ROLLED_BACK;
+                String errorMessage = null;
+
+                // Execute rollback script if available
+                if (metadata.getRollbackScriptContent() != null && !metadata.getRollbackScriptContent().isEmpty()) {
+                    try {
+                        // Check if this was a multi-node script (targetNodes is not null)
+                        if (metadata.getTargetNodes() != null && !metadata.getTargetNodes().isEmpty()) {
+                            // Execute rollback on all target nodes
+                            List<String> targetNodes = metadata.getTargetNodes();
+                            if (targetNodes.contains("ALL")) {
+                                // Execute on all configured nodes
+                                targetNodes = new ArrayList<>(nodeJdbcTemplateMap.keySet());
+                            }
+
+                            log.info("Executing multi-node rollback on {} nodes: {}", targetNodes.size(), targetNodes);
+                            ScriptExecutionManager.MultiNodeExecutionResult rollbackResult =
+                                    scriptExecutionManager.executeAndVerifyOnMultipleNodes(
+                                            metadata.getRollbackScriptContent(),
+                                            metadata.getRollbackVerifyScriptContent(),
+                                            targetNodes,
+                                            metadata.getScriptName());
+
+                            if (!rollbackResult.isSuccess()) {
+                                rollbackStatus = ScriptExecutionStatus.ROLLBACK_FAILED;
+                                errorMessage = rollbackResult.getErrorMessage();
+                                changeLogAuditEntry.setNodeExecutionDetails(
+                                        serializeNodeResults(rollbackResult.getNodeResults(), targetNodes));
+                            }
+                        } else {
+                            // Single-node rollback
+                            ScriptExecutor.ScriptExecutionResult result =
+                                    scriptExecutionManager.executeAndVerify(
+                                            metadata.getRollbackScriptContent(),
+                                            metadata.getRollbackVerifyScriptContent(),
+                                            metadata.getScriptName());
+
+                            if (!result.isSuccess()) {
+                                rollbackStatus = ScriptExecutionStatus.ROLLBACK_FAILED;
+                                errorMessage = result.getErrorMessage();
+                            }
+                        }
+                    } catch (Exception e) {
+                        rollbackStatus = ScriptExecutionStatus.ROLLBACK_FAILED;
+                        errorMessage = e.getMessage();
+                        log.error("Rollback execution failed for script: {}", metadata.getScriptName(), e);
+                    }
+                } else {
+                    log.warn("No rollback script available for: {}", metadata.getScriptName());
+                }
+
+                // Set the execution status and error message
+                changeLogAuditEntry.setExecutionStatus(rollbackStatus);
+                changeLogAuditEntry.setErrorMessage(errorMessage);
+
+                // Record audit entry
                 auditRepository.createScriptAuditEntry(changeLogAuditEntry);
+
+                if (rollbackStatus == ScriptExecutionStatus.ROLLBACK_FAILED) {
+                    throw new RuntimeException("Rollback execution failed for script " + metadata.getScriptName() + ": " + errorMessage);
+                }
 
                 log.info("Script {} rolled back successfully", metadata.getScriptName());
             }

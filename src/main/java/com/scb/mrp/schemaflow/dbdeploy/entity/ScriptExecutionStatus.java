@@ -8,7 +8,8 @@ import lombok.RequiredArgsConstructor;
 public enum ScriptExecutionStatus {
     SUCCESS("SUCCESS"),
     FAILED("FAILED"),
-    ROLLED_BACK("ROLLED_BACK");
+    ROLLED_BACK("ROLLED_BACK"),
+    ROLLBACK_FAILED("ROLLBACK_FAILED");
 
     private final String value;
 

@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS schemaflow_changelog_script (
 CREATE TABLE IF NOT EXISTS schemaflow_changelog_audit (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     script_id INTEGER NOT NULL,
-    execution_status TEXT NOT NULL CHECK (execution_status IN ('SUCCESS', 'FAILED', 'ROLLED_BACK')),
+    execution_status TEXT NOT NULL CHECK (execution_status IN ('SUCCESS', 'FAILED', 'ROLLED_BACK', 'ROLLBACK_FAILED')),
     execution_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     execution_duration_ms INTEGER,
     error_message TEXT,

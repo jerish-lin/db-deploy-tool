@@ -52,7 +52,7 @@ public class DatabaseStatus {
                 return List.of();
             }
             return scripts.stream()
-                    .filter(s -> ScriptExecutionStatus.SUCCESS.equals(s.getLatestStatus()) || ScriptExecutionStatus.FAILED.equals(s.getLatestStatus()))
+                    .filter(s -> !ScriptExecutionStatus.ROLLED_BACK.equals(s.getLatestStatus()))
                     .collect(Collectors.toList());
         }
     }

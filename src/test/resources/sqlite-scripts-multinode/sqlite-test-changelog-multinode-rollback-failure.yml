@@ -1,0 +1,3 @@
+scripts:
+  - name: create-users-table-multinode
+    nodes: ALL

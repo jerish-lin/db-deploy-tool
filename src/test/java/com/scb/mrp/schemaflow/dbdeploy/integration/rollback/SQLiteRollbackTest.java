@@ -5,6 +5,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -287,5 +289,76 @@ public class SQLiteRollbackTest extends SQLiteDeployTestBase {
                 Integer.class);
         assertTrue(successScriptCount != null && successScriptCount == 1,
                 "feature-12350-add-projects-table script should be executed successfully in redeployment (latest status)");
+    }
+
+    @Test
+    @DisplayName("Test rollback failure recording with ROLLBACK_FAILED status")
+    void testRollbackFailure() throws Exception {
+        // Deploy v1.0.0 with all scripts including add-projects-table
+        String changelogPathFull = "classpath:sqlite-scripts/sqlite-test-changelog-rollback-failure.yml";
+
+        assertDoesNotThrow(() -> deployManager.deploy(changelogPathFull, false),
+                "Deployment should complete without errors");
+
+        // Verify deployment - projects table should exist
+        Integer projectTableCount = dbDeployJdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='projects'",
+                Integer.class);
+        assertTrue(projectTableCount != null && projectTableCount == 1,
+                "Projects table should exist after deployment");
+
+        // Get the script_id for add-projects-table
+        Long scriptId = dbDeployJdbcTemplate.queryForObject(
+                "SELECT id FROM schemaflow_changelog_script WHERE script_name='feature-12350-add-projects-table'",
+                Long.class);
+        assertNotNull(scriptId, "Script ID should not be null");
+
+        // Simulate a rollback failure by modifying the rollback script content to invalid SQL
+        String invalidRollbackSql = "DROP TABLE non_existent_table; -- This will fail";
+        dbDeployJdbcTemplate.update(
+                "UPDATE schemaflow_changelog_script SET rollback_script_content = ? WHERE id = ?",
+                invalidRollbackSql, scriptId);
+
+        // Try to rollback to a state before add-projects-table
+        String changelogPathTarget = "classpath:sqlite-scripts/sqlite-test-changelog-rollback-target.yml";
+
+        // Rollback should fail
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            deployManager.rollback(changelogPathTarget, false);
+        }, "Rollback should throw RuntimeException when rollback script fails");
+
+        assertTrue(exception.getMessage().contains("Rollback execution failed"),
+                "Exception message should indicate rollback execution failed");
+
+        // Verify ROLLBACK_FAILED status is recorded in audit log
+        Integer rollbackFailedCount = dbDeployJdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM schemaflow_changelog_audit WHERE execution_status='ROLLBACK_FAILED'",
+                Integer.class);
+        assertTrue(rollbackFailedCount != null && rollbackFailedCount == 1,
+                "Should have exactly 1 ROLLBACK_FAILED entry in audit log");
+
+        // Verify the error message is recorded
+        String errorMessage = dbDeployJdbcTemplate.queryForObject(
+                "SELECT error_message FROM schemaflow_changelog_audit WHERE execution_status='ROLLBACK_FAILED'",
+                String.class);
+        assertNotNull(errorMessage, "Error message should be recorded");
+        assertTrue(errorMessage.length() > 0, "Error message should not be empty");
+
+        // Verify the projects table still exists (rollback failed, so table should remain)
+        Integer projectTableCountAfterFailure = dbDeployJdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='projects'",
+                Integer.class);
+        assertTrue(projectTableCountAfterFailure != null && projectTableCountAfterFailure == 1,
+                "Projects table should still exist after failed rollback");
+
+        // Verify that add-projects-table script has ROLLBACK_FAILED as latest status
+        Integer latestStatusCount = dbDeployJdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM schemaflow_changelog_audit ca " +
+                        "WHERE ca.script_id = ? " +
+                        "AND ca.id = (SELECT MAX(ca2.id) FROM schemaflow_changelog_audit ca2 WHERE ca2.script_id = ?) " +
+                        "AND ca.execution_status='ROLLBACK_FAILED'",
+                Integer.class, scriptId, scriptId);
+        assertTrue(latestStatusCount != null && latestStatusCount == 1,
+                "add-projects-table script should have ROLLBACK_FAILED as latest status");
     }
 }

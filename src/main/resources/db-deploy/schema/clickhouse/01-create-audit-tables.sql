@@ -16,7 +16,7 @@ ORDER BY (id);
 CREATE TABLE IF NOT EXISTS schemaflow_changelog_audit (
     id UInt64,
     script_id UInt64 NOT NULL,
-    execution_status Enum8('SUCCESS' = 1, 'FAILED' = 2, 'ROLLED_BACK' = 3) NOT NULL,
+    execution_status Enum8('SUCCESS' = 1, 'FAILED' = 2, 'ROLLED_BACK' = 3, 'ROLLBACK_FAILED' = 4) NOT NULL,
     execution_time DateTime NOT NULL DEFAULT now(),
     execution_duration_ms Nullable(UInt64),
     error_message Nullable(String),

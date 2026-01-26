@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS schemaflow_changelog_script (
 CREATE TABLE IF NOT EXISTS schemaflow_changelog_audit (
     id BIGSERIAL PRIMARY KEY,
     script_id BIGINT NOT NULL,
-    execution_status VARCHAR(20) NOT NULL CHECK (execution_status IN ('SUCCESS', 'FAILED', 'ROLLED_BACK')),
+    execution_status VARCHAR(20) NOT NULL CHECK (execution_status IN ('SUCCESS', 'FAILED', 'ROLLED_BACK', 'ROLLBACK_FAILED')),
     execution_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     execution_duration_ms BIGINT,
     error_message TEXT,

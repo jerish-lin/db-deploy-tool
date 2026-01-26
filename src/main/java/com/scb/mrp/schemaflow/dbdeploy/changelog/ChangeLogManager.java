@@ -207,7 +207,8 @@ public class ChangeLogManager {
         }
 
         DatabaseStatus.ChangeLogScriptStatus lastExecutedScript = executedScriptNames.get(executedScriptNames.size() - 1);
-        return ScriptExecutionStatus.FAILED.equals(lastExecutedScript.getLatestStatus());
+        return ScriptExecutionStatus.FAILED.equals(lastExecutedScript.getLatestStatus())
+                || ScriptExecutionStatus.ROLLBACK_FAILED.equals(lastExecutedScript.getLatestStatus());
     }
 
     private static boolean isNeedDeploy(List<String> currentScriptNames, List<DatabaseStatus.ChangeLogScriptStatus> executedScriptNames) {
