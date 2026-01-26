@@ -33,6 +33,13 @@
             <artifactId>spring-boot-starter-jdbc</artifactId>
         </dependency>
 
+        <!-- Spring Boot Actuator (optional, for health indicator support) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+            <optional>true</optional>
+        </dependency>
+
         <!-- Database drivers -->
         <dependency>
             <groupId>org.postgresql</groupId>
